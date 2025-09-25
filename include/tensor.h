@@ -104,6 +104,7 @@ class Tensor
     size_t numel() const; 
     bool owns_data() const { return owns_data_; }
     bool owns_grad() const { return owns_grad_; }
+    size_t is_contiguous() const;
 
 
     private:

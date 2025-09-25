@@ -20,7 +20,6 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
         stride_.strides[i] = stride_.strides[i + 1] * shape.dims[i+1];
     }
 
-    // Compute stride values in reverse order
     
 
     // Determine element size based on data type
@@ -69,7 +68,32 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
     // Set ownership flag
     owns_data_ = true;
     if (requires_grad_) owns_grad_ = true;
-    data_size_ = total_bytes; 
+    data_size_ = total_bytes;    
+}
 
-    
+// Tensor Options constructor
+Tensor::Tensor(Shape shape, TensorOptions opts)
+    : Tensor(shape, opts.dtype, opts.device, opts.requires_grad) {
+}
+
+
+// Utility
+size_t Tensor::numel() const 
+{
+    size_t total = 1;
+    for (auto dim : shape_.dims) total *= dim;
+    return total;
+}
+
+size_t Tensor::nbytes() const 
+{
+    return data_size_;
+}
+
+size_t Tensor::is_contiguous() const
+{
+    // Need to look into it
+    // What it is and what's it for
+    // How to do it 
+    return true;
 }
