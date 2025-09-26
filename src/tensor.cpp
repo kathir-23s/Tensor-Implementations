@@ -1,4 +1,4 @@
-#include "Tensor.h"
+#include "../include/Tensor.h"
 #include <iostream>
 #include <cstring>
 
@@ -22,18 +22,6 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
 
     
 
-    // Determine element size based on data type
-    size_t elem_size;
-    switch(dtype) {
-        case Dtype::Int16: elem_size = sizeof(int16_t); break;
-        case Dtype::Int32: elem_size = sizeof(int32_t); break;
-        case Dtype::Int64: elem_size = sizeof(int64_t); break;
-        case Dtype::Bfloat16: elem_size = 2; break;
-        case Dtype::Float16: elem_size = 2; break;
-        case Dtype::Float32: elem_size = sizeof(float); break;
-        case Dtype::Float64: elem_size = sizeof(double); break;
-        default: throw std::runtime_error("Unsupported data type");
-    }
 
     
     // Calculate total number of elements
@@ -43,6 +31,7 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
         total_elems *= dim;
     }
     
+    size_t elem_size = dtype_size(dtype);
     // Calculate total bytes needed
     size_t total_bytes = total_elems * elem_size;
 
@@ -90,10 +79,33 @@ size_t Tensor::nbytes() const
     return data_size_;
 }
 
-size_t Tensor::is_contiguous() const
+size_t Tensor::grad_nbytes() const {
+    if (requires_grad_){
+        return data_size_;
+    }
+    else {
+        return 0;
+    }
+}
+
+bool Tensor::is_contiguous() const
 {
     // Need to look into it
     // What it is and what's it for
     // How to do it 
     return true;
+}
+
+// Determine element size based on data type
+size_t Tensor::dtype_size(Dtype d) {
+    switch(d) {
+        case Dtype::Int16: return sizeof(int16_t);
+        case Dtype::Int32: return sizeof(int32_t);
+        case Dtype::Int64: return sizeof(int64_t);
+        case Dtype::Bfloat16: return 2;
+        case Dtype::Float16: return 2;
+        case Dtype::Float32: return sizeof(float);
+        case Dtype::Float64: return sizeof(double);
+        default: throw std::runtime_error("Unsupported data type");
+    }
 }

@@ -40,6 +40,10 @@
 # debug information files
 *.dwo
 
-
+# Global
 *.vscode
 local_test
+
+# Local
+Log.md 
+Syntax.md
