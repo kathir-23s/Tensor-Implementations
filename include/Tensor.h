@@ -89,7 +89,7 @@ class Tensor
     Dtype dtype() const { return dtype_; }
     DeviceIndex device() const { return device_; };
     bool requires_grad() const { return  requires_grad_; };
-    static size_t dtype_size(Dtype d);
+    size_t dtype_size(Dtype d);
 
     // Data Accessors
     void* data() { return data_ptr_.get(); }
@@ -104,7 +104,20 @@ class Tensor
     size_t numel() const; 
     bool owns_data() const { return owns_data_; }
     bool owns_grad() const { return owns_grad_; }
-    size_t is_contiguous() const;
+    bool is_contiguous() const;
+    int64_t ndim() const { return shape_.dims.size(); }
+
+    // Utitility Functions
+    template <typename T>
+    void set_data(const T* source_data, size_t count);
+
+    template<typename T>
+    void set_data(const std::vector<T>& source_data);
+
+    template <typename T>
+    void fill(T value);
+
+    void set_data(std::initializer_list<float> values);
 
 
     private:
@@ -128,3 +141,4 @@ class Tensor
 
 
 
+#include "TensorUtils.hpp"
