@@ -21,9 +21,6 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
     }
 
     
-
-
-    
     // Calculate total number of elements
     size_t total_elems = 1;
     for (auto dim : shape_.dims)
@@ -93,19 +90,28 @@ bool Tensor::is_contiguous() const
     // Need to look into it
     // What it is and what's it for
     // How to do it 
+    int64_t expected_stride = 1;
+    for (int i = shape_.dims.size() - 1; i >= 0; --i)
+    {
+        if (stride_.strides[i] != expected_stride)
+        {
+            return false;
+        }
+        expected_stride *= shape_.dims[i];
+    }
     return true;
 }
 
 // Determine element size based on data type
 size_t Tensor::dtype_size(Dtype d) {
     switch(d) {
-        case Dtype::Int16: return sizeof(int16_t);
-        case Dtype::Int32: return sizeof(int32_t);
-        case Dtype::Int64: return sizeof(int64_t);
-        case Dtype::Bfloat16: return 2;
-        case Dtype::Float16: return 2;
-        case Dtype::Float32: return sizeof(float);
-        case Dtype::Float64: return sizeof(double);
+        case Dtype::Int16: return dtype_traits<Dtype::Int16>::size;
+        case Dtype::Int32: return dtype_traits<Dtype::Int32>::size;
+        case Dtype::Int64: return dtype_traits<Dtype::Int64>::size;
+        case Dtype::Bfloat16: return dtype_traits<Dtype::Bfloat16>::size;
+        case Dtype::Float16: return dtype_traits<Dtype::Float16>::size;
+        case Dtype::Float32: return dtype_traits<Dtype::Float32>::size;
+        case Dtype::Float64: return dtype_traits<Dtype::Float64>::size;
         default: throw std::runtime_error("Unsupported data type");
     }
 }
