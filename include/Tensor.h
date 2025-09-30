@@ -75,49 +75,80 @@ struct TensorOptions
 class Tensor 
 {
     public:
+    //#######################################################
     // Constructor
+    //#######################################################
+
     Tensor(Shape shape, Dtype dtype, 
         DeviceIndex device = DeviceIndex(Device::CPU), 
         bool requires_grad = false);
 
     // Constructor with options
     Tensor(Shape shape, TensorOptions opts);
-
+    
+    //#######################################################
     // Metadata accessors
+    //#######################################################
+
     std::vector<int64_t> shape() const { return shape_.dims; };
     std::vector<int64_t> stride() const { return stride_.strides; };
     Dtype dtype() const { return dtype_; }
     DeviceIndex device() const { return device_; };
     bool requires_grad() const { return  requires_grad_; };
-    size_t dtype_size(Dtype d);
-
+    static size_t dtype_size(Dtype d);
+    int64_t ndim() const { return shape_.dims.size(); }
+    
+    // ######################################################
     // Data Accessors
+    //#######################################################
+
     void* data() { return data_ptr_.get(); }
     const void* data() const { return data_ptr_.get(); }
 
     void* grad() { return grad_ptr_.get(); }
     const void* grad() const { return grad_ptr_.get(); }
-    
+
+
+    //#######################################################
     // Memory Info
+    //#######################################################
+
     size_t nbytes() const;
     size_t grad_nbytes() const; 
     size_t numel() const; 
     bool owns_data() const { return owns_data_; }
     bool owns_grad() const { return owns_grad_; }
     bool is_contiguous() const;
-    int64_t ndim() const { return shape_.dims.size(); }
 
-    // Utitility Functions
+    //#######################################################
+    // Data Manipulation
+    //#######################################################
+
     template <typename T>
     void set_data(const T* source_data, size_t count);
 
     template<typename T>
     void set_data(const std::vector<T>& source_data);
 
+    void set_data(std::initializer_list<float> values);
+    
     template <typename T>
     void fill(T value);
-
-    void set_data(std::initializer_list<float> values);
+    
+    //######################################################
+    // Factory Functions
+    //######################################################
+    
+    static Tensor zeros(Shape shape, TensorOptions opts = {});
+    static Tensor ones(Shape shape, TensorOptions opts = {});
+    static Tensor full(Shape shape, TensorOptions, float val);
+    
+    //######################################################
+    // Utilities
+    //######################################################
+    
+    void display(std::ostream& os) const;
+    
 
 
     private:
@@ -141,4 +172,6 @@ class Tensor
 
 
 
-#include "TensorUtils.hpp"
+#include "DtypeTraits.h"
+#include "TensorDataManip.h"
+#include "TensorDispatch.h"
