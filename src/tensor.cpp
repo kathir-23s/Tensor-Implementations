@@ -20,7 +20,7 @@ Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
         stride_.strides[i] = stride_.strides[i + 1] * shape.dims[i+1];
     }
 
-    
+        
     // Calculate total number of elements
     size_t total_elems = 1;
     for (auto dim : shape_.dims)
