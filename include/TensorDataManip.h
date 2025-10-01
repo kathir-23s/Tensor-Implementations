@@ -82,7 +82,3 @@ bool is_same_type(Dtype dtype) {
 
 #endif
 
-
-
-
-
