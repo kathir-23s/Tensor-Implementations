@@ -8,10 +8,10 @@ size_t dtype_index(Dtype dtype) {
     switch (dtype) {
         case Dtype::Int16:
         case Dtype::Int32:
-        case Dtype::Int64:
         case Dtype::Bfloat16:
         case Dtype::Float16:
         case Dtype::Float32: return 0;
+        case Dtype::Int64:
         case Dtype::Float64: return 1;
         default: throw std::runtime_error("Unsupported dtype for exp ops");
     }
