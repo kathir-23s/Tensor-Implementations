@@ -146,4 +146,27 @@ constexpr bool is_int(Dtype dt)
     }
 }
 
+// Function to check if the integer Dtype is 32-bit or smaller.
+inline bool is_int_less_than_or_equal_to_32bit(Dtype d) {
+    return d == Dtype::Int16 || d == Dtype::Int32;
+}
+
+template <typename T>
+struct DtypeTraits {
+    // A compilation error will occur if DtypeTraits is used for an unsupported type T.
+};
+
+// Specializations to map C++ types to your Dtype enum
+template <> struct DtypeTraits<int16_t> { static constexpr Dtype Enum = Dtype::Int16; };
+template <> struct DtypeTraits<int32_t> { static constexpr Dtype Enum = Dtype::Int32; };
+template <> struct DtypeTraits<int64_t> { static constexpr Dtype Enum = Dtype::Int64; };
+template <> struct DtypeTraits<float> { static constexpr Dtype Enum = Dtype::Float32; };
+template <> struct DtypeTraits<double> { static constexpr Dtype Enum = Dtype::Float64; };
+// Note: Float16/Bfloat16 often use uint16_t but are handled by separate registration logic
+// due to conversion wrappers. We omit their direct mapping here for simplicity.
+
+// Helper alias for cleaner syntax
+template <typename T>
+static constexpr Dtype DtypeFor = DtypeTraits<T>::Enum;
+
 #endif // DTYPE_TRAIT_H
