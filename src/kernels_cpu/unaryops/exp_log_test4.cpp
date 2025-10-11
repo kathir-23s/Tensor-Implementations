@@ -2,9 +2,9 @@
 #include <omp.h>
 #include <stdexcept>
 #include "../../../include/Tensor.h"
-#include "../../../include/UnaryDispatcher.hpp"
-#include "../../../include/exp_log_kernels.hpp"
-#include "../../../include/tesnor_unaryops.hpp"
+#include "../../../include/dispatcher/UnaryDispatcher.hpp"
+#include "../../../include/dispatcher/exp_log_kernels.hpp"
+#include "../../../include/dispatcher/tesnor_unaryops.hpp"
 #include "../../../include/DtypeTraits.h"
 
 namespace exp_log {

@@ -2,8 +2,8 @@
 #include <vector>
 #include <stdexcept>
 #include "../include/Tensor.h"
-#include "../include/tesnor_unaryops.hpp"
-#include "../include/UnaryDispatcher.hpp"
+#include "../include/dispatcher/tesnor_unaryops.hpp"
+#include "../include/dispatcher/UnaryDispatcher.hpp"
 
 // =========================================================================
 // TEST UTILITY: Tensor Creation

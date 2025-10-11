@@ -723,7 +723,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/exp_log_test4.cpp.o: ../src/ker
   /usr/include/string.h \
   /usr/include/strings.h \
   ../include/TensorDispatch.h \
-  ../include/UnaryDispatcher.hpp \
+  ../include/dispatcher/UnaryDispatcher.hpp \
   /usr/include/c++/11/functional \
   /usr/include/c++/11/bits/std_function.h \
   /usr/include/c++/11/unordered_map \
@@ -738,9 +738,9 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/exp_log_test4.cpp.o: ../src/ker
   /usr/include/c++/11/bits/stl_heap.h \
   /usr/include/c++/11/bits/uniform_int_dist.h \
   ../include/fp16_bf16_convert.h \
-  ../include/exp_log_kernels.hpp \
+  ../include/dispatcher/exp_log_kernels.hpp \
   /usr/include/c++/11/cstddef \
-  ../include/tesnor_unaryops.hpp
+  ../include/dispatcher/tesnor_unaryops.hpp
 
 CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o: ../src/kernels_cpu/unaryops/unified_unary_api.cpp \
   /usr/include/stdc-predef.h \
@@ -984,7 +984,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o: ../src
   /usr/include/string.h \
   /usr/include/strings.h \
   ../include/TensorDispatch.h \
-  ../include/UnaryDispatcher.hpp \
+  ../include/dispatcher/UnaryDispatcher.hpp \
   /usr/include/c++/11/functional \
   /usr/include/c++/11/bits/std_function.h \
   /usr/include/c++/11/unordered_map \
@@ -999,9 +999,9 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o: ../src
   /usr/include/c++/11/bits/stl_heap.h \
   /usr/include/c++/11/bits/uniform_int_dist.h \
   ../include/fp16_bf16_convert.h \
-  ../include/exp_log_kernels.hpp \
+  ../include/dispatcher/exp_log_kernels.hpp \
   /usr/include/c++/11/cstddef \
-  ../include/tesnor_unaryops.hpp \
+  ../include/dispatcher/tesnor_unaryops.hpp \
   ../include/UnaryOps.h
 
 CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o: ../src/registry/unary_dispatcher.cpp \
@@ -1184,7 +1184,7 @@ CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o: ../src/registry/una
   /usr/include/c++/11/bits/ostream.tcc \
   /usr/include/c++/11/istream \
   /usr/include/c++/11/bits/istream.tcc \
-  ../include/UnaryDispatcher.hpp \
+  ../include/dispatcher/UnaryDispatcher.hpp \
   /usr/include/c++/11/functional \
   /usr/include/c++/11/tuple \
   /usr/include/c++/11/utility \
@@ -1503,7 +1503,7 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o: ../src/registry/unary
   /usr/include/c++/11/tr1/poly_hermite.tcc \
   /usr/include/c++/11/tr1/poly_laguerre.tcc \
   /usr/include/c++/11/tr1/riemann_zeta.tcc \
-  ../include/UnaryDispatcher.hpp \
+  ../include/dispatcher/UnaryDispatcher.hpp \
   /usr/include/c++/11/functional \
   /usr/include/c++/11/bits/std_function.h \
   /usr/include/c++/11/unordered_map \
@@ -1517,8 +1517,8 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o: ../src/registry/unary
   /usr/include/c++/11/bits/algorithmfwd.h \
   /usr/include/c++/11/bits/stl_heap.h \
   /usr/include/c++/11/bits/uniform_int_dist.h \
-  ../include/UnaryAutoRegister.hpp \
-  ../include/exp_log_kernels.hpp \
+  ../include/dispatcher/UnaryAutoRegister.hpp \
+  ../include/dispatcher/exp_log_kernels.hpp \
   /usr/include/c++/11/cstddef
 
 CMakeFiles/testcase.dir/src/tensor.cpp.o: ../src/tensor.cpp \
@@ -1954,8 +1954,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
   /usr/include/string.h \
   /usr/include/strings.h \
   ../include/TensorDispatch.h \
-  ../include/tesnor_unaryops.hpp \
-  ../include/UnaryDispatcher.hpp \
+  ../include/dispatcher/tesnor_unaryops.hpp \
+  ../include/dispatcher/UnaryDispatcher.hpp \
   /usr/include/c++/11/functional \
   /usr/include/c++/11/bits/std_function.h \
   /usr/include/c++/11/unordered_map \
@@ -1999,9 +1999,7 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 
 ../src/kernels_cpu/unaryops/unified_unary_api.cpp:
 
-../include/tesnor_unaryops.hpp:
-
-../include/exp_log_kernels.hpp:
+../include/dispatcher/exp_log_kernels.hpp:
 
 /usr/include/c++/11/bits/stl_algo.h:
 
@@ -2050,6 +2048,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 /usr/include/c++/11/ext/concurrence.h:
 
 /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+
+../include/dispatcher/UnaryDispatcher.hpp:
 
 /usr/include/strings.h:
 
@@ -2383,6 +2383,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 
 /usr/include/c++/11/clocale:
 
+../include/dispatcher/tesnor_unaryops.hpp:
+
 /usr/include/c++/11/bits/ostream.tcc:
 
 /usr/include/c++/11/pstl/glue_numeric_defs.h:
@@ -2404,8 +2406,6 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 /usr/include/c++/11/tr1/gamma.tcc:
 
 /usr/include/c++/11/string:
-
-../include/UnaryDispatcher.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
 
@@ -2458,8 +2458,6 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 /usr/include/x86_64-linux-gnu/bits/types/error_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h:
-
-../include/UnaryAutoRegister.hpp:
 
 /usr/include/c++/11/bits/charconv.h:
 
@@ -2552,6 +2550,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o: ../tests/disp
 /usr/include/c++/11/bits/specfun.h:
 
 /usr/include/c++/11/limits:
+
+../include/dispatcher/UnaryAutoRegister.hpp:
 
 /usr/include/c++/11/array:
 

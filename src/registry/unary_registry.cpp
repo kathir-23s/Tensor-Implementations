@@ -1,8 +1,8 @@
 #include "../include/Tensor.h"
 #include "../include/fp16_bf16_convert.h"
-#include "../include/UnaryDispatcher.hpp"
-#include "../include/UnaryAutoRegister.hpp"
-#include "../include/exp_log_kernels.hpp"
+#include "../include/dispatcher/UnaryDispatcher.hpp"
+#include "../include/dispatcher/UnaryAutoRegister.hpp"
+#include "../include/dispatcher/exp_log_kernels.hpp"
 
 static inline void f16ish_to_f32(const uint16_t* in, float* out, size_t size, bool bf16) {
     if (!bf16) {

@@ -2,9 +2,9 @@
 #include <omp.h>
 #include <stdexcept>
 #include "../../../include/Tensor.h"
-#include "../../../include/UnaryDispatcher.hpp"
-#include "../../../include/exp_log_kernels.hpp"
-#include "../../../include/tesnor_unaryops.hpp"
+#include "../../../include/dispatcher/UnaryDispatcher.hpp"
+#include "../../../include/dispatcher/exp_log_kernels.hpp"
+#include "../../../include/dispatcher/tesnor_unaryops.hpp"
 #include "../../../include/DtypeTraits.h"
 #include "../../../include/UnaryOps.h"
 
@@ -20,7 +20,7 @@ static Tensor& _dispatch_unary_op_internal(
     double param = 0.0
 ) {
     // 1. Build the Kernel Key
-    KernelKey key{ op, input.dtype(), Device::CPU, mode }; // no logic available toi handle device now.
+    KernelKey key{ op, input.dtype(), Device::CPU, mode }; // no logic available to handle device now.
     
     // 2. Lookup the Kernel
     UnaryKernelFn fn = KernelRegistry::instance().get_kernel(key);
@@ -46,10 +46,6 @@ static Dtype promoted_type_for(const Tensor& t, UnaryOp op) {
     }
     return t.dtype();
 }
-
-// static inline bool is_int(Dtype d) { 
-//     return d == Dtype::Int16 || d == Dtype::Int32 || d == Dtype::Int64; 
-// }
 
 
 // =========================================================================

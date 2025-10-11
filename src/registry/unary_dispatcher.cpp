@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../include/UnaryDispatcher.hpp"
+#include "../include/dispatcher/UnaryDispatcher.hpp"
 
 // Implementation of KernelKey operators
 bool KernelKey::operator==(const KernelKey& other) const {

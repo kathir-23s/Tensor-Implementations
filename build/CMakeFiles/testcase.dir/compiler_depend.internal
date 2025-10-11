@@ -726,7 +726,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/exp_log_test4.cpp.o
  /usr/include/string.h
  /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryDispatcher.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/bits/std_function.h
  /usr/include/c++/11/unordered_map
@@ -741,9 +741,9 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/exp_log_test4.cpp.o
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/exp_log_kernels.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/exp_log_kernels.hpp
  /usr/include/c++/11/cstddef
- /home/blubridge028/Sanjay/Tensor-Implementations/include/tesnor_unaryops.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/tesnor_unaryops.hpp
 
 CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o
  /home/blubridge028/Sanjay/Tensor-Implementations/src/kernels_cpu/unaryops/unified_unary_api.cpp
@@ -988,7 +988,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o
  /usr/include/string.h
  /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryDispatcher.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/bits/std_function.h
  /usr/include/c++/11/unordered_map
@@ -1003,9 +1003,9 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/exp_log_kernels.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/exp_log_kernels.hpp
  /usr/include/c++/11/cstddef
- /home/blubridge028/Sanjay/Tensor-Implementations/include/tesnor_unaryops.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/tesnor_unaryops.hpp
  /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryOps.h
 
 CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o
@@ -1189,7 +1189,7 @@ CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o
  /usr/include/c++/11/bits/ostream.tcc
  /usr/include/c++/11/istream
  /usr/include/c++/11/bits/istream.tcc
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryDispatcher.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/tuple
  /usr/include/c++/11/utility
@@ -1509,7 +1509,7 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o
  /usr/include/c++/11/tr1/poly_hermite.tcc
  /usr/include/c++/11/tr1/poly_laguerre.tcc
  /usr/include/c++/11/tr1/riemann_zeta.tcc
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryDispatcher.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/bits/std_function.h
  /usr/include/c++/11/unordered_map
@@ -1523,8 +1523,8 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o
  /usr/include/c++/11/bits/algorithmfwd.h
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryAutoRegister.hpp
- /home/blubridge028/Sanjay/Tensor-Implementations/include/exp_log_kernels.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryAutoRegister.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/exp_log_kernels.hpp
  /usr/include/c++/11/cstddef
 
 CMakeFiles/testcase.dir/src/tensor.cpp.o
@@ -1962,8 +1962,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o
  /usr/include/string.h
  /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/tesnor_unaryops.hpp
- /home/blubridge028/Sanjay/Tensor-Implementations/include/UnaryDispatcher.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/tesnor_unaryops.hpp
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/bits/std_function.h
  /usr/include/c++/11/unordered_map
