@@ -1,4 +1,5 @@
 #include "Tensor.h"
+#include "device/DeviceTransfer.h"
 #include <cuda_runtime.h>
 
 #include <iostream>
@@ -6,6 +7,8 @@
 #include <cassert>
 
 using namespace std;
+// using OwnTensor::Device;
+using namespace OwnTensor;
 
 void test_gpu_partial_data_transfer() 
 {

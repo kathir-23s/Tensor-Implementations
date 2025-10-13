@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "device/Device.h"
+#include "Types.h"
 
 namespace OwnTensor
 {

@@ -6,6 +6,7 @@
 #include <cassert>
 
 using namespace std;
+using namespace OwnTensor;
 
 void test_gpu_host_to_device_transfer() 
 {

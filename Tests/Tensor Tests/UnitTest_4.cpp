@@ -1,11 +1,10 @@
-#include "../include/Tensor.h"
-#include "../include/Debug.h"
-
+#include "Tensor.h"
 #include <iostream>
 #include <cassert>
 #include <vector>
 
 using namespace std;
+using namespace OwnTensor;
 
 
 void test_tensor_metadata_accessors() 
@@ -19,7 +18,7 @@ void test_tensor_metadata_accessors()
         Tensor t(Shape{{2, 3, 4}}, Dtype::Float32, DeviceIndex(Device::CPU), false);
         
         // Test shape accessor
-        const auto& shape = t.shape();
+        const auto& shape = t.shape().dims;
         assert(shape.size() == 3);
         assert(shape[0] == 2);
         assert(shape[1] == 3);
@@ -52,7 +51,7 @@ void test_tensor_metadata_accessors()
         Tensor t(Shape{{5, 6}}, Dtype::Int64, DeviceIndex(Device::CUDA), true);
         
         // Test shape accessor
-        const auto& shape = t.shape();
+        const auto& shape = t.shape().dims;
         assert(shape.size() == 2);
         assert(shape[0] == 5);
         assert(shape[1] == 6);
@@ -83,7 +82,7 @@ void test_tensor_metadata_accessors()
     {
         Tensor t(Shape{{100}}, Dtype::Float64, DeviceIndex(Device::CPU), true);
         
-        const auto& shape = t.shape();
+        const auto& shape = t.shape().dims;
         assert(shape.size() == 1);
         assert(shape[0] == 100);
         assert(t.dtype() == Dtype::Float64);
@@ -104,7 +103,7 @@ void test_tensor_metadata_accessors()
         
         Tensor t(Shape{{3, 3, 3, 3}}, opts);
         
-        const auto& shape = t.shape();
+        const auto& shape = t.shape().dims;
         assert(shape.size() == 4);
         assert(shape[0] == 3);
         assert(shape[1] == 3);
@@ -123,7 +122,7 @@ void test_tensor_metadata_accessors()
     {
         Tensor t(Shape{{1}}, Dtype::Float32, DeviceIndex(Device::CPU), false);
         
-        const auto& shape = t.shape();
+        const auto& shape = t.shape().dims;
         assert(shape.size() == 1);
         assert(shape[0] == 1);
         assert(t.dtype() == Dtype::Float32);

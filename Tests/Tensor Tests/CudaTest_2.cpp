@@ -1,11 +1,12 @@
 #include "Tensor.h"
 #include <cuda_runtime.h>
-
+#include "device/DeviceTransfer.h"
 #include <iostream>
 #include <vector>
 #include <cassert>
 
 using namespace std;
+using namespace OwnTensor;
 
 void test_gpu_large_tensor_verification() 
 {

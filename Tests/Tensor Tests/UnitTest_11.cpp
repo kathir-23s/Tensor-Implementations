@@ -1,4 +1,4 @@
-#include "../include/Tensor.h"
+#include "Tensor.h"
 #include "../include/DtypeTraits.h"
 #include <iostream>
 #include <vector>
@@ -7,6 +7,7 @@
 #include <string>
 
 using namespace std;
+using namespace OwnTensor;
 
 // Template function instead of generic lambda
 template<typename T>

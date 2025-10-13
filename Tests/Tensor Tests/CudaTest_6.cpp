@@ -4,7 +4,9 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
+
 using namespace std;
+using namespace OwnTensor;
 
 void test_gpu_rand_factory() 
 {
