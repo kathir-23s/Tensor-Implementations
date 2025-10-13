@@ -59,8 +59,8 @@ namespace OwnTensor
         // No native float16 type in standard C++, so use uint16_t as a placeholder
         // Need to look into ways we can make this work
         // TO DO: !!!
-        using type = uint16_t;
-        static constexpr size_t size = sizeof(uint16_t);
+        using type = float16_t;
+        static constexpr size_t size = sizeof(float16_t);
         static constexpr const char* name = "fp16";
         static constexpr bool is_floating_point = true;
         static constexpr bool is_integral = false;
@@ -72,8 +72,8 @@ namespace OwnTensor
         // No native float16 type in standard C++, so use uint16_t as a placeholder
         // Need to look into ways we can make this work
         // TO DO: !!!
-        using type = uint16_t;
-        static constexpr size_t size = sizeof(uint16_t);
+        using type = bfloat16_t;
+        static constexpr size_t size = sizeof(bfloat16_t);
         static constexpr const char* name = "bf16";
         static constexpr bool is_floating_point = true;
         static constexpr bool is_integral = false;
@@ -107,8 +107,8 @@ namespace OwnTensor
         if constexpr (std::is_same_v<T, int16_t>) return Dtype::Int16;
         if constexpr (std::is_same_v<T, int32_t>) return Dtype::Int32;
         if constexpr (std::is_same_v<T, int64_t>) return Dtype::Int64;
-        if constexpr (std::is_same_v<T, uint16_t>) return Dtype::Float16;
-        if constexpr (std::is_same_v<T, uint16_t>) return Dtype::Bfloat16;
+        if constexpr (std::is_same_v<T, float16_t>) return Dtype::Float16;
+        if constexpr (std::is_same_v<T, bfloat16_t>) return Dtype::Bfloat16;
         if constexpr (std::is_same_v<T, float>) return Dtype::Float32;
         if constexpr (std::is_same_v<T, double>) return Dtype::Float64;
         static_assert(!std::is_same_v<T, T>, "Unsupported type");  // Force error
@@ -147,5 +147,21 @@ namespace OwnTensor
             break;
         }
     }
+
+    /**
+ * @brief Helper function to get the Dtype name at runtime (since Dtype is a runtime variable).
+ */
+inline const char* get_dtype_name(Dtype dtype) {
+    switch (dtype) {
+        case Dtype::Int16:    return "int16";
+        case Dtype::Int32:    return "int32";
+        case Dtype::Int64:    return "int64";
+        case Dtype::Bfloat16: return "bfloat16";
+        case Dtype::Float16:  return "float16";
+        case Dtype::Float32:  return "float32";
+        case Dtype::Float64:  return "float64";
+        default:              return "Unknown";
+    }
+}
 }
 #endif // DTYPE_TRAIT_H

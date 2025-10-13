@@ -2,6 +2,7 @@
 #include "Types.h"
 #include "device/AllocatorRegistry.h"
 #include "device/DeviceTransfer.h"
+#include "device/Device.h"
 #include <iostream>
 #include <cstring>
 
