@@ -1,6 +1,5 @@
-#include "../include/Tensor.h"
-// #include "../include/DtypeTraits.h"
-
+#include "Tensor.h"
+#include "DtypeTraits.h"
 #include <iostream>
 #include <type_traits>
 #include <cstdint>
@@ -8,6 +7,7 @@
 #include <vector>
 
 using namespace std;
+using namespace OwnTensor;
 
 void test_dtype_traits()
 {
@@ -27,7 +27,7 @@ void test_dtype_traits()
             Tensor t(Shape{{10,10}}, dtype, DeviceIndex(Device::CPU), false);
             assert(t.dtype_size(t.dtype()) == expected);
             Dtype dtypeT = t.dtype();
-            cout << "✓ Dtype Label " << dtype_to_string(dtypeT) << ": size=" << (t.dtype_size(dtypeT)) << endl;
+            cout << "✓ Dtype Label " << get_dtype_name(dtypeT) << ": size=" << (t.dtype_size(dtypeT)) << endl;
             cout << "✓ Dtype Flag Test: Is integer Type: " << is_int(dtypeT) << " | Is Float Type: " << is_float(dtypeT) << "\n" << endl;
             // cout << "✓ Test - C++ Dtype to Dtype Structure: " << type_to_dtype()
         }
@@ -38,7 +38,7 @@ void test_dtype_traits()
             Tensor t(Shape{{10,10}}, dtype, DeviceIndex(Device::CUDA), false);
             assert(t.dtype_size(t.dtype()) == expected);
             Dtype dtypeT = t.dtype();
-            cout << "✓ Dtype Label " << dtype_to_string(dtypeT) << ": size=" << (t.dtype_size(t.dtype())) << endl;
+            cout << "✓ Dtype Label " << get_dtype_name(dtypeT) << ": size=" << (t.dtype_size(t.dtype())) << endl;
             cout << "✓ Dtype Flag Test: Is integer Type: " << is_int(dtypeT) << " | Is Float Type: " << is_float(dtypeT) << "\n" << endl;
         }
     }
