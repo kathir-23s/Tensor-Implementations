@@ -1,41 +1,44 @@
-#include "../include/Tensor.h"
+#include "Tensor.h"
 #include <cstring>
 #include <random>
 
+namespace OwnTensor
+{
 Tensor Tensor::zeros(Shape shape, TensorOptions opts) 
-{
-    Tensor tensor(shape, opts);
-    dispatch_by_dtype(opts.dtype, [&](auto dummy)
     {
-        using T = decltype(dummy);
-        tensor.fill(T(0));
-    });
-    return tensor;
-}
+        Tensor tensor(shape, opts);
+        dispatch_by_dtype(opts.dtype, [&](auto dummy)
+        {
+            using T = decltype(dummy);
+            tensor.fill(T(0));
+        });
+        return tensor;
+    }
 
-Tensor Tensor::ones(Shape shape, TensorOptions opts)
-{
-    Tensor tensor(shape, opts);
-
-    dispatch_by_dtype(opts.dtype, [&](auto dummy)
+    Tensor Tensor::ones(Shape shape, TensorOptions opts)
     {
-        using T = decltype(dummy);
-        tensor.fill(T(1));
-    });
+        Tensor tensor(shape, opts);
 
-    return tensor;
-}
+        dispatch_by_dtype(opts.dtype, [&](auto dummy)
+        {
+            using T = decltype(dummy);
+            tensor.fill(T(1));
+        });
 
-Tensor Tensor::full(Shape shape, TensorOptions opts, float value)
-{
-    Tensor tensor(shape, opts);
+        return tensor;
+    }
 
-    dispatch_by_dtype(opts.dtype, [&](auto dummy)
+    Tensor Tensor::full(Shape shape, TensorOptions opts, float value)
     {
-        using T = decltype(dummy);
-        tensor.fill(T(value));
-    });
-    return tensor;
+        Tensor tensor(shape, opts);
+
+        dispatch_by_dtype(opts.dtype, [&](auto dummy)
+        {
+            using T = decltype(dummy);
+            tensor.fill(T(value));
+        });
+        return tensor;
+    }
 }
 
 
