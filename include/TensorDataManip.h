@@ -4,6 +4,7 @@
 #define TENSOR_UTILS_H
 
 #include "Tensor.h"
+#include "Types.h"
 #include <iostream>
 #include <cstring>
 
@@ -69,13 +70,14 @@ namespace OwnTensor
             return dtype == Dtype::Float32;
         } else if constexpr (std::is_same_v<T, double>) {
             return dtype == Dtype::Float64;
+
         } else if constexpr (std::is_same_v<T, int16_t>) {
             return dtype == Dtype::Int16;
         } else if constexpr (std::is_same_v<T, int64_t>) {
             return dtype == Dtype::Int64;
-        } else if constexpr (std::is_same_v<T, uint16_t>) {
+        } else if constexpr (std::is_same_v<T, float16_t>) {
             return dtype == Dtype::Float16; 
-        } else if constexpr (std::is_same_v<T, uint16_t>) {
+        } else if constexpr (std::is_same_v<T, bfloat16_t>) {
             return dtype == Dtype::Bfloat16;
         }
         return false;
