@@ -1,11 +1,12 @@
-#include "../include/Tensor.h"
-#include "../include/Debug.h"
+#include "Tensor.h"
+// #include "../include/Debug.h"
 
 #include <iostream>
 #include <cassert>
 #include <vector>
 
 using namespace std;
+using namespace OwnTensor;
 
 void test_tensor_stride_calc_1d() 
 {
@@ -15,7 +16,7 @@ void test_tensor_stride_calc_1d()
     {
         Tensor t1(Shape{{10}}, Dtype::Float32, DeviceIndex(Device::CPU));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -27,7 +28,7 @@ void test_tensor_stride_calc_1d()
         // cout << "CPU: Testing valid stride checks...\n" << endl;
         Tensor t2(Shape{{1}}, Dtype::Float32, DeviceIndex(Device::CPU));
     
-        const auto& strides = t2.stride();
+        const auto& strides = t2.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -39,7 +40,7 @@ void test_tensor_stride_calc_1d()
         // cout << "CPU: Testing valid stride checks...\n" << endl;
         Tensor t3(Shape{{1000}}, Dtype::Float32, DeviceIndex(Device::CPU));
         
-        const auto& strides = t3.stride();
+        const auto& strides = t3.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -51,7 +52,7 @@ void test_tensor_stride_calc_1d()
     {
         Tensor t1(Shape{{10}}, Dtype::Float32, DeviceIndex(Device::CUDA));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -63,7 +64,7 @@ void test_tensor_stride_calc_1d()
         // cout << "CPU: Testing valid stride checks...\n" << endl;
         Tensor t2(Shape{{1}}, Dtype::Float32, DeviceIndex(Device::CUDA));
     
-        const auto& strides = t2.stride();
+        const auto& strides = t2.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -75,7 +76,7 @@ void test_tensor_stride_calc_1d()
         // cout << "CPU: Testing valid stride checks...\n" << endl;
         Tensor t3(Shape{{100000000}}, Dtype::Float32, DeviceIndex(Device::CUDA));
         
-        const auto& strides = t3.stride();
+        const auto& strides = t3.stride().strides;
         assert(strides.size() == 1);
         assert(strides[0] == 1);
 
@@ -94,7 +95,7 @@ void test_tensor_stride_calc_2d()
     {
         Tensor t1(Shape{{3, 4}}, Dtype::Float32, DeviceIndex(Device::CPU));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 2);
         assert(strides[0] == 4);  // Stride for dimension 0
         assert(strides[1] == 1);  // Stride for dimension 1
@@ -108,7 +109,7 @@ void test_tensor_stride_calc_2d()
     {
         Tensor t1(Shape{{5, 6}}, Dtype::Float32, DeviceIndex(Device::CUDA));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 2);
         assert(strides[0] == 6);  // Stride for dimension 0
         assert(strides[1] == 1);  // Stride for dimension 1
@@ -127,7 +128,7 @@ void test_tensor_stride_calc_3d()
     {
         Tensor t1(Shape{{2, 3, 4}}, Dtype::Float32, DeviceIndex(Device::CPU));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 3);
         assert(strides[0] == 12); // Stride for dimension 0: 3 * 4
         assert(strides[1] == 4);  // Stride for dimension 1: 4
@@ -142,7 +143,7 @@ void test_tensor_stride_calc_3d()
     {
         Tensor t1(Shape{{3, 4, 5}}, Dtype::Float32, DeviceIndex(Device::CUDA));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 3);
         assert(strides[0] == 20); // Stride for dimension 0: 4 * 5
         assert(strides[1] == 5);  // Stride for dimension 1: 5
@@ -162,7 +163,7 @@ void test_tensor_stride_calc_4d()
     {
         Tensor t1(Shape{{2, 3, 4, 5}}, Dtype::Float32, DeviceIndex(Device::CPU));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 4);
         assert(strides[0] == 60); // Stride for dimension 0: 3 * 4 * 5
         assert(strides[1] == 20); // Stride for dimension 1: 4 * 5
@@ -179,7 +180,7 @@ void test_tensor_stride_calc_4d()
     {
         Tensor t1(Shape{{4, 5, 6, 7}}, Dtype::Float32, DeviceIndex(Device::CUDA));
         
-        const auto& strides = t1.stride();
+        const auto& strides = t1.stride().strides;
         assert(strides.size() == 4);
         assert(strides[0] == 210); // Stride for dimension 0: 5 * 6 * 7
         assert(strides[1] == 42);  // Stride for dimension 1: 6 * 7
