@@ -5,7 +5,6 @@
 
 #include "Types.h"
 #include <limits>
-
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
@@ -89,6 +88,11 @@ template<> struct AccumulatorTypeSelector<int16_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int32_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int64_t> { using type = int64_t; };
 
+// CRITICAL FIX: Add unsigned integer support
+template<> struct AccumulatorTypeSelector<uint16_t> { using type = int64_t; };
+template<> struct AccumulatorTypeSelector<uint32_t> { using type = int64_t; };
+template<> struct AccumulatorTypeSelector<uint64_t> { using type = int64_t; };
+
 // FP16/BF16 accumulate in float for better precision
 template<> struct AccumulatorTypeSelector<float16_t> { using type = float; };
 template<> struct AccumulatorTypeSelector<bfloat16_t> { using type = float; };
@@ -134,8 +138,16 @@ struct MinOp {
     using AccT = AccumulatorType<T>;
     
     AccT identity() const { 
+        // CRITICAL FIX: Handle signed vs unsigned integers properly
         if constexpr (std::is_integral_v<T>) {
-            return std::numeric_limits<int64_t>::max();
+            // For signed integers, return max of the ORIGINAL type T (not AccT)
+            // Then cast to AccT (int64_t) to avoid overflow warnings
+            if constexpr (std::is_signed_v<T>) {
+                return static_cast<AccT>(std::numeric_limits<T>::max());
+            } else {
+                // For unsigned integers, return max of T directly
+                return static_cast<AccT>(std::numeric_limits<T>::max());
+            }
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_max_value<T>());
         } else {
@@ -154,8 +166,15 @@ struct MaxOp {
     using AccT = AccumulatorType<T>;
     
     AccT identity() const { 
+        // CRITICAL FIX: Handle signed vs unsigned integers properly
         if constexpr (std::is_integral_v<T>) {
-            return std::numeric_limits<int64_t>::lowest();
+            // For signed integers, return lowest of the ORIGINAL type T
+            if constexpr (std::is_signed_v<T>) {
+                return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            } else {
+                // For unsigned integers, lowest is 0
+                return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            }
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_lowest_value<T>());
         } else {
@@ -212,8 +231,13 @@ struct NanMinOp {
     using AccT = AccumulatorType<T>;
     
     AccT identity() const { 
+        // CRITICAL FIX: Handle signed vs unsigned integers properly
         if constexpr (std::is_integral_v<T>) {
-            return std::numeric_limits<int64_t>::max();
+            if constexpr (std::is_signed_v<T>) {
+                return static_cast<AccT>(std::numeric_limits<T>::max());
+            } else {
+                return static_cast<AccT>(std::numeric_limits<T>::max());
+            }
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_max_value<T>());
         } else {
@@ -235,8 +259,13 @@ struct NanMaxOp {
     using AccT = AccumulatorType<T>;
     
     AccT identity() const { 
+        // CRITICAL FIX: Handle signed vs unsigned integers properly
         if constexpr (std::is_integral_v<T>) {
-            return std::numeric_limits<int64_t>::lowest();
+            if constexpr (std::is_signed_v<T>) {
+                return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            } else {
+                return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            }
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_lowest_value<T>());
         } else {
