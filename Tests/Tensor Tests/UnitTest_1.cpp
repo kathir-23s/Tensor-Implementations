@@ -1,9 +1,10 @@
-#include "../include/Tensor.h"
-#include "../include/Debug.h"
-
+#include "Tensor.h"
 #include <iostream>
 #include <cassert>
 #include <vector>
+
+using namespace OwnTensor;
+using namespace std;
 
 void test_tensor_constructor_valid_shape() {
     std::cout << "\n=== test_tensor_constructor_valid_shape ===\n" << std::endl;

@@ -1,11 +1,10 @@
-#include "../include/Tensor.h"
-#include "../include/Debug.h"
-
+#include "Tensor.h"
 #include <iostream>
 #include <cassert>
 #include <vector>
 
 using namespace std;
+using namespace OwnTensor;
 
 void tensor_cpu_memory_allocation_size() 
 {
