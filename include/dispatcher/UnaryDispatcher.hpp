@@ -4,7 +4,7 @@
 
 // custom headers
 #include "Tensor.h"
-#include "fp16_bf16_convert.h"
+#include "types.h"
 #include "DtypeTraits.h"
 
 enum class UnaryOp:uint8_t{
@@ -46,8 +46,6 @@ private:
     KernelRegistry& operator=(const KernelRegistry&) = delete;
     std::unordered_map<KernelKey, UnaryKernelFn, KernelKeyHash> registry_;
 };
-
-inline bool is_fp16(Dtype d){ return d == Dtype::Bfloat16 || d == Dtype::Float16; }
 
 namespace trig{
     enum class Unary{

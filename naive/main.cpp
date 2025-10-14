@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <stdexcept>
-#include "../include/UnaryDispatcher.hpp"
+#include "../include/dispatcher/UnaryDispatcher.hpp"
 
 // --- ASSUME these definitions are included from UnaryDispatcher.hpp ---
 // enum class ExecutionMode:uint8_t { Out_of_Place, In_Place }; 

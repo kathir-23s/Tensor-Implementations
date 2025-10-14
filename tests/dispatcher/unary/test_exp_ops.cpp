@@ -21,13 +21,43 @@ Tensor create_float_tensor(size_t size) {
     Tensor t(s, opts); 
     
     // 3. Set Dummy Data (Uses your set_data from Tensor.h)
-    std::vector<float> data{0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
+    std::vector<float> data{0.0f, 1.0f, 2.0f, 3.0f, 4.0f};
     t.set_data(data); 
     
     return t;
 }
 
-Tensor create_int_tensor(size_t size) {
+Tensor create_double_tensor(size_t size) {
+    // 1. Define Shape and Options
+    Shape s{ { (int64_t)size } };
+    TensorOptions opts = TensorOptions().with_dtype(Dtype::Float64).with_device(DeviceIndex(Device::CPU));
+
+    // 2. Create Tensor (Allocates Memory)
+    Tensor t(s, opts); 
+    
+    // 3. Set Dummy Data (Uses your set_data from Tensor.h)
+    std::vector<double> data{0.0, 1.0, 2.0, 3.0, 4.0};
+    t.set_data(data); 
+    
+    return t;
+}
+
+Tensor create_int16_tensor(size_t size) {
+    // 1. Define Shape and Options
+    Shape s{ { (int64_t)size } };
+    TensorOptions opts = TensorOptions().with_dtype(Dtype::Int16).with_device(DeviceIndex(Device::CPU));
+
+    // 2. Create Tensor (Allocates Memory)
+    Tensor t(s, opts); 
+    
+    // 3. Set Dummy Data (Uses your set_data from Tensor.h)
+    std::vector<int16_t> data{0, 1, 2, 3, 4};
+    t.set_data(data); 
+    
+    return t;
+}
+
+Tensor create_int32_tensor(size_t size) {
     // 1. Define Shape and Options
     Shape s{ { (int64_t)size } };
     TensorOptions opts = TensorOptions().with_dtype(Dtype::Int32).with_device(DeviceIndex(Device::CPU));
@@ -36,28 +66,46 @@ Tensor create_int_tensor(size_t size) {
     Tensor t(s, opts); 
     
     // 3. Set Dummy Data (Uses your set_data from Tensor.h)
-    std::vector<int32_t> data{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<int32_t> data{0, 1, 2, 3, 4};
     t.set_data(data); 
     
     return t;
 }
 
+Tensor create_int64_tensor(size_t size) {
+    // 1. Define Shape and Options
+    Shape s{ { (int64_t)size } };
+    TensorOptions opts = TensorOptions().with_dtype(Dtype::Int64).with_device(DeviceIndex(Device::CPU));
+
+    // 2. Create Tensor (Allocates Memory)
+    Tensor t(s, opts); 
+    
+    // 3. Set Dummy Data (Uses your set_data from Tensor.h)
+    std::vector<int64_t> data{0, 1, 2, 3, 4};
+    t.set_data(data); 
+    
+    return t;
+}
 
 // =========================================================================
 // SIMPLE EXP TEST
 // =========================================================================
 
-void test_exp_return_and_properties() {
-    std::cout << "\n--- Test: exp() Return Type and Properties ---\n";
+void test_return_and_properties() {
+    std::cout << "\n--- Test: Return Type and Properties ---\n";
     
-    size_t size = 10;
-    Tensor input_tensor = create_float_tensor(size);
-    //Tensor input_tensor = create_int_tensor(size);
+    size_t size = 5;
+    // Tensor input_tensor = create_int16_tensor(size);
+    // Tensor input_tensor = create_int32_tensor(size);
+    Tensor input_tensor = create_int64_tensor(size);
+    // Tensor input_tensor = create_float_tensor(size);
+    // Tensor input_tensor = create_double_tensor(size);
+    
     const void* input_ptr = input_tensor.data();
     
     try {
         // 1. CALL THE HIGH-LEVEL API
-        Tensor output_tensor = exp(input_tensor);
+        Tensor output_tensor = log10(input_tensor);
 
         // 2. ASSERTION: Is it a Tensor object? (Checked by compilation/return type)
         std::cout << "SUCCESS: Function returned a Tensor object.\n";
@@ -78,7 +126,7 @@ void test_exp_return_and_properties() {
         }
 
         // 5. ASSERTION: Does it have the expected Dtype (Float32 for Float32 input)?
-        if (output_tensor.dtype() == Dtype::Float32) {
+        if (output_tensor.dtype() == Dtype::Float32 || output_tensor.dtype() == Dtype::Float64) {
             std::cout << "SUCCESS: Output Tensor has the expected Dtype (" << dtype_to_string(output_tensor.dtype()) << ").\n";
         } else {
             std::cerr << "FAIL: Output Tensor Dtype is incorrect.\n";
@@ -93,17 +141,22 @@ void test_exp_return_and_properties() {
     }
 }
 
-void test_exp_inline_and_properties() {
-    std::cout << "\n--- Test: exp_() Return Type and Properties ---\n";
+void test_inline_and_properties() {
+    std::cout << "\n--- Test: Return Type and Properties ---\n";
     
-    size_t size = 10;
-    Tensor input_tensor = create_float_tensor(size);
-    //Tensor input_tensor = create_int_tensor(size);
+    size_t size = 5;
+    // Tensor input_tensor = create_int16_tensor(size);
+    // Tensor input_tensor = create_int32_tensor(size);
+    Tensor input_tensor = create_int64_tensor(size);
+    // Tensor input_tensor = create_float_tensor(size);
+    // Tensor input_tensor = create_double_tensor(size);
+
+    Dtype dtype = input_tensor.dtype();
     const void* input_ptr = input_tensor.data(); 
     
     try {
         // 1. CALL THE HIGH-LEVEL API
-        exp_(input_tensor);
+        log10_(input_tensor);
 
         // 2. ASSERTION: Is it a Tensor object? (Checked by compilation/return type)
         std::cout << "SUCCESS: Function did not return a Tensor object.\n";
@@ -116,7 +169,7 @@ void test_exp_inline_and_properties() {
         }
 
         // 4. ASSERTION: Does it have the expected Dtype (Float32 for Float32 input)?
-        if (input_tensor.dtype() == Dtype::Float32) {
+        if (input_tensor.dtype() == dtype) {
             std::cout << "SUCCESS: Tensor has the expected Dtype (" << dtype_to_string(input_tensor.dtype()) << ").\n";
         } else {
             std::cerr << "FAIL: Tensor Dtype is incorrect.\n";
@@ -132,8 +185,8 @@ void test_exp_inline_and_properties() {
 }
 
 int main() {
-    test_exp_return_and_properties();
-    test_exp_inline_and_properties();
+    test_return_and_properties();
+    test_inline_and_properties();
     std::cout << "\nSimple Test Complete.\n";
     return 0;
 }

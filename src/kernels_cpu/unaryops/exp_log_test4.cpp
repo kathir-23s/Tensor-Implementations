@@ -6,8 +6,10 @@
 #include "../../../include/dispatcher/exp_log_kernels.hpp"
 #include "../../../include/dispatcher/tesnor_unaryops.hpp"
 #include "../../../include/DtypeTraits.h"
+#include "../../../include/types.h"
 
 namespace exp_log {
+    // outplace
     template<typename T, T(*Func)(T)> 
     void apply_unary_kernel(const T* in, T* out, size_t size) {
         #pragma omp parallel for
@@ -18,15 +20,15 @@ namespace exp_log {
 
     // wrappers
     float expf_wrap(float x) { return expf(x); }
-    double exp_wrap(double x) { return std::exp(x); }
-    float exp2f_wrap(float x) { return std::exp2f(x); }
-    double exp2_wrap(double x) { return std::exp2(x); }
+    double exp_wrap(double x) { return exp(x); }
+    float exp2f_wrap(float x) { return exp2f(x); }
+    double exp2_wrap(double x) { return exp2(x); }
     float logf_wrap(float x) { return logf(x); }
-    double log_wrap(double x) { return std::log(x); }
-    float log2f_wrap(float x) { return std::log2f(x); }
-    double log2_wrap(double x) { return std::log2(x); }
+    double log_wrap(double x) { return log(x); }
+    float log2f_wrap(float x) { return log2f(x); }
+    double log2_wrap(double x) { return log2(x); }
     float log10f_wrap(float x) { return log10f(x); }
-    double log10_wrap(double x) { return std::log10(x); }
+    double log10_wrap(double x) { return log10(x); }
     
     // Exp
     template void apply_unary_kernel<float, expf_wrap>(const float* in, float* out, size_t size);
@@ -76,24 +78,62 @@ namespace exp_log {
         }
     }
     // promotion types [only Out_of_Place]
+    // Exp Promotion
     template void apply_unary_promotion_kernel<int16_t, float, exp_log::expf_wrap>(const int16_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int32_t, float, exp_log::expf_wrap>(const int32_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int64_t, double, exp_log::exp_wrap>(const int64_t* in, double* out, size_t size);
-    template void apply_unary_promotion_kernel<uint16_t, float, exp_log::expf_wrap>(const uint16_t* in, float* out, size_t size); // bf16 and f16
+    // Exp2 Promotion
     template void apply_unary_promotion_kernel<int16_t, float, exp_log::exp2f_wrap>(const int16_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int32_t, float, exp_log::exp2f_wrap>(const int32_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int64_t, double, exp_log::exp2_wrap>(const int64_t* in, double* out, size_t size);
-    template void apply_unary_promotion_kernel<uint16_t, float, exp_log::exp2f_wrap>(const uint16_t* in, float* out, size_t size); // bf16 and f16
+    // Log Promotion
     template void apply_unary_promotion_kernel<int16_t, float, exp_log::logf_wrap>(const int16_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int32_t, float, exp_log::logf_wrap>(const int32_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int64_t, double, exp_log::log_wrap>(const int64_t* in, double* out, size_t size);
-    template void apply_unary_promotion_kernel<uint16_t, float, exp_log::logf_wrap>(const uint16_t* in, float* out, size_t size); // bf16 and f16
+    // Log2 Promotion
     template void apply_unary_promotion_kernel<int16_t, float, exp_log::log2f_wrap>(const int16_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int32_t, float, exp_log::log2f_wrap>(const int32_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int64_t, double, exp_log::log2_wrap>(const int64_t* in, double* out, size_t size);
-    template void apply_unary_promotion_kernel<uint16_t, float, exp_log::log2f_wrap>(const uint16_t* in, float* out, size_t size); // bf16 and f16
+    // Log10 Promotion
     template void apply_unary_promotion_kernel<int16_t, float, exp_log::log10f_wrap>(const int16_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int32_t, float, exp_log::log10f_wrap>(const int32_t* in, float* out, size_t size);
     template void apply_unary_promotion_kernel<int64_t, double, exp_log::log10_wrap>(const int64_t* in, double* out, size_t size);
-    template void apply_unary_promotion_kernel<uint16_t, float, exp_log::log10f_wrap>(const uint16_t* in, float* out, size_t size); // bf16 and f16
+
+    // --- 16-BIT FLOAT KERNEL (Bfloat16/Float16) ---
+    // This kernel converts uint16_t (F16/BF16) to float, computes the op, and converts back.
+    // template<typename T_16Bit, float (*T_16Bit_To_F32)(T_16Bit), T_16Bit (*T_F32_To_16Bit)(float), float(*T_OpFunc)(float)>
+    // void apply_unary_f16ish_kernel(const T_16Bit* in, T_16Bit* out, size_t size) {
+    //     #pragma omp parallel for
+    //     for (size_t i = 0; i < size; ++i) {
+    //         // 1. Convert 16-bit float to 32-bit float
+    //         float f32_in = T_16Bit_To_F32(in[i]); 
+            
+    //         // 2. Compute the unary operation on 32-bit float
+    //         float f32_out = T_OpFunc(f32_in);
+            
+    //         // 3. Convert result back to 16-bit float
+    //         out[i] = T_F32_To_16Bit(f32_out); 
+    //     }
+    // }
+
+    // --- Explicit Instantiations for the 16-bit float kernels ---
+
+    // Exp: Bfloat16 -> Bfloat16
+    // template void apply_unary_f16ish_kernel<
+    //     uint16_t, 
+    //     bfloat16_to_float,    // BF16 -> F32 conversion
+    //     float_to_bfloat16,    // F32 -> BF16 conversion
+    //     exp_log::expf_wrap    // The float Exp wrapper
+    // >(const uint16_t* in, uint16_t* out, size_t size);
+
+    // // Exp: Float16 -> Float16
+    // template void apply_unary_f16ish_kernel<
+    //     uint16_t, 
+    //     float16_to_float,     // F16 -> F32 conversion
+    //     float_to_float16,     // F32 -> F16 conversion
+    //     exp_log::expf_wrap    // The float Exp wrapper
+    // >(const uint16_t* in, uint16_t* out, size_t size);
+
+    // ... you must repeat this for Log, Log2, etc., using their corresponding exp_log::logf_wrap, etc.
+
 }

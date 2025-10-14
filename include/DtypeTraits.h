@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <type_traits>
 #include "Tensor.h"
+#include "types.h"
 
 enum class Dtype;
 
@@ -151,6 +152,8 @@ inline bool is_int_less_than_or_equal_to_32bit(Dtype d) {
     return d == Dtype::Int16 || d == Dtype::Int32;
 }
 
+inline bool is_fp16(Dtype d){ return d == Dtype::Bfloat16 || d == Dtype::Float16; }
+
 template <typename T>
 struct DtypeTraits {
     // A compilation error will occur if DtypeTraits is used for an unsupported type T.
@@ -162,6 +165,8 @@ template <> struct DtypeTraits<int32_t> { static constexpr Dtype Enum = Dtype::I
 template <> struct DtypeTraits<int64_t> { static constexpr Dtype Enum = Dtype::Int64; };
 template <> struct DtypeTraits<float> { static constexpr Dtype Enum = Dtype::Float32; };
 template <> struct DtypeTraits<double> { static constexpr Dtype Enum = Dtype::Float64; };
+template <> struct DtypeTraits<bfloat16_t> { static constexpr Dtype value = Dtype::Bfloat16; };
+template <> struct DtypeTraits<float16_t> { static constexpr Dtype value = Dtype::Float16; };
 // Note: Float16/Bfloat16 often use uint16_t but are handled by separate registration logic
 // due to conversion wrappers. We omit their direct mapping here for simplicity.
 

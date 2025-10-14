@@ -143,6 +143,48 @@ CMakeFiles/testcase.dir/src/TensorFactory.cpp.o
  /usr/include/c++/11/pstl/execution_defs.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/DtypeTraits.h
  /usr/include/c++/11/cstdint
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
+ /usr/include/c++/11/cmath
+ /usr/include/math.h
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h
+ /usr/include/c++/11/bits/std_abs.h
+ /usr/include/stdlib.h
+ /usr/include/x86_64-linux-gnu/bits/waitflags.h
+ /usr/include/x86_64-linux-gnu/bits/waitstatus.h
+ /usr/include/x86_64-linux-gnu/sys/types.h
+ /usr/include/endian.h
+ /usr/include/x86_64-linux-gnu/bits/byteswap.h
+ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
+ /usr/include/x86_64-linux-gnu/sys/select.h
+ /usr/include/x86_64-linux-gnu/bits/select.h
+ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
+ /usr/include/alloca.h
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
+ /usr/include/c++/11/bits/specfun.h
+ /usr/include/c++/11/tr1/gamma.tcc
+ /usr/include/c++/11/tr1/special_function_util.h
+ /usr/include/c++/11/tr1/bessel_function.tcc
+ /usr/include/c++/11/tr1/beta_function.tcc
+ /usr/include/c++/11/tr1/ell_integral.tcc
+ /usr/include/c++/11/tr1/exp_integral.tcc
+ /usr/include/c++/11/tr1/hypergeometric.tcc
+ /usr/include/c++/11/tr1/legendre_function.tcc
+ /usr/include/c++/11/tr1/modified_bessel_func.tcc
+ /usr/include/c++/11/tr1/poly_hermite.tcc
+ /usr/include/c++/11/tr1/poly_laguerre.tcc
+ /usr/include/c++/11/tr1/riemann_zeta.tcc
+ /usr/include/c++/11/cstring
+ /usr/include/string.h
+ /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDataManip.h
  /usr/include/c++/11/iostream
  /usr/include/c++/11/ostream
@@ -165,19 +207,6 @@ CMakeFiles/testcase.dir/src/TensorFactory.cpp.o
  /usr/include/c++/11/bits/string_view.tcc
  /usr/include/c++/11/ext/string_conversions.h
  /usr/include/c++/11/cstdlib
- /usr/include/stdlib.h
- /usr/include/x86_64-linux-gnu/bits/waitflags.h
- /usr/include/x86_64-linux-gnu/bits/waitstatus.h
- /usr/include/x86_64-linux-gnu/sys/types.h
- /usr/include/endian.h
- /usr/include/x86_64-linux-gnu/bits/byteswap.h
- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
- /usr/include/x86_64-linux-gnu/sys/select.h
- /usr/include/x86_64-linux-gnu/bits/select.h
- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
- /usr/include/alloca.h
- /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
- /usr/include/c++/11/bits/std_abs.h
  /usr/include/c++/11/cstdio
  /usr/include/stdio.h
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h
@@ -214,36 +243,8 @@ CMakeFiles/testcase.dir/src/TensorFactory.cpp.o
  /usr/include/c++/11/bits/ostream.tcc
  /usr/include/c++/11/istream
  /usr/include/c++/11/bits/istream.tcc
- /usr/include/c++/11/cstring
- /usr/include/string.h
- /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
  /usr/include/c++/11/random
- /usr/include/c++/11/cmath
- /usr/include/math.h
- /usr/include/x86_64-linux-gnu/bits/math-vector.h
- /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
- /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
- /usr/include/x86_64-linux-gnu/bits/fp-logb.h
- /usr/include/x86_64-linux-gnu/bits/fp-fast.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
- /usr/include/x86_64-linux-gnu/bits/iscanonical.h
- /usr/include/c++/11/bits/specfun.h
- /usr/include/c++/11/limits
- /usr/include/c++/11/tr1/gamma.tcc
- /usr/include/c++/11/tr1/special_function_util.h
- /usr/include/c++/11/tr1/bessel_function.tcc
- /usr/include/c++/11/tr1/beta_function.tcc
- /usr/include/c++/11/tr1/ell_integral.tcc
- /usr/include/c++/11/tr1/exp_integral.tcc
- /usr/include/c++/11/tr1/hypergeometric.tcc
- /usr/include/c++/11/tr1/legendre_function.tcc
- /usr/include/c++/11/tr1/modified_bessel_func.tcc
- /usr/include/c++/11/tr1/poly_hermite.tcc
- /usr/include/c++/11/tr1/poly_laguerre.tcc
- /usr/include/c++/11/tr1/riemann_zeta.tcc
  /usr/include/c++/11/bits/random.h
  /usr/include/c++/11/bits/uniform_int_dist.h
  /usr/include/x86_64-linux-gnu/c++/11/bits/opt_random.h
@@ -394,6 +395,48 @@ CMakeFiles/testcase.dir/src/TensorUtils.cpp.o
  /usr/include/c++/11/pstl/execution_defs.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/DtypeTraits.h
  /usr/include/c++/11/cstdint
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
+ /usr/include/c++/11/cmath
+ /usr/include/math.h
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h
+ /usr/include/c++/11/bits/std_abs.h
+ /usr/include/stdlib.h
+ /usr/include/x86_64-linux-gnu/bits/waitflags.h
+ /usr/include/x86_64-linux-gnu/bits/waitstatus.h
+ /usr/include/x86_64-linux-gnu/sys/types.h
+ /usr/include/endian.h
+ /usr/include/x86_64-linux-gnu/bits/byteswap.h
+ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
+ /usr/include/x86_64-linux-gnu/sys/select.h
+ /usr/include/x86_64-linux-gnu/bits/select.h
+ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
+ /usr/include/alloca.h
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
+ /usr/include/c++/11/bits/specfun.h
+ /usr/include/c++/11/tr1/gamma.tcc
+ /usr/include/c++/11/tr1/special_function_util.h
+ /usr/include/c++/11/tr1/bessel_function.tcc
+ /usr/include/c++/11/tr1/beta_function.tcc
+ /usr/include/c++/11/tr1/ell_integral.tcc
+ /usr/include/c++/11/tr1/exp_integral.tcc
+ /usr/include/c++/11/tr1/hypergeometric.tcc
+ /usr/include/c++/11/tr1/legendre_function.tcc
+ /usr/include/c++/11/tr1/modified_bessel_func.tcc
+ /usr/include/c++/11/tr1/poly_hermite.tcc
+ /usr/include/c++/11/tr1/poly_laguerre.tcc
+ /usr/include/c++/11/tr1/riemann_zeta.tcc
+ /usr/include/c++/11/cstring
+ /usr/include/string.h
+ /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDataManip.h
  /usr/include/c++/11/iostream
  /usr/include/c++/11/ostream
@@ -416,19 +459,6 @@ CMakeFiles/testcase.dir/src/TensorUtils.cpp.o
  /usr/include/c++/11/bits/string_view.tcc
  /usr/include/c++/11/ext/string_conversions.h
  /usr/include/c++/11/cstdlib
- /usr/include/stdlib.h
- /usr/include/x86_64-linux-gnu/bits/waitflags.h
- /usr/include/x86_64-linux-gnu/bits/waitstatus.h
- /usr/include/x86_64-linux-gnu/sys/types.h
- /usr/include/endian.h
- /usr/include/x86_64-linux-gnu/bits/byteswap.h
- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
- /usr/include/x86_64-linux-gnu/sys/select.h
- /usr/include/x86_64-linux-gnu/bits/select.h
- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
- /usr/include/alloca.h
- /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
- /usr/include/c++/11/bits/std_abs.h
  /usr/include/c++/11/cstdio
  /usr/include/stdio.h
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h
@@ -465,9 +495,6 @@ CMakeFiles/testcase.dir/src/TensorUtils.cpp.o
  /usr/include/c++/11/bits/ostream.tcc
  /usr/include/c++/11/istream
  /usr/include/c++/11/bits/istream.tcc
- /usr/include/c++/11/cstring
- /usr/include/string.h
- /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
  /usr/include/c++/11/iomanip
  /usr/include/c++/11/locale
@@ -740,7 +767,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/exp_log_test4.cpp.o
  /usr/include/c++/11/bits/algorithmfwd.h
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/exp_log_kernels.hpp
  /usr/include/c++/11/cstddef
  /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/tesnor_unaryops.hpp
@@ -1002,7 +1029,7 @@ CMakeFiles/testcase.dir/src/kernels_cpu/unaryops/unified_unary_api.cpp.o
  /usr/include/c++/11/bits/algorithmfwd.h
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/exp_log_kernels.hpp
  /usr/include/c++/11/cstddef
  /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/tesnor_unaryops.hpp
@@ -1239,7 +1266,8 @@ CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o
  /usr/include/string.h
  /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
  /usr/include/c++/11/cmath
  /usr/include/math.h
  /usr/include/x86_64-linux-gnu/bits/math-vector.h
@@ -1252,7 +1280,6 @@ CMakeFiles/testcase.dir/src/registry/unary_dispatcher.cpp.o
  /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
  /usr/include/x86_64-linux-gnu/bits/iscanonical.h
  /usr/include/c++/11/bits/specfun.h
- /usr/include/c++/11/limits
  /usr/include/c++/11/tr1/gamma.tcc
  /usr/include/c++/11/tr1/special_function_util.h
  /usr/include/c++/11/tr1/bessel_function.tcc
@@ -1408,6 +1435,48 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o
  /usr/include/c++/11/pstl/execution_defs.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/DtypeTraits.h
  /usr/include/c++/11/cstdint
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
+ /usr/include/c++/11/cmath
+ /usr/include/math.h
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h
+ /usr/include/c++/11/bits/std_abs.h
+ /usr/include/stdlib.h
+ /usr/include/x86_64-linux-gnu/bits/waitflags.h
+ /usr/include/x86_64-linux-gnu/bits/waitstatus.h
+ /usr/include/x86_64-linux-gnu/sys/types.h
+ /usr/include/endian.h
+ /usr/include/x86_64-linux-gnu/bits/byteswap.h
+ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
+ /usr/include/x86_64-linux-gnu/sys/select.h
+ /usr/include/x86_64-linux-gnu/bits/select.h
+ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
+ /usr/include/alloca.h
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
+ /usr/include/c++/11/bits/specfun.h
+ /usr/include/c++/11/tr1/gamma.tcc
+ /usr/include/c++/11/tr1/special_function_util.h
+ /usr/include/c++/11/tr1/bessel_function.tcc
+ /usr/include/c++/11/tr1/beta_function.tcc
+ /usr/include/c++/11/tr1/ell_integral.tcc
+ /usr/include/c++/11/tr1/exp_integral.tcc
+ /usr/include/c++/11/tr1/hypergeometric.tcc
+ /usr/include/c++/11/tr1/legendre_function.tcc
+ /usr/include/c++/11/tr1/modified_bessel_func.tcc
+ /usr/include/c++/11/tr1/poly_hermite.tcc
+ /usr/include/c++/11/tr1/poly_laguerre.tcc
+ /usr/include/c++/11/tr1/riemann_zeta.tcc
+ /usr/include/c++/11/cstring
+ /usr/include/string.h
+ /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDataManip.h
  /usr/include/c++/11/iostream
  /usr/include/c++/11/ostream
@@ -1430,19 +1499,6 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o
  /usr/include/c++/11/bits/string_view.tcc
  /usr/include/c++/11/ext/string_conversions.h
  /usr/include/c++/11/cstdlib
- /usr/include/stdlib.h
- /usr/include/x86_64-linux-gnu/bits/waitflags.h
- /usr/include/x86_64-linux-gnu/bits/waitstatus.h
- /usr/include/x86_64-linux-gnu/sys/types.h
- /usr/include/endian.h
- /usr/include/x86_64-linux-gnu/bits/byteswap.h
- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
- /usr/include/x86_64-linux-gnu/sys/select.h
- /usr/include/x86_64-linux-gnu/bits/select.h
- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
- /usr/include/alloca.h
- /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
- /usr/include/c++/11/bits/std_abs.h
  /usr/include/c++/11/cstdio
  /usr/include/stdio.h
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h
@@ -1479,36 +1535,7 @@ CMakeFiles/testcase.dir/src/registry/unary_registry.cpp.o
  /usr/include/c++/11/bits/ostream.tcc
  /usr/include/c++/11/istream
  /usr/include/c++/11/bits/istream.tcc
- /usr/include/c++/11/cstring
- /usr/include/string.h
- /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
- /usr/include/c++/11/cmath
- /usr/include/math.h
- /usr/include/x86_64-linux-gnu/bits/math-vector.h
- /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
- /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
- /usr/include/x86_64-linux-gnu/bits/fp-logb.h
- /usr/include/x86_64-linux-gnu/bits/fp-fast.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls.h
- /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
- /usr/include/x86_64-linux-gnu/bits/iscanonical.h
- /usr/include/c++/11/bits/specfun.h
- /usr/include/c++/11/limits
- /usr/include/c++/11/tr1/gamma.tcc
- /usr/include/c++/11/tr1/special_function_util.h
- /usr/include/c++/11/tr1/bessel_function.tcc
- /usr/include/c++/11/tr1/beta_function.tcc
- /usr/include/c++/11/tr1/ell_integral.tcc
- /usr/include/c++/11/tr1/exp_integral.tcc
- /usr/include/c++/11/tr1/hypergeometric.tcc
- /usr/include/c++/11/tr1/legendre_function.tcc
- /usr/include/c++/11/tr1/modified_bessel_func.tcc
- /usr/include/c++/11/tr1/poly_hermite.tcc
- /usr/include/c++/11/tr1/poly_laguerre.tcc
- /usr/include/c++/11/tr1/riemann_zeta.tcc
  /home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher/UnaryDispatcher.hpp
  /usr/include/c++/11/functional
  /usr/include/c++/11/bits/std_function.h
@@ -1669,6 +1696,48 @@ CMakeFiles/testcase.dir/src/tensor.cpp.o
  /usr/include/c++/11/pstl/execution_defs.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/DtypeTraits.h
  /usr/include/c++/11/cstdint
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
+ /usr/include/c++/11/cmath
+ /usr/include/math.h
+ /usr/include/x86_64-linux-gnu/bits/math-vector.h
+ /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h
+ /usr/include/x86_64-linux-gnu/bits/flt-eval-method.h
+ /usr/include/x86_64-linux-gnu/bits/fp-logb.h
+ /usr/include/x86_64-linux-gnu/bits/fp-fast.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-helper-functions.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h
+ /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
+ /usr/include/x86_64-linux-gnu/bits/iscanonical.h
+ /usr/include/c++/11/bits/std_abs.h
+ /usr/include/stdlib.h
+ /usr/include/x86_64-linux-gnu/bits/waitflags.h
+ /usr/include/x86_64-linux-gnu/bits/waitstatus.h
+ /usr/include/x86_64-linux-gnu/sys/types.h
+ /usr/include/endian.h
+ /usr/include/x86_64-linux-gnu/bits/byteswap.h
+ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
+ /usr/include/x86_64-linux-gnu/sys/select.h
+ /usr/include/x86_64-linux-gnu/bits/select.h
+ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
+ /usr/include/alloca.h
+ /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
+ /usr/include/c++/11/bits/specfun.h
+ /usr/include/c++/11/tr1/gamma.tcc
+ /usr/include/c++/11/tr1/special_function_util.h
+ /usr/include/c++/11/tr1/bessel_function.tcc
+ /usr/include/c++/11/tr1/beta_function.tcc
+ /usr/include/c++/11/tr1/ell_integral.tcc
+ /usr/include/c++/11/tr1/exp_integral.tcc
+ /usr/include/c++/11/tr1/hypergeometric.tcc
+ /usr/include/c++/11/tr1/legendre_function.tcc
+ /usr/include/c++/11/tr1/modified_bessel_func.tcc
+ /usr/include/c++/11/tr1/poly_hermite.tcc
+ /usr/include/c++/11/tr1/poly_laguerre.tcc
+ /usr/include/c++/11/tr1/riemann_zeta.tcc
+ /usr/include/c++/11/cstring
+ /usr/include/string.h
+ /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDataManip.h
  /usr/include/c++/11/iostream
  /usr/include/c++/11/ostream
@@ -1691,19 +1760,6 @@ CMakeFiles/testcase.dir/src/tensor.cpp.o
  /usr/include/c++/11/bits/string_view.tcc
  /usr/include/c++/11/ext/string_conversions.h
  /usr/include/c++/11/cstdlib
- /usr/include/stdlib.h
- /usr/include/x86_64-linux-gnu/bits/waitflags.h
- /usr/include/x86_64-linux-gnu/bits/waitstatus.h
- /usr/include/x86_64-linux-gnu/sys/types.h
- /usr/include/endian.h
- /usr/include/x86_64-linux-gnu/bits/byteswap.h
- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h
- /usr/include/x86_64-linux-gnu/sys/select.h
- /usr/include/x86_64-linux-gnu/bits/select.h
- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h
- /usr/include/alloca.h
- /usr/include/x86_64-linux-gnu/bits/stdlib-float.h
- /usr/include/c++/11/bits/std_abs.h
  /usr/include/c++/11/cstdio
  /usr/include/stdio.h
  /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h
@@ -1740,9 +1796,6 @@ CMakeFiles/testcase.dir/src/tensor.cpp.o
  /usr/include/c++/11/bits/ostream.tcc
  /usr/include/c++/11/istream
  /usr/include/c++/11/bits/istream.tcc
- /usr/include/c++/11/cstring
- /usr/include/string.h
- /usr/include/strings.h
  /home/blubridge028/Sanjay/Tensor-Implementations/include/TensorDispatch.h
 
 CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o
@@ -1977,7 +2030,8 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o
  /usr/include/c++/11/bits/algorithmfwd.h
  /usr/include/c++/11/bits/stl_heap.h
  /usr/include/c++/11/bits/uniform_int_dist.h
- /home/blubridge028/Sanjay/Tensor-Implementations/include/fp16_bf16_convert.h
+ /home/blubridge028/Sanjay/Tensor-Implementations/include/types.h
+ /usr/include/c++/11/limits
  /usr/include/c++/11/cmath
  /usr/include/math.h
  /usr/include/x86_64-linux-gnu/bits/math-vector.h
@@ -1990,7 +2044,6 @@ CMakeFiles/testcase.dir/tests/dispatcher/unary/test_exp_ops.cpp.o
  /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h
  /usr/include/x86_64-linux-gnu/bits/iscanonical.h
  /usr/include/c++/11/bits/specfun.h
- /usr/include/c++/11/limits
  /usr/include/c++/11/tr1/gamma.tcc
  /usr/include/c++/11/tr1/special_function_util.h
  /usr/include/c++/11/tr1/bessel_function.tcc

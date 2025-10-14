@@ -41,8 +41,18 @@ void Tensor::display(std::ostream& os) const {
             for (int64_t i = 0; i < shape_.dims[0]; ++i) {
                 os << ptr[i] << " ";
             }
+        } else if (dtype_ == Dtype::Int64) {
+            const double* ptr = static_cast<const double*>(data());
+            for (int64_t i = 0; i < shape_.dims[0]; ++i) {
+                os << ptr[i] << " ";
+            }
         } else if (dtype_ == Dtype::Float32) {
             const float* ptr = static_cast<const float*>(data());
+            for (int64_t i = 0; i < shape_.dims[0]; ++i) {
+                os << ptr[i] << " ";
+            }
+        } else if (dtype_ == Dtype::Float64) {
+            const double* ptr = static_cast<const double*>(data());
             for (int64_t i = 0; i < shape_.dims[0]; ++i) {
                 os << ptr[i] << " ";
             }

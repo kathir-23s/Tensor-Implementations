@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/blubridge028/Sanjay/Tensor-Implementations/include
+CXX_INCLUDES = -I/home/blubridge028/Sanjay/Tensor-Implementations/include -I/home/blubridge028/Sanjay/Tensor-Implementations/include/dispatcher
 
 CXX_FLAGS = 
 
