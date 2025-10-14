@@ -82,7 +82,7 @@ Shape calculate_output_shape(const std::vector<int64_t>& input_dims, const std::
         output_dims.push_back(1);
     }
 
-    return Shape(output_dims);
+    return Shape{output_dims};
 }
 
 /**
