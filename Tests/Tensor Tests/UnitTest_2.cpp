@@ -82,7 +82,7 @@ void test_tensor_stride_calc_1d()
 
         cout << "✓ 1D tensor [1000000000]: numel=" << t3.numel() 
                   << ", stride=" << strides[0] << endl;
-                  cin.get();
+                  
     }
 
 }
