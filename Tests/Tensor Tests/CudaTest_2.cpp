@@ -17,14 +17,14 @@ void test_gpu_large_tensor_verification()
     const size_t large_size = 100 * 1024 * 1024; // 100 million elements ~ 400MB for float
     cout << "Creating large tensor with " << large_size << " elements (~400MB for float)" << endl;
     cout << "Check htop and nvidia-smi now. Press Enter to continue...";
-    cin.get();
+    
     
     Tensor gpu_tensor(Shape{{large_size}}, Dtype::Float32, DeviceIndex(Device::CUDA), false);
     cout << "GPU tensor created. Memory allocated on DEVICE (CUDA)." << endl;
     cout << "Tensor device: " << (gpu_tensor.device().is_cuda() ? "CUDA" : "CPU") << endl;
     cout << "nbytes(): " << gpu_tensor.nbytes() << " bytes" << endl;
     cout << "Check nvidia-smi for GPU memory usage. Press Enter to continue...";
-    cin.get();
+    
     
     // Fill with negative sequence
     cout << "Preparing source data on HOST (CPU)..." << endl;
@@ -40,14 +40,14 @@ void test_gpu_large_tensor_verification()
     for (int i = large_size - 5; i < large_size; ++i) cout << source_data[i] << " ";
     cout << endl;
     cout << "Press Enter to transfer from HOST (CPU) to DEVICE (GPU)...";
-    cin.get();
+    
     
     // Transfer to GPU
     gpu_tensor.set_data(source_data);
     cout << "Data transferred from HOST (CPU) to DEVICE (GPU)." << endl;
     cout << "GPU tensor device: " << (gpu_tensor.device().is_cuda() ? "CUDA" : "CPU") << endl;
     cout << "Check nvidia-smi. Press Enter to verify data integrity on DEVICE (GPU)...";
-    cin.get();
+    
     
     // Verify random elements are accessible from GPU
     cout << "Verifying random element access from DEVICE (GPU)..." << endl;
@@ -72,7 +72,7 @@ void test_gpu_large_tensor_verification()
     // Full round-trip verification
     cout << "Performing full round-trip verification..." << endl;
     cout << "Press Enter to transfer entire tensor from DEVICE (GPU) back to HOST (CPU)...";
-    cin.get();
+    
     
     Tensor cpu_roundtrip = gpu_tensor.to_cpu();
     cout << "Round-trip complete. Tensor now on HOST (CPU)." << endl;
@@ -106,7 +106,7 @@ void test_gpu_large_tensor_verification()
     
     cout << "\n✓ Large tensor GPU verification completed successfully!" << endl;
     cout << "Final check - Press Enter to clean up and exit test...";
-    cin.get();
+    
 }
 
 int main()

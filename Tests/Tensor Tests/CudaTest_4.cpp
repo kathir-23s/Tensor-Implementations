@@ -197,6 +197,6 @@ void test_gpu_transfer_all_dtypes()
 
 int main()
 {
-    // test_gpu_data_persistence();
+    test_gpu_data_persistence();
     test_gpu_transfer_all_dtypes();
 }

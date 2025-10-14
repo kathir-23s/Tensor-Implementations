@@ -101,18 +101,36 @@ namespace OwnTensor
 
 
     // Utility functions
-    template<typename T>
-    constexpr Dtype type_to_dtype()
-    {
-        if constexpr (std::is_same_v<T, int16_t>) return Dtype::Int16;
-        if constexpr (std::is_same_v<T, int32_t>) return Dtype::Int32;
-        if constexpr (std::is_same_v<T, int64_t>) return Dtype::Int64;
-        if constexpr (std::is_same_v<T, float16_t>) return Dtype::Float16;
-        if constexpr (std::is_same_v<T, bfloat16_t>) return Dtype::Bfloat16;
-        if constexpr (std::is_same_v<T, float>) return Dtype::Float32;
-        if constexpr (std::is_same_v<T, double>) return Dtype::Float64;
-        static_assert(!std::is_same_v<T, T>, "Unsupported type");  // Force error
+template<typename T>
+constexpr Dtype type_to_dtype()
+{
+    // Handle all integer type aliases
+    if constexpr (std::is_same_v<T, int16_t> || std::is_same_v<T, short>) {
+        return Dtype::Int16;
     }
+    else if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, int>) {
+        return Dtype::Int32;
+    }
+    else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, long> || std::is_same_v<T, long long>) {
+        return Dtype::Int64;
+    }
+    // Handle the exact types your library expects
+    else if constexpr (std::is_same_v<T, float16_t>) {
+        return Dtype::Float16;
+    }
+    else if constexpr (std::is_same_v<T, bfloat16_t>) {
+        return Dtype::Bfloat16;
+    }
+    else if constexpr (std::is_same_v<T, float>) {
+        return Dtype::Float32;
+    }
+    else if constexpr (std::is_same_v<T, double>) {
+        return Dtype::Float64;
+    }
+    else {
+        static_assert(!std::is_same_v<T, T>, "Unsupported type");
+    }
+}
 
     // Type Predicates
     constexpr bool is_float(Dtype dt)

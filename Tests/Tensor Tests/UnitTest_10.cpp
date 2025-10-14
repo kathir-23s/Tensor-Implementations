@@ -59,6 +59,8 @@ void test_type_to_dtype_mapping() {
     check(int16_t{}, Dtype::Int16, "int16_t");
     check(int32_t{}, Dtype::Int32, "int32_t");
     check(int64_t{}, Dtype::Int64, "int64_t");
+    check(float16_t{}, Dtype::Float16, "float16");
+    check(bfloat16_t{}, Dtype::Bfloat16, "bfloat16");
     check(float{}, Dtype::Float32, "float");
     check(double{}, Dtype::Float64, "double");
 

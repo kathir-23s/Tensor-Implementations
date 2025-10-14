@@ -2,7 +2,7 @@
 # Minimal build script for tensor library
 
 # Compile source file into object
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -DWITH_DEBUG -fPIC -c src/Tensor.cpp -o lib/objects/tensor.o
+g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA  -fPIC -c src/Tensor.cpp -o lib/objects/tensor.o
 
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/device/AllocatorRegistry.cpp -o lib/objects/AllocatorRegistry.o
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/device/CPUAllocator.cpp -o lib/objects/CPUAllocator.o

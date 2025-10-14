@@ -30,7 +30,7 @@ void test_tensor_constructor_valid_shape() {
 
         std::cout << "CPU: ✓ All valid shapes passed upto 5 dimensions" << std::endl;
         cout << "Verify RAM or VRAM usage!!" <<endl;
-        cin.get();
+        
 
     }
     
@@ -55,7 +55,7 @@ void test_tensor_constructor_valid_shape() {
 
         std::cout << "GPU: ✓ All valid shapes passed" << std::endl;
         cout << "Verify RAM or VRAM usage!!" <<endl;
-        cin.get();
+        
     }
 }
 
