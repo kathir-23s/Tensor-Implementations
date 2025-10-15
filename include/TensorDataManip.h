@@ -60,11 +60,11 @@ namespace OwnTensor
             set_data(temp_data);
         }
     }
-
-    inline void Tensor::set_data(std::initializer_list<float> values) {
-        if (dtype_ != Dtype::Float32) {
-            throw std::runtime_error("Initializer list only supports Float32");
-        }
+    template <typename T>
+    inline void Tensor::set_data(std::initializer_list<T> values) {
+        // if (dtype_ != Dtype::Float32) {
+        //     throw std::runtime_error("Initializer list only supports Float32");
+        // }
         set_data(values.begin(), values.size());
     }
 

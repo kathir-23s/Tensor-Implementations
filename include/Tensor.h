@@ -144,7 +144,8 @@ namespace OwnTensor
         template<typename T>
         void set_data(const std::vector<T>& source_data);
 
-        void set_data(std::initializer_list<float> values);
+        template <typename T>
+        void set_data(std::initializer_list<T> values);
         
         template <typename T>
         void fill(T value);
