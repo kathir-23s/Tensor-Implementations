@@ -44,28 +44,71 @@ void cuda_rand_normal(double* data, size_t count, unsigned long seed) {
 
 Tensor Tensor::zeros(Shape shape, TensorOptions opts) {
     Tensor tensor(shape, opts);
-    dispatch_by_dtype(opts.dtype, [&](auto dummy) {
-        using T = decltype(dummy);
-        tensor.fill(T(0));
-    });
+    
+    if (opts.device.is_cpu()) {
+        // CPU implementation - handles all 7 types automatically
+        dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+            using T = decltype(dummy);
+            tensor.fill(T(0));
+        });
+    } else {
+        // GPU implementation - optimized with cudaMemset
+#ifdef WITH_CUDA
+        cudaMemset(tensor.data(), 0, tensor.nbytes());
+#else
+        throw std::runtime_error("CUDA not available");
+#endif
+    }
     return tensor;
 }
 
 Tensor Tensor::ones(Shape shape, TensorOptions opts) {
     Tensor tensor(shape, opts);
-    dispatch_by_dtype(opts.dtype, [&](auto dummy) {
-        using T = decltype(dummy);
-        tensor.fill(T(1));
-    });
+    
+    if (opts.device.is_cpu()) {
+        // CPU implementation - handles all 7 types automatically
+        dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+            using T = decltype(dummy);
+            tensor.fill(T(1));
+        });
+    } else {
+        // GPU implementation - handles all 7 types automatically
+#ifdef WITH_CUDA
+        dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+            using T = decltype(dummy);
+            std::vector<T> ones_data(tensor.numel(), T(1));
+            cudaMemcpy(tensor.data(), ones_data.data(), 
+                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+        });
+#else
+        throw std::runtime_error("CUDA not available");
+#endif
+    }
     return tensor;
 }
 
 Tensor Tensor::full(Shape shape, TensorOptions opts, float value) {
     Tensor tensor(shape, opts);
-    dispatch_by_dtype(opts.dtype, [&](auto dummy) {
-        using T = decltype(dummy);
-        tensor.fill(static_cast<T>(value));
-    });
+    
+    if (opts.device.is_cpu()) {
+        // CPU implementation - handles all 7 types automatically
+        dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+            using T = decltype(dummy);
+            tensor.fill(static_cast<T>(value));
+        });
+    } else {
+        // GPU implementation - handles all 7 types automatically
+#ifdef WITH_CUDA
+        dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+            using T = decltype(dummy);
+            std::vector<T> fill_data(tensor.numel(), static_cast<T>(value));
+            cudaMemcpy(tensor.data(), fill_data.data(),
+                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+        });
+#else
+        throw std::runtime_error("CUDA not available");
+#endif
+    }
     return tensor;
 }
 
