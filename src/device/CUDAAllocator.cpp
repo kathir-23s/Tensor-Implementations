@@ -9,13 +9,6 @@
 namespace OwnTensor
 {
     void* CUDAAllocator::allocate(size_t bytes) {
-    // #ifdef WITH_CUDA
-    //     void* ptr;
-    //     cudaMalloc(&ptr, bytes);
-    //     return ptr;
-    // #else
-    //     return nullptr;
-    // #endif
     #ifdef WITH_CUDA
         void* ptr = nullptr;
         cudaError_t err = cudaMalloc(&ptr, bytes);
