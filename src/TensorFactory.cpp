@@ -1,5 +1,5 @@
-#include "Tensor.h"
-#include "TensorDispatch.h"
+#include "../include/Tensor.h"
+#include "../include/TensorDispatch.h"
 #include <random>
 
 using namespace OwnTensor;

@@ -1,6 +1,6 @@
 #pragma once
-#include "device/Allocator.h"
-#include "device/Device.h"
+#include "Allocator.h"
+#include "Device.h"
 
 namespace OwnTensor
 {

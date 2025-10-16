@@ -1,4 +1,4 @@
-#include "device/CUDAAllocator.h"
+#include "../../include/device/CUDAAllocator.h"
 #include <iostream>
 #include <stdexcept>
 

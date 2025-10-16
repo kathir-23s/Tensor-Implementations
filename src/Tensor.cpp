@@ -1,8 +1,8 @@
-#include "Tensor.h"
-#include "Types.h"
-#include "device/AllocatorRegistry.h"
-#include "device/DeviceTransfer.h"
-#include "device/Device.h"
+#include "../include/Tensor.h"
+#include "../include/Types.h"
+#include "../include/device/AllocatorRegistry.h"
+#include "../include/device/DeviceTransfer.h"
+#include "../include/device/Device.h"
 #include <iostream>
 #include <cstring>
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "device/Device.h"
+#include "Device.h"
 
 namespace OwnTensor
 {

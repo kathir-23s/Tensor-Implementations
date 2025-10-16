@@ -1,6 +1,6 @@
 
 
-#include "device/CPUAllocator.h"
+#include "../../include/device/CPUAllocator.h"
 #include <cstdlib>
 #include <cstring>
 #include <memory>

@@ -1,6 +1,6 @@
-#include "device/AllocatorRegistry.h"
-#include "device/CPUAllocator.h"
-#include "device/CUDAAllocator.h"
+#include "../../include/device/AllocatorRegistry.h"
+#include "../../include/device/CPUAllocator.h"
+#include "../../include/device/CUDAAllocator.h"
 
 namespace OwnTensor
 { 

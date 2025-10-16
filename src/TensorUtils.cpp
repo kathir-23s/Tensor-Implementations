@@ -1,4 +1,4 @@
-#include "Tensor.h"
+#include "../include/Tensor.h"
 #include <iostream>
 #include <iomanip>
 
@@ -45,15 +45,6 @@ namespace OwnTensor
     }
 
     void Tensor::display(std::ostream& os, int precision) const {
-        // Print the shape of the tensor
-        os << ", device=";
-        if (device_.device == Device::CPU)
-        {
-            os << "cpu";
-        } else {
-            os << "cuda:" << device_.index; 
-        }
-
         os << "Tensor(shape=[";
         const auto& dims = shape_.dims;
         for (size_t i = 0; i < dims.size(); ++i) {
@@ -75,7 +66,13 @@ namespace OwnTensor
         }
 
         // Printing device of the tensor
-
+        os << ", device=";
+        if (device_.device == Device::CPU)
+        {
+            os << "cpu";
+        } else {
+            os << "cuda:" << device_.index; 
+        }
         os << ")\n";
 
         if (dims.size() == 1) {
