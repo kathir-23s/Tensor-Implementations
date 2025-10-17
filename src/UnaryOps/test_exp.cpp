@@ -9,11 +9,12 @@ using namespace OwnTensor;
 
 int main() {
     // Assuming the Tensor constructor correctly initializes a single element '5'
-    Tensor in {{{5}}, Dtype::Int32, Device::CPU}; 
-    // std::vector<float16_t> data {float16_t(0.0f), float16_t(1.0f), float16_t(2.0f), float16_t(3.0f), float16_t(4.0f)};
-    std::vector<int32_t>data{1,2,3,4,5};
+    Tensor in {{{5}}, Dtype::Float64, Device::CPU}; 
+    std::vector<double> data {0.0, 1.0, 2.0, 3.0, 4.0};
+    //std::vector<int64_t>data{1,2,3,4,5};
     in.set_data(data);
-    Tensor out = exp(in); // out should contain e^5 (approx 148.413)
-    out.display(std::cout, 2); 
+    //Tensor out = exp(in); // out should contain e^5 (approx 148.413)
+    exp_(in);
+    in.display(std::cout, 2); 
     return 0;
 }

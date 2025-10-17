@@ -1,6 +1,6 @@
 #include <cmath>
-#include "../../include/UnaryOps/exp_log.hpp"
-#include "../../include/Tensor.h"
+#include "UnaryOps/exp_log.hpp"
+#include "Tensor.h"
 
 namespace OwnTensor {
 // function pointers
@@ -18,7 +18,7 @@ void unary_kernel_gpu(const T* in, T* out, size_t size) {
 }
 
 // wrappers
-Tensor exp_gpu_wrap(const Tensor& input_tensor){
+Tensor exp_out_gpu_wrap(const Tensor& input_tensor){
     // assumes that the tensor already resides on GPU <====================================================================
 
     // fallback path for float32 or float64, etc.
