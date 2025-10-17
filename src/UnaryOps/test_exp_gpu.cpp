@@ -22,26 +22,9 @@ int main() {
     // 4. Copy result back to CPU for checking
     Tensor result = output.to_cpu(); // hypothetical utility (you likely already have something like this)
     
-    // 5. Display results
-    // std::cout << "Input : ";
-    // input.display(std::cout, 5);
     std::cout << "\nOutput (expf): ";
     result.display(std::cout, 5);
     std::cout << std::endl;
-    // Verify data matches
-    // const float* retrieved_data = static_cast<const float*>(cpu_tensor.data());
-    // bool data_matches = true;
-    // for (size_t i = 0; i < source_data.size(); ++i) {
-    //     if (retrieved_data[i] != source_data[i]) {
-    //         data_matches = false;
-    //         cout << "Mismatch at index " << i << ": expected " << source_data[i] 
-    //                 << ", got " << retrieved_data[i] << endl;
-    //         break;
-    //     }
-    // }
-    
-    // assert(data_matches);
-    // cout << "✓ Float data transfer successful" << endl;
 
     return 0;
 }
