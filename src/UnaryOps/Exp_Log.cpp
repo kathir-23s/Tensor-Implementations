@@ -122,6 +122,7 @@ Tensor exp_out_cpu_wrap(const Tensor& input_tensor){
 }
 void exp_in_cpu_wrap(Tensor& input_tensor){
     // 0. check if bf16 / f16
+    try{
     std::cout << "Inplace is Called!\n";
     if ((input_tensor.dtype() == Dtype::Bfloat16) || (input_tensor.dtype() == Dtype::Float16)) {
         std::cout << "f16s caught!" << std::endl;
@@ -172,7 +173,7 @@ void exp_in_cpu_wrap(Tensor& input_tensor){
     switch(d){
         case Dtype::Int16: 
         case Dtype::Int32: 
-        case Dtype::Int64: std::cout << "Error: cannot do inplace for Int data types!"; break;
+        case Dtype::Int64: throw std::runtime_error("Error: cannot do inplace for Int data types!");
 
     }
     // fallback path for float32 or float64, etc.
@@ -192,6 +193,10 @@ void exp_in_cpu_wrap(Tensor& input_tensor){
             input_tensor.data<double>(),
             input_tensor.numel()
         );
+    }}
+    catch (const std::runtime_error& e) {
+        std::cerr << "Caught runtime error: " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE); 
     }
 }
 
