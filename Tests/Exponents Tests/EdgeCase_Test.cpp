@@ -9,9 +9,8 @@
 
 #include "Tensor.h"
 #include "Types.h"
-// #include "TensorUnaryOps.hpp"
-#include "UnaryOps.h"
-#include "ViewOps/test_utils.h"
+#include "ops/UnaryOps/Exponents.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;

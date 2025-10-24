@@ -7,8 +7,8 @@
 #include <sstream>
 #include "Tensor.h"
 #include "Types.h"
-#include "UnaryOps.h"
-#include "ViewOps/test_utils.h"
+#include "ops/UnaryOps/Exponents.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;
@@ -141,7 +141,7 @@ void test_exp_function(TestReport& report, const DeviceIndex& device,
         // NOW construct test_name using tensor's methods
         std::string test_name = "exp" + std::string(inplace ? "_" : "") +
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " +
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             // Test in-place operation
@@ -200,7 +200,7 @@ void test_exp2_function(TestReport& report, const DeviceIndex& device,
         
         std::string test_name = "exp2" + std::string(inplace ? "_" : "") +
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " +
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
@@ -251,7 +251,7 @@ void test_log_function(TestReport& report, const DeviceIndex& device,
         
         std::string test_name = "log" + std::string(inplace ? "_" : "") +
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " +
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
@@ -302,7 +302,7 @@ void test_log2_function(TestReport& report, const DeviceIndex& device,
         
         std::string test_name = "log2" + std::string(inplace ? "_" : "") +
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " +
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
@@ -353,7 +353,7 @@ void test_log10_function(TestReport& report, const DeviceIndex& device,
         
         std::string test_name = "log10" + std::string(inplace ? "_" : "") +
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " +
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
