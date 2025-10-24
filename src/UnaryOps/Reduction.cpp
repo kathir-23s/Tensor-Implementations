@@ -1,7 +1,7 @@
 #include "Reduction.h"
-#include "TensorDispatch.h"   // Provides dispatch_by_dtype (now in OwnTensor:: scope)
-#include "ReductionUtils.h"   // Provides normalize_axes, calculate_reduced_count (now in OwnTensor::detail:: scope)
-#include "ReductionImpl.h"   // Provides ALL Op structs and ALL dispatch_reduction implementations (now in OwnTensor::detail:: scope)
+#include "core/TensorDispatch.h"   // Provides dispatch_by_dtype (now in OwnTensor:: scope)
+#include "ops/helpers/ReductionUtils.h"   // Provides normalize_axes, calculate_reduced_count (now in OwnTensor::detail:: scope)
+#include "ops/helpers/ReductionImpl.h"   // Provides ALL Op structs and ALL dispatch_reduction implementations (now in OwnTensor::detail:: scope)
 
 #include <cmath>
 #include <stdexcept>

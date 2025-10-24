@@ -1,4 +1,4 @@
-#include "device/CUDAAllocator.h"
+#include "../../include/device/CUDAAllocator.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -16,7 +16,7 @@ namespace OwnTensor
         {
             std::cerr << "CUDA Allocation Failed: " << cudaGetErrorString(err) 
                     << "(requested " << bytes / (1024*1024) << " MB" << std::endl;
-            throw std::runtime_error("CUDA allcation failed");
+            throw std::runtime_error("CUDA allocation failed");
         }
             // std::cout << "CUDAAllocator: Allocating " << bytes << " bytes (" 
             //   << bytes / (1024*1024) << " MB)" << std::endl;    
@@ -38,7 +38,7 @@ namespace OwnTensor
     //     }
     // #endif
     // }
-
+    
     void CUDAAllocator::deallocate(void* ptr) {
     #ifdef WITH_CUDA
         if (ptr) {

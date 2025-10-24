@@ -5,7 +5,7 @@
 
 #include <cstdint>
 #include <type_traits>
-#include "Tensor.h"
+#include "core/Tensor.h"
 
 namespace OwnTensor
 {

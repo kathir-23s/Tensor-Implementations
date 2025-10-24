@@ -3,7 +3,7 @@
 #ifndef OWNTENSOR_REDUCTION_OPS_H
 #define OWNTENSOR_REDUCTION_OPS_H
 
-#include "Types.h"
+#include "dtype/Types.h"
 #include <limits>
 #include <algorithm>
 #include <cmath>

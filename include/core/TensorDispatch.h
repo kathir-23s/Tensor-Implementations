@@ -3,8 +3,8 @@
 #ifndef TENSOR_DISPATCH_H
 #define TENSOR_DISPATCH_H
 
-#include "Tensor.h"
-#include "DtypeTraits.h" // Needed if using type_to_dtype or is_float/is_integral
+#include "core/Tensor.h"
+#include "dtype/DtypeTraits.h" // Needed if using type_to_dtype or is_float/is_integral
 #include <stdexcept>
 #include <type_traits> // Required for std::decay_t
 
@@ -26,7 +26,7 @@ static auto dispatch_by_dtype(Dtype dtype, Func&& f) {
             
         // 16-bit float types (Note: Actual computation might require promotion 
         // to float/double, but here we pass the underlying C++ type for the kernel).
-        // For our current implementation, the underlying C++ type is uint16_t (see DtypeTraits.h)
+        // For our current implementation, the underlying C++ type is uint16_t (see dtype/DtypeTraits.h)
         case Dtype::Bfloat16: return f(typename dtype_traits<Dtype::Bfloat16>::type{}); 
         case Dtype::Float16:  return f(typename dtype_traits<Dtype::Float16>::type{}); 
             

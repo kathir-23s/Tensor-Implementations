@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Tensor.h" // Provides OwnTensor::Tensor and OwnTensor::Shape
+#include "core/Tensor.h" // Provides OwnTensor::Tensor and OwnTensor::Shape
 #include <vector>
 #include <cstdint>
 #include <numeric>   // For std::accumulate
