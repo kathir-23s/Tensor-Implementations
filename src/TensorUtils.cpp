@@ -1,4 +1,4 @@
-#include "Tensor.h"
+#include "core/Tensor.h"
 #include <iostream>
 #include <iomanip>
 
@@ -32,13 +32,13 @@ namespace OwnTensor
             case Dtype::Int64:
                 printData<int64_t>(os, data, count, precision, false); break;
             case Dtype::Float32:
-                printData<float>(os, data, count, precision, false); break;
+                printData<float>(os, data, count, precision, true); break;
             case Dtype::Float64:
-                printData<double>(os, data, count, precision, false); break;
+                printData<double>(os, data, count, precision, true); break;
             case Dtype::Float16:
-                printData<float16_t>(os, data, count, precision, false); break;
+                printData<float16_t>(os, data, count, precision, true); break;
             case Dtype::Bfloat16:
-                printData<bfloat16_t>(os, data, count, precision, false); break;
+                printData<bfloat16_t>(os, data, count, precision, true); break;
             default:
                 os << "<unsupported dtype>";
         }

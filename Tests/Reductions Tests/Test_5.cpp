@@ -1,6 +1,6 @@
-#include "Tensor.h"
+#include "core/Tensor.h"
 #include "Reduction.h"
-#include "Types.h"
+#include "dtype/Types.h"
 #include <iostream>
 #include <iomanip>
 #include <chrono>

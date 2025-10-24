@@ -26,14 +26,30 @@ namespace OwnTensor
     #endif
     }
 
+    // void CUDAAllocator::deallocate(void* ptr) {
+    // #ifdef WITH_CUDA
+    //     // cudaFree(ptr);
+    //     if (ptr)
+    //     {
+    //         cudaError_t err = cudaFree(ptr);
+    //         if (err != cudaSuccess) {
+    //             std::cerr << "CUDA free failed: " << cudaGetErrorString(err) << std::endl;
+    //         }
+    //     }
+    // #endif
+    // }
+
     void CUDAAllocator::deallocate(void* ptr) {
     #ifdef WITH_CUDA
-        // cudaFree(ptr);
-        if (ptr)
-        {
+        if (ptr) {
+            cudaDeviceSynchronize();
             cudaError_t err = cudaFree(ptr);
             if (err != cudaSuccess) {
-                std::cerr << "CUDA free failed: " << cudaGetErrorString(err) << std::endl;
+                std::string error_msg = std::string("CUDA free failed: ") + cudaGetErrorString(err);
+                std::cerr << error_msg << std::endl;
+                // DON'T throw here - might be called in destructor
+                // But at least clear the error state
+                cudaGetLastError();  // Clear error
             }
         }
     #endif

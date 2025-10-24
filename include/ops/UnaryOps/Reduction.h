@@ -3,13 +3,13 @@
 #ifndef OWNTENSOR_REDUCTIONS_H
 #define OWNTENSOR_REDUCTIONS_H
 
-#include "Tensor.h" // Defines the OwnTensor::Tensor class and related structs
+#include "core/Tensor.h" // Defines the OwnTensor::Tensor class and related structs
 #include <vector>
 #include <cstdint> // For int64_t
 
 // CRITICAL STEP: Include the implementation header which contains ALL template definitions.
 // This allows the non-template functions in reductions.cpp to instantiate the templates.
-#include "ReductionImpl.h" 
+#include "ops/helpers/ReductionImpl.h" 
 
 namespace OwnTensor { // <<< START OF THE PUBLIC API NAMESPACE
 

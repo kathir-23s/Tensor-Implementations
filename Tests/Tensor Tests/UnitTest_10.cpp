@@ -1,5 +1,5 @@
-#include "Tensor.h"
-#include "DtypeTraits.h"
+#include "core/Tensor.h"
+#include "dtype/DtypeTraits.h"
 #include <iostream>
 #include <type_traits>
 #include <cstdint>

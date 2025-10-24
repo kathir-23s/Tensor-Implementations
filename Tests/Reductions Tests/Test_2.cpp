@@ -1,7 +1,7 @@
-#include "Tensor.h"
+#include "core/Tensor.h"
 #include "Reduction.h"
-#include "Types.h"
-#include "DtypeTraits.h"
+#include "dtype/Types.h"
+#include "dtype/DtypeTraits.h"
 #include <iostream>
 #include <iomanip>
 #include <cmath>

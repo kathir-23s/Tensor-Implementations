@@ -3,7 +3,8 @@
 #include <vector>
 #include <memory>
 #include "device/Device.h"
-#include "Types.h"
+#include "dtype/Types.h"
+// #include "ViewOps/ViewOps.h"
 
 namespace OwnTensor
 {
@@ -101,17 +102,30 @@ namespace OwnTensor
         void* grad() { return grad_ptr_.get(); }
         const void* grad() const { return grad_ptr_.get(); }
 
-        template <typename T>
+        // template <typename T>
+        // T* data() 
+        // {
+        // return reinterpret_cast<T*>(data_ptr_.get());
+        // }
+    
+        // template <typename T>
+        // const T* data() const 
+        // {
+        //     return reinterpret_cast<const T*>(data_ptr_.get());
+        // }
+        // In core/Tensor.h:
+        template<typename T>
         T* data() 
         {
-        return reinterpret_cast<T*>(data_ptr_.get());
+            return reinterpret_cast<T*>(data_ptr_.get() + storage_offset_);
         }
     
-        template <typename T>
+        template<typename T>
         const T* data() const 
         {
-            return reinterpret_cast<const T*>(data_ptr_.get());
+            return reinterpret_cast<const T*>(data_ptr_.get() + storage_offset_);
         }
+
 
         // ######################################################
         // Device Metadata
@@ -130,9 +144,12 @@ namespace OwnTensor
         size_t nbytes() const;
         size_t grad_nbytes() const; 
         size_t numel() const; 
+        size_t allocated_bytes() const { return data_size_; }
+        size_t grad_allocated_bytes() const { return data_size_; }
         bool owns_data() const { return owns_data_; }
         bool owns_grad() const { return owns_grad_; }
         bool is_contiguous() const;
+        Tensor contiguous() const;
 
         //#######################################################
         // Data Manipulation
@@ -159,13 +176,29 @@ namespace OwnTensor
         static Tensor full(Shape shape, TensorOptions, float val);
         static Tensor rand(Shape shape, TensorOptions opts);
         static Tensor randn(Shape shape, TensorOptions opts);
+
+        //#######################################################
+        // View Operations
+        //#######################################################
+        Tensor view(Shape new_shape) const;
+        Tensor reshape(Shape new_shape) const;
+        Tensor transpose(int dim0, int dim1) const;
+        Tensor t() const; 
+        Tensor flatten(int start_dim = 0, int end_dim = -1) const;
+        Tensor unflatten(int dim, Shape sizes) const;
+        
+        //#######################################################
+        // View Utilities
+        //#######################################################
+        size_t storage_offset() const;  // ← MUST EXIST
         
         //######################################################
         // Utilities
         //######################################################
         
         void display(std::ostream& os, int prec) const;
-        
+        Tensor clone() const;
+        Tensor& copy_(const Tensor& src);
 
 
         private:
@@ -185,10 +218,20 @@ namespace OwnTensor
 
             // Size Informations
             size_t data_size_ = 0;
+
+            size_t storage_offset_ = 0;
+            
+            Tensor(std::shared_ptr<uint8_t[]> data_ptr,
+            Shape shape,
+            Stride stride,
+            size_t offset,
+            Dtype dtype,
+            DeviceIndex device,
+            bool requires_grad = false);
     };  
 } 
 
 // End of namespace OwnTensor
-#include "DtypeTraits.h"
-#include "TensorDataManip.h"
-#include "TensorDispatch.h"
+#include "dtype/DtypeTraits.h"
+#include "core/TensorDataManip.h"
+#include "core/TensorDispatch.h"

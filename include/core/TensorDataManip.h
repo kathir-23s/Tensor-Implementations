@@ -3,8 +3,8 @@
 #ifndef TENSOR_UTILS_H
 #define TENSOR_UTILS_H
 
-#include "Tensor.h"
-#include "Types.h"
+#include "core/Tensor.h"
+#include "dtype/Types.h"
 #include "device/DeviceTransfer.h"  // Add this include
 #include <iostream>
 #include <cstring>

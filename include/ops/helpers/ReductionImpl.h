@@ -3,10 +3,10 @@
 #ifndef OWNTENSOR_REDUCTIONS_IMPL_H
 #define OWNTENSOR_REDUCTIONS_IMPL_H
 
-#include "Tensor.h" 
-#include "Types.h" 
-#include "ReductionUtils.h" 
-#include "ReductionOps.h" 
+#include "core/Tensor.h" 
+#include "dtype/Types.h" 
+#include "ops/helpers/ReductionUtils.h" 
+#include "ops/helpers/ReductionOps.h" 
 #include <vector>
 #include <algorithm>
 #include <cmath>
