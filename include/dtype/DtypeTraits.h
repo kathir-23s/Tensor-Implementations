@@ -7,6 +7,12 @@
 #include <type_traits>
 #include "core/Tensor.h"
 
+// Only include CUDA headers when actually compiling CUDA code
+#if defined(WITH_CUDA) && (defined(__CUDACC__) || defined(__CUDA_ARCH__))
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+#endif
+
 namespace OwnTensor
 {
     enum class Dtype;
@@ -21,7 +27,7 @@ namespace OwnTensor
         static constexpr bool is_integral = false;
     };
 
-    // Integer Types
+    // Integer Types (unchanged)
     template <>
     struct dtype_traits<Dtype::Int16> 
     {
@@ -56,11 +62,13 @@ namespace OwnTensor
     template <>
     struct dtype_traits<Dtype::Float16> 
     {
-        // No native float16 type in standard C++, so use uint16_t as a placeholder
-        // Need to look into ways we can make this work
-        // TO DO: !!!
+        #if defined(WITH_CUDA) && (defined(__CUDACC__) || defined(__CUDA_ARCH__))
+        using type = __half;
+        static constexpr size_t size = sizeof(__half);
+        #else
         using type = float16_t;
         static constexpr size_t size = sizeof(float16_t);
+        #endif
         static constexpr const char* name = "fp16";
         static constexpr bool is_floating_point = true;
         static constexpr bool is_integral = false;
@@ -69,11 +77,13 @@ namespace OwnTensor
     template <>
     struct dtype_traits<Dtype::Bfloat16> 
     {   
-        // No native float16 type in standard C++, so use uint16_t as a placeholder
-        // Need to look into ways we can make this work
-        // TO DO: !!!
+        #if defined(WITH_CUDA) && (defined(__CUDACC__) || defined(__CUDA_ARCH__))
+        using type = __nv_bfloat16;  // FIXED: was __nv_bfloat16_t
+        static constexpr size_t size = sizeof(__nv_bfloat16);
+        #else
         using type = bfloat16_t;
         static constexpr size_t size = sizeof(bfloat16_t);
+        #endif
         static constexpr const char* name = "bf16";
         static constexpr bool is_floating_point = true;
         static constexpr bool is_integral = false;
@@ -98,7 +108,6 @@ namespace OwnTensor
         static constexpr bool is_floating_point = true;
         static constexpr bool is_integral = false;
     };
-
 
     // Utility functions
 template<typename T>
