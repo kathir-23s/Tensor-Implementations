@@ -5,13 +5,13 @@
 #include <algorithm>
 
 // --- REQUIRED CORE FRAMEWORK INCLUDES ---
-#include "Tensor.h"     
-#include "Types.h"      
+#include "core/Tensor.h"     
+#include "dtype/Types.h"      
 #include "Reduction.h" 
 
 // CRITICAL FIX: Include the file that contains the implementation
 // of templated functions like set_data and fill.
-#include "TensorDataManip.h" 
+#include "core/TensorDataManip.h" 
 
 namespace OwnTensor {
 
@@ -46,7 +46,7 @@ int main() {
     Tensor T(Shape{{2, 3}}, Dtype::Float16); 
     
     // 2. Set data: [[ 1.0, 5.0, 3.0 ], [ 4.0, 9.0, 6.0 ]]
-    // Note: set_data is a templated method defined in TensorDataManip.h
+    // Note: set_data is a templated method defined in core/TensorDataManip.h
    // T.set_data({1.0f, 5.0f, 3.0f, 4.0f, 9.0f, 6.0f});
 T.set_data({float16_t(1.0f), float16_t(5.0f), float16_t(3.0f), float16_t(4.0f), float16_t(9.0f), float16_t(6.0f)});
 
