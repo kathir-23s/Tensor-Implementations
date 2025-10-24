@@ -8,7 +8,7 @@
 #include <cassert>
 #include "Tensor.h"
 #include "Types.h"
-#include "ViewOps/test_utils.h"
+#include "ops/helpers/testutils.h"
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>

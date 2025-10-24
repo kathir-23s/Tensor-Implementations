@@ -7,7 +7,7 @@
 #include <sstream>
 #include "Tensor.h"
 #include "Types.h"
-#include "ViewOps/test_utils.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;
@@ -149,7 +149,7 @@ void test_view(TestReport& report, const DeviceIndex& device, Dtype dtype) {
         Tensor original = create_tensor_from_float(data, device, dtype);
         original = original.reshape({{2, 6}});
         Tensor viewed = original.view({{3, 4}});
-        std::string test_name = std::string("view (")+ (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("view (")+ (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(viewed, {3, 4});
         bool shares_data = check_data_sharing(original, viewed, dtype);
         bool passed = shape_correct && shares_data;
@@ -160,7 +160,7 @@ void test_view(TestReport& report, const DeviceIndex& device, Dtype dtype) {
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "view (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "view (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -172,7 +172,7 @@ void test_reshape(TestReport& report, const DeviceIndex& device, Dtype dtype) {
         Tensor original = create_tensor_from_float(data, device, dtype);
         original = original.reshape({{2, 6}});
         Tensor reshaped = original.reshape({{3, 4}});
-        std::string test_name = std::string("reshape (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("reshape (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(reshaped, {3, 4});
         bool shares_data = check_data_sharing(original, reshaped, dtype);
         bool passed = shape_correct && shares_data;
@@ -183,7 +183,7 @@ void test_reshape(TestReport& report, const DeviceIndex& device, Dtype dtype) {
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "reshape (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "reshape (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -195,7 +195,7 @@ void test_transpose(TestReport& report, const DeviceIndex& device, Dtype dtype) 
         Tensor original = create_tensor_from_float(data, device, dtype);
         original = original.reshape({{2, 3}});
         Tensor transposed = original.transpose(0, 1);
-        std::string test_name = std::string("transpose (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("transpose (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(transposed, {3, 2});
         bool shares_data = check_data_sharing(original, transposed, dtype);
         bool passed = shape_correct && shares_data;
@@ -206,7 +206,7 @@ void test_transpose(TestReport& report, const DeviceIndex& device, Dtype dtype) 
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "transpose (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "transpose (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -218,7 +218,7 @@ void test_t(TestReport& report, const DeviceIndex& device, Dtype dtype) {
         Tensor original = create_tensor_from_float(data, device, dtype);
         original = original.reshape({{2, 3}});
         Tensor transposed = original.t();
-        std::string test_name = std::string("t() (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("t() (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(transposed, {3, 2});
         bool shares_data = check_data_sharing(original, transposed, dtype);
         bool passed = shape_correct && shares_data;
@@ -229,7 +229,7 @@ void test_t(TestReport& report, const DeviceIndex& device, Dtype dtype) {
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "t() (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "t() (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -241,7 +241,7 @@ void test_flatten(TestReport& report, const DeviceIndex& device, Dtype dtype) {
         Tensor original = create_tensor_from_float(data, device, dtype);
         original = original.reshape({{2, 2, 3}});
         Tensor flattened = original.flatten();
-        std::string test_name = std::string("flatten (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("flatten (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(flattened, {12});
         bool shares_data = check_data_sharing(original, flattened, dtype);
         bool passed = shape_correct && shares_data;
@@ -252,7 +252,7 @@ void test_flatten(TestReport& report, const DeviceIndex& device, Dtype dtype) {
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "flatten (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "flatten (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -263,7 +263,7 @@ void test_unflatten(TestReport& report, const DeviceIndex& device, Dtype dtype) 
         std::vector<float> data = {1,2,3,4,5,6,7,8,9,10,11,12};
         Tensor original = create_tensor_from_float(data, device, dtype);
         Tensor unflattened = original.unflatten(0, {{3, 4}});
-        std::string test_name = std::string("unflatten (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("unflatten (") + (original.is_cpu() ? "CPU" : "GPU") + ", " + get_dtype_name(dtype) + ")";
         bool shape_correct = verify_shape(unflattened, {3, 4});
         bool shares_data = check_data_sharing(original, unflattened, dtype);
         bool passed = shape_correct && shares_data;
@@ -274,7 +274,7 @@ void test_unflatten(TestReport& report, const DeviceIndex& device, Dtype dtype) 
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = "unflatten (" + dtype_to_string(dtype) + ")";
+        std::string test_name = "unflatten (" + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }

@@ -4,7 +4,7 @@
 #include <type_traits>
 
 #include "core/Tensor.h"
-#include "core/Types.h"
+#include "dtype/Types.h"
 #include "core/TensorDispatch.h"
 
 namespace OwnTensor {

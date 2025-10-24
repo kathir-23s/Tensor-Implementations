@@ -5,11 +5,12 @@
 #include <fstream>
 #include <sstream>
 #include <ctime>
+
 #include "Tensor.h"
 #include "Types.h"
-#include "UnaryOps.h"
+#include "ops/UnaryOps/Arithmetics.h"
 #include "TensorDispatch.h"
-#include "UnaryOps/test_utils.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;
@@ -139,7 +140,7 @@ void test_square_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "square" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             square_(input);
@@ -174,7 +175,7 @@ void test_square_root_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "square_root" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             // Check for integer dtypes (should throw)
@@ -223,7 +224,7 @@ void test_reciprocal_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "reciprocal" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             // Check for integer dtypes (should throw)
@@ -272,7 +273,7 @@ void test_negator_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "negator" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             negator_(input);
@@ -305,7 +306,7 @@ void test_absolute_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "absolute" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             absolute_(input);
@@ -338,7 +339,7 @@ void test_sign_function(TestReport& report, const DeviceIndex& device,
         Tensor input = create_tensor_from_float(input_data, device, dtype);
         std::string test_name = "sign" + std::string(inplace ? "_" : "") + 
                                " (" + (input.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         if (inplace) {
             sign_(input);
