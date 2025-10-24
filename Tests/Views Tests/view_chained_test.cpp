@@ -5,9 +5,10 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+
 #include "Tensor.h"
 #include "Types.h"
-#include "ViewOps/test_utils.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;
@@ -132,7 +133,7 @@ void test_reshape_transpose_flatten(TestReport& report, const DeviceIndex& devic
         
         std::string test_name = std::string("reshape→transpose→flatten (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         bool shape_correct = verify_shape(t, {12});
         bool passed = shape_correct;
@@ -146,7 +147,7 @@ void test_reshape_transpose_flatten(TestReport& report, const DeviceIndex& devic
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("reshape→transpose→flatten (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("reshape→transpose→flatten (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -162,7 +163,7 @@ void test_flatten_unflatten_t(TestReport& report, const DeviceIndex& device, Dty
         
         std::string test_name = std::string("reshape→t→flatten→unflatten (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         bool shape_correct = verify_shape(t, {2, 6});
         bool passed = shape_correct;
@@ -176,7 +177,7 @@ void test_flatten_unflatten_t(TestReport& report, const DeviceIndex& device, Dty
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("reshape→t→flatten→unflatten (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("reshape→t→flatten→unflatten (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -192,7 +193,7 @@ void test_view_reshape_flatten_unflatten(TestReport& report, const DeviceIndex& 
         
         std::string test_name = std::string("view→reshape→flatten→unflatten (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         bool shape_correct = verify_shape(t, {3, 8});
         bool passed = shape_correct;
@@ -206,7 +207,7 @@ void test_view_reshape_flatten_unflatten(TestReport& report, const DeviceIndex& 
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("view→reshape→flatten→unflatten (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("view→reshape→flatten→unflatten (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -222,7 +223,7 @@ void test_complex_chain(TestReport& report, const DeviceIndex& device, Dtype dty
         
         std::string test_name = std::string("complex_chain (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         bool shape_correct = verify_shape(t, {2, 12});
         bool passed = shape_correct;
@@ -236,7 +237,7 @@ void test_complex_chain(TestReport& report, const DeviceIndex& device, Dtype dty
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("complex_chain (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("complex_chain (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -252,7 +253,7 @@ void test_double_transpose(TestReport& report, const DeviceIndex& device, Dtype 
         
         std::string test_name = std::string("double_transpose (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         // Double transpose should return to original shape [2,3]
         bool shape_correct = verify_shape(t, {2, 3});
@@ -267,7 +268,7 @@ void test_double_transpose(TestReport& report, const DeviceIndex& device, Dtype 
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("double_transpose (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("double_transpose (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }
@@ -283,7 +284,7 @@ void test_flatten_unflatten_roundtrip(TestReport& report, const DeviceIndex& dev
         
         std::string test_name = std::string("flatten→unflatten_roundtrip (") + 
                                (t.is_cpu() ? "CPU" : "GPU") + ", " + 
-                               dtype_to_string(dtype) + ")";
+                               get_dtype_name(dtype) + ")";
         
         // Should return to [3,4]
         bool shape_correct = verify_shape(t, {3, 4});
@@ -298,7 +299,7 @@ void test_flatten_unflatten_roundtrip(TestReport& report, const DeviceIndex& dev
     } catch (const std::exception& e) {
         auto end = std::chrono::high_resolution_clock::now();
         double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        std::string test_name = std::string("flatten→unflatten_roundtrip (") + dtype_to_string(dtype) + ")";
+        std::string test_name = std::string("flatten→unflatten_roundtrip (") + get_dtype_name(dtype) + ")";
         report.add_result({test_name, false, std::string("Exception: ") + e.what(), time_ms});
     }
 }

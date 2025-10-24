@@ -178,7 +178,19 @@ constexpr Dtype type_to_dtype()
     /**
  * @brief Helper function to get the Dtype name at runtime (since Dtype is a runtime variable).
  */
-inline const char* get_dtype_name(Dtype dtype) {
+// inline const char* get_dtype_name(Dtype dtype) {
+//     switch (dtype) {
+//         case Dtype::Int16:    return "int16";
+//         case Dtype::Int32:    return "int32";
+//         case Dtype::Int64:    return "int64";
+//         case Dtype::Bfloat16: return "bfloat16";
+//         case Dtype::Float16:  return "float16";
+//         case Dtype::Float32:  return "float32";
+//         case Dtype::Float64:  return "float64";
+//         default:              return "Unknown";
+//     }
+// }
+inline std::string get_dtype_name(Dtype dtype) {
     switch (dtype) {
         case Dtype::Int16:    return "int16";
         case Dtype::Int32:    return "int32";

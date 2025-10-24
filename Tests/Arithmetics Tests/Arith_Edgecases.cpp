@@ -8,8 +8,8 @@
 #include <limits>
 #include "Tensor.h"
 #include "Types.h"
-#include "UnaryOps.h"
-#include "UnaryOps/test_utils.h"
+#include "ops/UnaryOps/Arithmetics.h"
+#include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
 using namespace TestUtils;
@@ -215,7 +215,7 @@ int main() {
             Tensor y = apply_unary(a, op);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-            report.add({ "specials/" + op + "(" + dtype_to_string(dt) + ")", ok, msg,
+            report.add({ "specials/" + op + "(" + get_dtype_name(dt) + ")", ok, msg,
                 std::chrono::duration<double, std::milli>(t1-t0).count() });
         }
     }
@@ -236,7 +236,7 @@ int main() {
                 Tensor y = square_root(a);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-                report.add({ "domain/sqrt_negative(" + dtype_to_string(dt) + ")", ok, msg,
+                report.add({ "domain/sqrt_negative(" + get_dtype_name(dt) + ")", ok, msg,
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
             
@@ -248,7 +248,7 @@ int main() {
                 Tensor y = reciprocal(a);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-                report.add({ "domain/reciprocal_zero(" + dtype_to_string(dt) + ")", ok, msg,
+                report.add({ "domain/reciprocal_zero(" + get_dtype_name(dt) + ")", ok, msg,
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
         }
@@ -268,7 +268,7 @@ int main() {
             Tensor y = square(a);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-            report.add({ "overflow/square(" + dtype_to_string(dt) + ")", ok, msg,
+            report.add({ "overflow/square(" + get_dtype_name(dt) + ")", ok, msg,
                 std::chrono::duration<double, std::milli>(t1-t0).count() });
         }
     }
@@ -289,7 +289,7 @@ int main() {
                 Tensor y = apply_unary(a, op);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-                report.add({ "subnormals/" + op + "(" + dtype_to_string(dt) + ")", ok, msg,
+                report.add({ "subnormals/" + op + "(" + get_dtype_name(dt) + ")", ok, msg,
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
         }
@@ -311,7 +311,7 @@ int main() {
                 Tensor y = apply_unary(a, op);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(idt), msg);
-                report.add({ "integer/" + op + "(" + dtype_to_string(idt) + ")", ok, msg,
+                report.add({ "integer/" + op + "(" + get_dtype_name(idt) + ")", ok, msg,
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
             
@@ -324,8 +324,8 @@ int main() {
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = (y.dtype() == Dtype::Float64);
                 if (ok) ok = check_tensor(y, ref, tol_for(Dtype::Float64), msg);
-                else msg = "Expected Float64 output, got " + dtype_to_string(y.dtype());
-                report.add({ "integer_promotion/square(" + dtype_to_string(idt) + ")", ok, msg,
+                else msg = "Expected Float64 output, got " + get_dtype_name(y.dtype());
+                report.add({ "integer_promotion/square(" + get_dtype_name(idt) + ")", ok, msg,
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
         }
@@ -348,7 +348,7 @@ int main() {
                     threw = true; 
                 }
                 auto t1 = std::chrono::high_resolution_clock::now();
-                report.add({ "integer_inplace_reject/" + op + "_(" + dtype_to_string(idt) + ")", 
+                report.add({ "integer_inplace_reject/" + op + "_(" + get_dtype_name(idt) + ")", 
                     threw, threw ? "Correctly threw exception" : "ERROR: Expected exception",
                     std::chrono::duration<double, std::milli>(t1-t0).count() });
             }
@@ -369,7 +369,7 @@ int main() {
             Tensor y = sign(a);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-            report.add({ "sign/zero_handling(" + dtype_to_string(dt) + ")", ok, msg,
+            report.add({ "sign/zero_handling(" + get_dtype_name(dt) + ")", ok, msg,
                 std::chrono::duration<double, std::milli>(t1-t0).count() });
         }
     }
@@ -388,7 +388,7 @@ int main() {
             Tensor y = absolute(a);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
-            report.add({ "abs/mixed_signs(" + dtype_to_string(dt) + ")", ok, msg,
+            report.add({ "abs/mixed_signs(" + get_dtype_name(dt) + ")", ok, msg,
                 std::chrono::duration<double, std::milli>(t1-t0).count() });
         }
     }
