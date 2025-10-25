@@ -1,4 +1,4 @@
-#include "core/Tensor.h"
+#include "TensorLib.h"
 #include "device/DeviceTransfer.h"
 #include <cuda_runtime.h>
 

@@ -1,4 +1,4 @@
-#include "core/Tensor.h"
+#include "TensorLib.h"
 #include "../include/dtype/DtypeTraits.h"
 #include <iostream>
 #include <vector>
