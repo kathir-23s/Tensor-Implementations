@@ -530,9 +530,3 @@ template Tensor operator/<bfloat16_t>(bfloat16_t, const Tensor&);
 } // namespace OwnTensor
 
 #endif // WITH_CUDA
-
-
-
-
-/*nvcc -std=c++17 -O2 -DWITH_CUDA -Iinclude -Isrc   src/Tensor.cpp src/TensorFactory.cpp src/TensorUtils.cpp   src/device/CPUAllocator.cpp src/device/DeviceTransfer.cpp   src/device/AllocatorRegistry.cpp src/device/DeviceCore.cpp   src/device/CUDAAllocator.cpp  src/ScalarOps/ScalarOps.cu local_test/scalar_cuda_full.cpp   -o scalar_cuda_ful
-l   -lcudart -lcurand*/
