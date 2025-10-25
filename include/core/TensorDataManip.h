@@ -8,13 +8,15 @@
 #include "device/DeviceTransfer.h"  // Add this include
 #include <iostream>
 #include <cstring>
+#include "dtype/DtypeTraits.h" // For is_same_type
 
 namespace OwnTensor
 {
-    // Forward declaration for is_same_type
+    
+// Forward declaration for is_same_type
     template<typename T>
     bool is_same_type(Dtype dtype);
-
+    
     template <typename T>
     inline void Tensor::set_data(const T* source_data, size_t count)
     {
@@ -64,29 +66,10 @@ namespace OwnTensor
     inline void Tensor::set_data(std::initializer_list<T> values) {
         // if (dtype_ != Dtype::Float32) {
         //     throw std::runtime_error("Initializer list only supports Float32");
-        // }
+        // } (commented this,so that it supports all other dtypes defined too.)
         set_data(values.begin(), values.size());
     }
 
-    // Helper function
-    template<typename T>
-    bool is_same_type(Dtype dtype) {
-        if constexpr (std::is_same_v<T, int32_t>) {
-            return dtype == Dtype::Int32;
-        } else if constexpr (std::is_same_v<T, float>) {
-            return dtype == Dtype::Float32;
-        } else if constexpr (std::is_same_v<T, double>) {
-            return dtype == Dtype::Float64;
-        } else if constexpr (std::is_same_v<T, int16_t>) {
-            return dtype == Dtype::Int16;
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            return dtype == Dtype::Int64;
-        } else if constexpr (std::is_same_v<T, float16_t>) {
-            return dtype == Dtype::Float16; 
-        } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-            return dtype == Dtype::Bfloat16;
-        }
-        return false;
-    }
+    
 }
 #endif

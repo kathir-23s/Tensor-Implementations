@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "device/Device.h"
+#include "dtype/Dtype.h" 
 #include "dtype/Types.h"
 
 namespace OwnTensor
@@ -11,12 +12,7 @@ namespace OwnTensor
     // Custom Type Definitions
     // ########################################################################
 
-    // DataTypes and Devices
-    enum class Dtype {
-        Int16, Int32, Int64,
-        Bfloat16, Float16, Float32, Float64
-    };
-
+    
 
 
     // Shape and stride
