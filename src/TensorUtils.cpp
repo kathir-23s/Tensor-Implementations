@@ -1,6 +1,9 @@
 #include "core/Tensor.h"
+#include "dtype/DtypeTraits.h"
 #include <iostream>
 #include <iomanip>
+#include <vector>
+#include <algorithm>
 
 namespace OwnTensor
 {   
@@ -8,12 +11,13 @@ namespace OwnTensor
     void printData(std::ostream& os, const void* data, size_t count, int precision, bool isFloat)
     {
         const T* ptr = static_cast<const T*>(data);
-        for (size_t i=0; i<count; ++i)
+        for (size_t i = 0; i < count; ++i)
         {
             if (isFloat)
             {
                 os << std::setprecision(precision) << ptr[i];
-            } else
+            }
+            else
             {
                 os << ptr[i];
             }
@@ -44,62 +48,96 @@ namespace OwnTensor
         }
     }
 
-    void Tensor::display(std::ostream& os, int precision) const {
-        // Print the shape of the tensor
-        os << ", device=";
-        if (device_.device == Device::CPU)
-        {
-            os << "cpu";
+    void printTensorRecursive(std::ostream& os, const Tensor& tensor, 
+                             const std::vector<int64_t>& indices, int depth, 
+                             int precision, int max_elements = 6) 
+    {
+        const auto& dims = tensor.shape().dims;
+        
+        if (depth == dims.size() - 1) {
+            // Last dimension - print the elements
+            os << "[";
+            
+            // Calculate the offset for this slice
+            int64_t offset = 0;
+            for (size_t i = 0; i < indices.size(); ++i) {
+                offset += indices[i] * tensor.stride().strides[i];
+            }
+            
+            const void* slice_data = static_cast<const char*>(tensor.data()) + offset * tensor.dtype_size(tensor.dtype());
+            int64_t elements_to_print = std::min(dims[depth], static_cast<int64_t>(max_elements));
+            
+            dispatchPrint(os, tensor.dtype(), slice_data, elements_to_print, precision);
+            
+            if (dims[depth] > max_elements) {
+                os << " ...";
+            }
+            
+            os << "]";
         } else {
-            os << "cuda:" << device_.index; 
+            // Recursive case - print nested arrays
+            os << "[";
+            
+            int64_t current_dim = dims[depth];
+            int64_t elements_to_print = std::min(current_dim, static_cast<int64_t>(max_elements));
+            
+            for (int64_t i = 0; i < elements_to_print; ++i) {
+                std::vector<int64_t> new_indices = indices;
+                new_indices.push_back(i);
+                
+                printTensorRecursive(os, tensor, new_indices, depth + 1, precision, max_elements);
+                
+                if (i < elements_to_print - 1) {
+                    os << "\n" << std::string(depth + 1, ' ');
+                }
+            }
+            
+            if (current_dim > max_elements) {
+                os << "\n" << std::string(depth + 1, ' ') << "...";
+            }
+            
+            if (depth == 0) {
+                os << "]";
+            } else {
+                os << "\n" << std::string(depth, ' ') << "]";
+            }
         }
+    }
 
-        os << "Tensor(shape=[";
+    void Tensor::display(std::ostream& os, int precision) const {
+        // Print header like PyTorch
+        os << "Tensor(";
+        
+        // Print shape
         const auto& dims = shape_.dims;
+        os << "shape=(";
         for (size_t i = 0; i < dims.size(); ++i) {
             os << dims[i];
             if (i < dims.size() - 1) os << ", ";
         }
-
-        // Print the datatype of the tensor
-        os << "], dtype=";
-        switch(dtype_)
-        {
-            case Dtype::Int16: os << "Int16"; break;
-            case Dtype::Int32: os << "Int32"; break;
-            case Dtype::Int64: os << "Int64"; break;
-            case Dtype::Float16: os << "Float16"; break;
-            case Dtype::Float32: os << "Float32"; break;
-            case Dtype::Float64: os << "Float64"; break;
-            case Dtype::Bfloat16: os << "Bfloat16"; break;
-        }
-
-        // Printing device of the tensor
-
-        os << ")\n";
-
-        if (dims.size() == 1) {
-        os << "[";
-        dispatchPrint(os, dtype_, data(), dims[0], precision);
-        os << "]" << std::endl;
-    } else if (dims.size() == 2) {
-        os << "[\n";
-        int64_t rows = dims[0];
-        int64_t cols = dims[1];
-        const void* base_ptr = data();
+        os << "), ";
         
-        for (int64_t i = 0; i < rows; ++i) {
-            os << " [";
-            const void* row_ptr = static_cast<const char*>(base_ptr) + i * stride_.strides[0] * dtype_size(dtype_);
-            dispatchPrint(os, dtype_, row_ptr, cols, precision);
-            os << "]";
-            if (i < rows - 1) os << "\n";
+        // Print dtype using the provided function
+        os << "dtype=" << get_dtype_name(dtype_) << ", ";
+        
+        // Print device
+        os << "device='";
+        if (device_.device == Device::CPU) {
+            os << "cpu";
+        } else {
+            os << "cuda:" << device_.index;
         }
-        os << "\n]" << std::endl;
-    } else {
-        os << "[";
-        dispatchPrint(os, dtype_, data(), numel(), precision);
-        os << "]" << std::endl;
-    }
+        os << "'";
+        
+        os << ")\n";
+        
+        // Print tensor data
+        if (dims.empty() || numel() == 0) {
+            os << "[]";
+        } else {
+            printTensorRecursive(os, *this, {}, 0, precision);
+        }
+        
+        os << std::endl;
     }
 }
