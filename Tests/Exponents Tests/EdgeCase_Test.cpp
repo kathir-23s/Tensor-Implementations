@@ -7,9 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "Tensor.h"
-#include "Types.h"
-#include "ops/UnaryOps/Exponents.h"
+#include "TensorLib.h"
 #include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;

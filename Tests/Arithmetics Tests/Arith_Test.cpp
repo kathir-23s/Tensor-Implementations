@@ -6,10 +6,7 @@
 #include <sstream>
 #include <ctime>
 
-#include "Tensor.h"
-#include "Types.h"
-#include "ops/UnaryOps/Arithmetics.h"
-#include "TensorDispatch.h"
+#include "TensorLib.h"
 #include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
@@ -47,7 +44,7 @@ public:
     }
     
     void generate_markdown() {
-        std::ofstream file(report_filename);
+        std::ofstream file("local_test/" + report_filename);
         
         // Header
         file << "# Arithmetic Functions Test Report\n\n";

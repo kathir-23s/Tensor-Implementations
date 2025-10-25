@@ -6,9 +6,8 @@
 #include <sstream>
 #include <cmath>
 #include <limits>
-#include "Tensor.h"
-#include "Types.h"
-#include "ops/UnaryOps/Arithmetics.h"
+
+#include "TensorLib.h"
 #include "ops/helpers/testutils.h"
 
 using namespace OwnTensor;
@@ -160,7 +159,7 @@ public:
     void add(EdgeTestResult r) { results.push_back(r); }
     
     void write() {
-        std::ofstream f("arith_edge_report.md");
+        std::ofstream f("local_test/arith_edge_report.md");
         f << "# Arithmetic Edge Cases Test Report\n\n";
         
         int pass=0, fail=0;
