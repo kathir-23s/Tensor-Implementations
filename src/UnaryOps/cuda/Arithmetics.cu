@@ -3,8 +3,8 @@
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 #include "ops/helpers/arith.hpp"
-#include "Tensor.h"
-#include "Types.h"
+#include "core/Tensor.h"
+#include "dtype/Types.h"
 
 namespace OwnTensor {
 

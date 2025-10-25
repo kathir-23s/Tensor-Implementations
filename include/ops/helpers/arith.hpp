@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Tensor.h"
+#include "core/Tensor.h"
 
 namespace OwnTensor{
 

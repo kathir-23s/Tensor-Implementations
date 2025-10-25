@@ -3,12 +3,14 @@
 #include "device/AllocatorRegistry.h"
 #include "device/DeviceTransfer.h"
 #include "device/Device.h"
+#include "core/Views/ViewUtils.h"
 #include <iostream>
 #include <cstring>
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>
 #include "device/DeviceCore.h"
+#include "core/Views/contiguous_kernel.h"
 #endif
 
 #ifdef WITH_DEBUG

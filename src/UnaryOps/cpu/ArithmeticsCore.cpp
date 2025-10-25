@@ -1,9 +1,9 @@
 #include <cmath>
-#include "Tensor.h"
-#include "Types.h"
-#include "TensorDispatch.h"
+#include "core/Tensor.h"
+#include "dtype/Types.h"
+#include "core/TensorDispatch.h"
 #include "ops/helpers/arith.hpp"
-#include "DtypeCastUtils.h"
+#include "dtype/DtypeCastUtils.h"
 
 namespace OwnTensor {
 
