@@ -3,9 +3,9 @@
 #include <vector>
 #include <cmath>
 #include <iostream>
-#include "Tensor.h"
-#include "Types.h"
-#include "DtypeCastUtils.h"
+#include "core/Tensor.h"
+#include "dtype/Types.h"
+#include "dtype/DtypeCastUtils.h"
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>

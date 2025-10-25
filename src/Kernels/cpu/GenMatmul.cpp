@@ -1,6 +1,6 @@
 #include "core/Tensor.h"
 #include "ops/Kernels.h"
-#include "ops/GenMatmulUtils.h"
+#include "ops/helpers/GenMatmulUtils.h"
 #include <stdexcept>
 #include <vector>
 #include <algorithm>

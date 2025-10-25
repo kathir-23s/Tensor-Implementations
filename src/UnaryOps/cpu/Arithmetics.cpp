@@ -1,5 +1,5 @@
 #include "ops/UnaryOps/Arithmetics.h"
-#include "Tensor.h"
+#include "core/Tensor.h"
 #include "device/Device.h"
 #include "ops/helpers/arith.hpp"
 #include <stdexcept>

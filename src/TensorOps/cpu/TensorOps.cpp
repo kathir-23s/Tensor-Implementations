@@ -1,5 +1,5 @@
 #include "core/Tensor.h"
-#include "ops/TensorOpUtils.h"
+#include "ops/helpers/TensorOpUtils.h"
 #include "ops/TensorOps.h"
 #include "ops/TensorOps.cuh"
 #include <stdexcept>
