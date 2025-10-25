@@ -4,7 +4,6 @@
 #include <memory>
 #include "device/Device.h"
 #include "dtype/Types.h"
-// #include "ViewOps/ViewOps.h"
 
 namespace OwnTensor
 {
