@@ -97,9 +97,9 @@ public:
         file << "- power(tensor, int)\n";
         file << "- power(tensor, float)\n";
         file << "- power(tensor, double)\n";
-        file << "- power_(tensor, int) [in-place]\n";
-        file << "- power_(tensor, float) [in-place]\n";
-        file << "- power_(tensor, double) [in-place]\n\n";
+        file << "- pow_(tensor, int) [in-place]\n";
+        file << "- pow_(tensor, float) [in-place]\n";
+        file << "- pow_(tensor, double) [in-place]\n\n";
 
         file << "### Edge Cases Tested\n";
         file << "- 0^0 → 1 (convention)\n";
@@ -276,7 +276,7 @@ static bool check_tensor(const Tensor& out, const std::vector<double>& ref,
 // Basic Power Tests
 // ============================================================================
 
-void test_power_integer_exponent(TestReport& report, const DeviceIndex& device, 
+void test_pow_integer_exponent(TestReport& report, const DeviceIndex& device, 
                                  Dtype dtype, bool inplace) {
     auto start = std::chrono::high_resolution_clock::now();
     try {
@@ -297,7 +297,7 @@ void test_power_integer_exponent(TestReport& report, const DeviceIndex& device,
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    power_(input, 2);
+                    pow_(input, 2);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -309,7 +309,7 @@ void test_power_integer_exponent(TestReport& report, const DeviceIndex& device,
                     return;
                 }
             }
-            power_(input, 2);
+            pow_(input, 2);
             Tensor result = input.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -317,7 +317,7 @@ void test_power_integer_exponent(TestReport& report, const DeviceIndex& device,
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : msg, time_ms});
         } else {
-            Tensor output = power(input, 2);
+            Tensor output = pow(input, 2);
             Tensor result = output.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -332,7 +332,7 @@ void test_power_integer_exponent(TestReport& report, const DeviceIndex& device,
     }
 }
 
-void test_power_float_exponent(TestReport& report, const DeviceIndex& device, 
+void test_pow_float_exponent(TestReport& report, const DeviceIndex& device, 
                                Dtype dtype, bool inplace) {
     auto start = std::chrono::high_resolution_clock::now();
     try {
@@ -353,7 +353,7 @@ void test_power_float_exponent(TestReport& report, const DeviceIndex& device,
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    power_(input, 0.5f);
+                    pow_(input, 0.5f);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -365,7 +365,7 @@ void test_power_float_exponent(TestReport& report, const DeviceIndex& device,
                     return;
                 }
             }
-            power_(input, 0.5f);
+            pow_(input, 0.5f);
             Tensor result = input.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -373,7 +373,7 @@ void test_power_float_exponent(TestReport& report, const DeviceIndex& device,
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : msg, time_ms});
         } else {
-            Tensor output = power(input, 0.5f);
+            Tensor output = pow(input, 0.5f);
             Tensor result = output.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -392,14 +392,14 @@ void test_power_float_exponent(TestReport& report, const DeviceIndex& device,
 // Edge Case Tests
 // ============================================================================
 
-void test_power_edge_cases(TestReport& report, Dtype dtype) {
+void test_pow_edge_cases(TestReport& report, Dtype dtype) {
     // Test 0^0 = 1
     {
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> x = {0.0};
         std::vector<double> expected = {1.0};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = power(a, 0);
+        Tensor y = pow(a, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -413,7 +413,7 @@ void test_power_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {0.0};
         std::vector<double> expected = {std::numeric_limits<double>::infinity()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = power(a, -2);
+        Tensor y = pow(a, -2);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -427,7 +427,7 @@ void test_power_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {-4.0};
         std::vector<double> expected = {std::numeric_limits<double>::quiet_NaN()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = power(a, 0.5f);
+        Tensor y = pow(a, 0.5f);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -441,7 +441,7 @@ void test_power_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {10.0};
         std::vector<double> expected = {std::numeric_limits<double>::infinity()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = power(a, 1000);
+        Tensor y = pow(a, 1000);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -455,7 +455,7 @@ void test_power_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {10.0};
         std::vector<double> expected = {0.0};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = power(a, -1000);
+        Tensor y = pow(a, -1000);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -474,7 +474,7 @@ int main() {
     std::cout << "  Including Float16/Bfloat16 Support\n";
     std::cout << "========================================\n\n";
 
-    TestReport report("Power_Test_Report.md");
+    TestReport report("pow_Test_Report.md");
 
     // Define test configurations
     std::vector<DeviceIndex> devices = {
@@ -502,9 +502,9 @@ int main() {
         for (const auto& dtype : dtypes) {
             for (bool inplace : modes) {
                 std::cout << "\rProgress: " << test_count << "/" << total_expected << std::flush;
-                test_power_integer_exponent(report, device, dtype, inplace);
+                test_pow_integer_exponent(report, device, dtype, inplace);
                 test_count++;
-                test_power_float_exponent(report, device, dtype, inplace);
+                test_pow_float_exponent(report, device, dtype, inplace);
                 test_count++;
             }
         }
@@ -514,7 +514,7 @@ int main() {
     std::cout << "\nRunning edge case tests (including F16/BF16)...\n";
     for (const auto& dtype : dtypes) {
         std::cout << "\rProgress: " << test_count << "/" << total_expected << std::flush;
-        test_power_edge_cases(report, dtype);
+        test_pow_edge_cases(report, dtype);
         test_count += 5;
     }
 

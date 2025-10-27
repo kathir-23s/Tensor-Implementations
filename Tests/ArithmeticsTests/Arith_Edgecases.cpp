@@ -110,20 +110,20 @@ static std::vector<double> ref_unary(const std::vector<double>& x, const std::st
 
 static Tensor apply_unary(const Tensor& a, const std::string& op) {
     if (op=="square") return square(a);
-    if (op=="sqrt") return square_root(a);
+    if (op=="sqrt") return sqrt(a);
     if (op=="reciprocal") return reciprocal(a);
     if (op=="negate") return negator(a);
-    if (op=="abs") return absolute(a);
+    if (op=="abs") return abs(a);
     if (op=="sign") return sign(a);
     throw std::runtime_error("Unknown op: " + op);
 }
 
 static void apply_unary_inplace(Tensor& a, const std::string& op) {
     if (op=="square") square_(a);
-    else if (op=="sqrt") square_root_(a);
+    else if (op=="sqrt") sqrt_(a);
     else if (op=="reciprocal") reciprocal_(a);
     else if (op=="negate") negator_(a);
-    else if (op=="abs") absolute_(a);
+    else if (op=="abs") abs_(a);
     else if (op=="sign") sign_(a);
     else throw std::runtime_error("Unknown op: " + op);
 }
@@ -232,7 +232,7 @@ int main() {
                 auto ref = ref_unary(x, "sqrt");
                 auto t0 = std::chrono::high_resolution_clock::now();
                 Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-                Tensor y = square_root(a);
+                Tensor y = sqrt(a);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
                 report.add({ "domain/sqrt_negative(" + get_dtype_name(dt) + ")", ok, msg,
@@ -384,7 +384,7 @@ int main() {
             auto ref = ref_unary(x, "abs");
             auto t0 = std::chrono::high_resolution_clock::now();
             Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-            Tensor y = absolute(a);
+            Tensor y = abs(a);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
             report.add({ "abs/mixed_signs(" + get_dtype_name(dt) + ")", ok, msg,
