@@ -94,6 +94,48 @@ Tensor reciprocal(const Tensor& input) {
     }
 }
 
+
+Tensor power(const Tensor& input, int exponent) {
+    if (input.is_cpu()) {
+        return power_out_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        return power_out_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
+Tensor power(const Tensor& input, float exponent) {
+    if (input.is_cpu()) {
+        return power_out_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        return power_out_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
+Tensor power(const Tensor& input, double exponent) {
+    if (input.is_cpu()) {
+        return power_out_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        return power_out_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
 // ============================================================================
 // IN-PLACE OPERATIONS
 // ============================================================================
@@ -182,4 +224,45 @@ void reciprocal_(Tensor& input) {
     }
 }
 
+void power_(Tensor& input, int exponent) {
+    if (input.is_cpu()) {
+        power_in_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        power_in_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
+void power_(Tensor& input, float exponent) {
+    if (input.is_cpu()) {
+        power_in_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        power_in_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
+
+void power_(Tensor& input, double exponent) {
+    if (input.is_cpu()) {
+        power_in_cpu_wrap(input, exponent);
+    }
+#ifdef WITH_CUDA
+    else if (input.is_cuda()) {
+        power_in_gpu_wrap(input, exponent);
+    }
+#endif
+    else {
+        throw std::runtime_error("Unsupported device type");
+    }
+}
 } // namespace OwnTensor

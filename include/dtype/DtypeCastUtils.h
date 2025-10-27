@@ -77,4 +77,42 @@ inline Dtype get_promoted_dtype_square(Dtype input_dtype) {
     }
 }
 
+// Helper function to handle edge cases
+template<typename T, typename ExpT>
+inline T safe_pow(T base, ExpT exponent) {
+    // Handle special cases
+    if (std::isnan(base) || std::isnan(exponent)) {
+        return std::numeric_limits<T>::quiet_NaN();
+    }
+    
+    // 0^0 returns 1 (convention)
+    if (base == T(0) && exponent == ExpT(0)) {
+        return T(1);
+    }
+    
+    // 0^(negative) returns infinity
+    if (base == T(0) && exponent < ExpT(0)) {
+        return std::numeric_limits<T>::infinity();
+    }
+    
+    // 0^(positive) returns 0
+    if (base == T(0) && exponent > ExpT(0)) {
+        return T(0);
+    }
+    
+    // Negative base with non-integer exponent returns NaN
+    if (base < T(0) && std::floor(exponent) != exponent) {
+        return std::numeric_limits<T>::quiet_NaN();
+    }
+    
+    // Standard power computation
+    T result = std::pow(base, static_cast<T>(exponent));
+    
+    // Check for overflow/underflow
+    if (std::isinf(result) || result == T(0)) {
+        return result; // Let inf/0 propagate
+    }
+    
+    return result;
+}
 } // namespace OwnTensor

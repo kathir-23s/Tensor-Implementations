@@ -92,6 +92,71 @@ __global__ void sqrt_bfloat16_kernel(const __nv_bfloat16* in, __nv_bfloat16* out
 }
 
 // ============================================================================
+// GPU Kernels - POWER (with edge case handling)
+// ============================================================================
+
+template<typename T, typename ExpT>
+__device__ inline T safe_pow_device(T base, ExpT exponent) {
+    // Handle NaN
+    if (isnan(base) || isnan(exponent)) {
+        return nanf("");
+    }
+    
+    // 0^0 = 1 (convention)
+    if (base == T(0) && exponent == ExpT(0)) {
+        return T(1);
+    }
+    
+    // 0^(negative) = inf
+    if (base == T(0) && exponent < ExpT(0)) {
+        return INFINITY;
+    }
+    
+    // 0^(positive) = 0
+    if (base == T(0) && exponent > ExpT(0)) {
+        return T(0);
+    }
+    
+    // Negative base with non-integer exponent = NaN
+    if (base < T(0) && floor(exponent) != exponent) {
+        return nanf("");
+    }
+    
+    return pow(base, static_cast<T>(exponent));
+}
+
+// Power kernel for all numeric types
+template<typename T_In, typename T_Out, typename ExpT>
+__global__ void power_kernel_gpu(const T_In* in, T_Out* out, size_t n, ExpT exponent) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        T_Out base = static_cast<T_Out>(in[idx]);
+        out[idx] = safe_pow_device(base, static_cast<T_Out>(exponent));
+    }
+}
+
+// Specialized power kernels for half and bfloat16
+template<typename ExpT>
+__global__ void power_half_kernel(const __half* in, __half* out, size_t n, ExpT exponent) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        float base = __half2float(in[idx]);
+        float result = safe_pow_device(base, static_cast<float>(exponent));
+        out[idx] = __float2half(result);
+    }
+}
+
+template<typename ExpT>
+__global__ void power_bfloat16_kernel(const __nv_bfloat16* in, __nv_bfloat16* out, size_t n, ExpT exponent) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        float base = __bfloat162float(in[idx]);
+        float result = safe_pow_device(base, static_cast<float>(exponent));
+        out[idx] = __float2bfloat16(result);
+    }
+}
+
+// ============================================================================
 // GPU Kernels - RECIPROCAL
 // ============================================================================
 
@@ -362,6 +427,88 @@ void square_root_in_gpu_wrap(Tensor& input) {
 }
 
 // ============================================================================
+// POWER - GPU Wrappers (int, float, double exponents)
+// ============================================================================
+// Helper template to launch power kernel for a specific exponent type
+template<typename ExpT>
+Tensor power_out_gpu_wrap_impl(const Tensor& input, ExpT exponent) {
+    Dtype out_dtype = promote_for_float_result(input.dtype());
+    Tensor output(input.shape(), out_dtype, input.device(), input.requires_grad());
+    size_t n = input.numel();
+    int threads = 256;
+    int blocks = (n + threads - 1) / threads;
+
+    if (input.dtype() == Dtype::Float16) {
+        power_half_kernel<<<blocks, threads>>>(input.data<__half>(), output.data<__half>(), n, exponent);
+    } else if (input.dtype() == Dtype::Bfloat16) {
+        power_bfloat16_kernel<<<blocks, threads>>>(input.data<__nv_bfloat16>(), output.data<__nv_bfloat16>(), n, exponent);
+    } else if (input.dtype() == Dtype::Int16 || input.dtype() == Dtype::Int32 || input.dtype() == Dtype::Int64) {
+        if (input.dtype() == Dtype::Int16) {
+            power_kernel_gpu<<<blocks, threads>>>(input.data<int16_t>(), output.data<float>(), n, exponent);
+        } else if (input.dtype() == Dtype::Int32) {
+            power_kernel_gpu<<<blocks, threads>>>(input.data<int32_t>(), output.data<float>(), n, exponent);
+        } else {
+            power_kernel_gpu<<<blocks, threads>>>(input.data<int64_t>(), output.data<float>(), n, exponent);
+        }
+    } else if (input.dtype() == Dtype::Float32) {
+        power_kernel_gpu<<<blocks, threads>>>(input.data<float>(), output.data<float>(), n, exponent);
+    } else if (input.dtype() == Dtype::Float64) {
+        power_kernel_gpu<<<blocks, threads>>>(input.data<double>(), output.data<double>(), n, exponent);
+    }
+    
+    cudaDeviceSynchronize();
+    return output;
+}
+
+template<typename ExpT>
+void power_in_gpu_wrap_impl(Tensor& input, ExpT exponent) {
+    if (input.dtype() == Dtype::Int16 || input.dtype() == Dtype::Int32 || input.dtype() == Dtype::Int64) {
+        throw std::invalid_argument("In-place power not supported for integer tensors");
+    }
+    
+    size_t n = input.numel();
+    int threads = 256;
+    int blocks = (n + threads - 1) / threads;
+
+    if (input.dtype() == Dtype::Float16) {
+        power_half_kernel<<<blocks, threads>>>(input.data<__half>(), input.data<__half>(), n, exponent);
+    } else if (input.dtype() == Dtype::Bfloat16) {
+        power_bfloat16_kernel<<<blocks, threads>>>(input.data<__nv_bfloat16>(), input.data<__nv_bfloat16>(), n, exponent);
+    } else if (input.dtype() == Dtype::Float32) {
+        power_kernel_gpu<<<blocks, threads>>>(input.data<float>(), input.data<float>(), n, exponent);
+    } else if (input.dtype() == Dtype::Float64) {
+        power_kernel_gpu<<<blocks, threads>>>(input.data<double>(), input.data<double>(), n, exponent);
+    }
+    
+    cudaDeviceSynchronize();
+}
+
+// Public wrappers for different exponent types
+Tensor power_out_gpu_wrap(const Tensor& input, int exponent) {
+    return power_out_gpu_wrap_impl(input, exponent);
+}
+
+Tensor power_out_gpu_wrap(const Tensor& input, float exponent) {
+    return power_out_gpu_wrap_impl(input, exponent);
+}
+
+Tensor power_out_gpu_wrap(const Tensor& input, double exponent) {
+    return power_out_gpu_wrap_impl(input, exponent);
+}
+
+void power_in_gpu_wrap(Tensor& input, int exponent) {
+    power_in_gpu_wrap_impl(input, exponent);
+}
+
+void power_in_gpu_wrap(Tensor& input, float exponent) {
+    power_in_gpu_wrap_impl(input, exponent);
+}
+
+void power_in_gpu_wrap(Tensor& input, double exponent) {
+    power_in_gpu_wrap_impl(input, exponent);
+}
+
+// ============================================================================
 // RECIPROCAL - GPU Wrappers
 // ============================================================================
 
@@ -471,5 +618,6 @@ void sign_in_gpu_wrap(Tensor& input) {
         sign_kernel_gpu<float>, sign_kernel_gpu<double>,
         sign_half_kernel, sign_bfloat16_kernel);
 }
+
 
 } // namespace OwnTensor
