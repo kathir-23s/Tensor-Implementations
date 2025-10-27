@@ -4,8 +4,7 @@
 #define OWNTENSOR_REDUCTIONS_IMPL_GPU_H
 
 #include "core/Tensor.h"
-// #include "core/"
-#include "Types.h"
+#include "dtype/Types.h"
 #include "ReductionUtils.h"
 #include "ReductionOps.h"
 #include <vector>

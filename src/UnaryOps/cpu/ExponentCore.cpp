@@ -4,6 +4,7 @@
 #include "core/TensorDispatch.h"
 #include "ops/helpers/exp_log.hpp"
 #include "dtype/DtypeCastUtils.h"
+#include "dtype/DtypeTraits.h"  // ← ADD THIS for is_int()
 
 namespace OwnTensor {
 // ============================================================================

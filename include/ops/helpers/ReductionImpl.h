@@ -291,8 +291,35 @@ Tensor reduce_kernel(
 // --- DISPATCHER TEMPLATES ---
 // =================================================================
 
+// =================================================================
+// --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
+// =================================================================
+
 template <typename T, template <typename> class OpType>
 Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+    
+    // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
+    constexpr bool is_nan_op = 
+        std::is_same_v<OpType<T>, NanSumOp<T>> ||
+        std::is_same_v<OpType<T>, NanProductOp<T>> ||
+        std::is_same_v<OpType<T>, NanMinOp<T>> ||
+        std::is_same_v<OpType<T>, NanMaxOp<T>> ||
+        std::is_same_v<OpType<T>, NanArgMinOp<T>> ||
+        std::is_same_v<OpType<T>, NanArgMaxOp<T>>;
+    
+    constexpr bool is_float_type = 
+        std::is_same_v<T, float> || 
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float16_t> ||
+        std::is_same_v<T, bfloat16_t>;
+    
+    // Block NaN operations on non-float types at compile time
+    if constexpr (is_nan_op && !is_float_type) {
+        throw std::runtime_error(
+            "NaN-aware operations are only supported for floating point types"
+        );
+    }
+    
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         // Route to GPU implementation
@@ -309,6 +336,8 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
         }
     }
 #endif
+
+    // CPU path continues as before
     if constexpr (std::is_same_v<OpType<T>, ArgMaxOp<T>> || 
                   std::is_same_v<OpType<T>, ArgMinOp<T>> || 
                   std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
@@ -325,16 +354,33 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 }
 
 // =================================================================
-// --- MEAN REDUCTION DISPATCHER ---
+// --- MEAN REDUCTION DISPATCHER WITH TYPE VALIDATION ---
 // =================================================================
 
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+    
+    // ✅ CRITICAL: Validate NaN-aware mean operations
+    constexpr bool is_nan_sum = std::is_same_v<SumOpType<T>, NanSumOp<T>>;
+    constexpr bool is_float_type = 
+        std::is_same_v<T, float> || 
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float16_t> ||
+        std::is_same_v<T, bfloat16_t>;
+    
+    if constexpr (is_nan_sum && !is_float_type) {
+        throw std::runtime_error(
+            "NaN-aware mean is only supported for floating point types"
+        );
+    }
+    
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim);
     }
 #endif
+
+    // CPU implementation continues as before...
     int64_t reduced_count = detail::calculate_reduced_count(input.shape().dims, normalized_axes);
 
     if (reduced_count == 0) {
@@ -412,7 +458,6 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         
         Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
         
-        // Determine the C++ type of the sum_result data
         using SumT = typename std::conditional<
             should_use_double_accumulation<T>(),
             double,  
@@ -420,8 +465,6 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         >::type;
         
         SumT* sum_data = sum_result.data<SumT>();
-        
-        // Divide by count to get mean
         const SumT divisor = static_cast<SumT>(reduced_count);
         
         #pragma omp parallel for
@@ -429,12 +472,9 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
             SumT val = sum_data[i];
             val /= divisor;
 
-            // CRITICAL: Safe conversion back to output type (T)
             if constexpr (std::is_same_v<T, float16_t>) {
-                // FP16: convert through float for correct rounding/overflow
                 sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
             } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-                // BF16: convert through float for correct rounding/overflow
                 sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
             } else {
                 sum_data[i] = val;
@@ -462,7 +502,6 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
             }
             return final_output;
         } else {
-            // T == AccT (e.g., float, double)
             return sum_result;
         }
     }

@@ -1,70 +1,84 @@
-#include "Reduction.h"
-#include "TensorDispatch.h"   // Provides dispatch_by_dtype (now in OwnTensor:: scope)
-#include "ReductionUtils.h"   // Provides normalize_axes, calculate_reduced_count (now in OwnTensor::detail:: scope)
-#include "ReductionImpl.h"   // Provides ALL Op structs and ALL dispatch_reduction implementations (now in OwnTensor::detail:: scope)
-
+// src/UnaryOps/Reduction.cpp - FIXED: Use is_float() from DtypeTraits.h
+#include "ops/UnaryOps/Reduction.h"
+#include "core/TensorDispatch.h"
+#include "ops/helpers/ReductionUtils.h"
+#include "ops/helpers/ReductionImpl.h"
+#include "dtype/DtypeTraits.h"  // ← Provides is_float() and get_dtype_name()
 #include <cmath>
 #include <stdexcept>
 #include <vector>
 #include <numeric>
-#include <type_traits> // Required for std::is_integral_v
+#include <type_traits>
 
 namespace OwnTensor {
 
-namespace { // <<< Anonymous namespace for private helpers within OwnTensor
+namespace {
 
-/**
- * @brief Base function to handle boilerplate checks (device, axes normalization, etc.)
- * and dispatch the core reduction logic.
- * @tparam OpType The base Operation Functor struct (e.g., detail::SumOp).
- * @param input The input Tensor.
- * @param axes The user-provided axes.
- * @param keepdim Whether to keep the reduced dimensions as size 1.
- * @return The result Tensor.
- */
-template <template <typename> class OpType> // Template template parameter for the base Op
+// ✅ Base dispatcher for BASIC operations (works on all types)
+template <template <typename> class OpType>
 Tensor _reduce_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-   
-    
-    // 1. Normalize axes using the function from the detail namespace
     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
-
-    // 2. Dispatch based on Dtype using the general dispatch utility
+    
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
-        // T_val is an empty instance of the C++ type (e.g., float{}, int32_t{})
         using T = decltype(T_val);
-        // Call the internal reduction kernel dispatcher
         return detail::dispatch_reduction<T, OpType>(input, normalized_axes, keepdim);
     });
 }
 
-/**
- * @brief Base function to handle boilerplate checks and dispatch the mean reduction logic.
- * @tparam SumOpType The base Sum Operation Functor struct (e.g., detail::SumOp or detail::NanSumOp).
- * @param input The input Tensor.
- * @param axes The user-provided axes.
- * @param keepdim Whether to keep the reduced dimensions as size 1.
- * @return The result Tensor.
- */
-template <template <typename> class SumOpType>
-Tensor _reduce_mean_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+// ✅ Dispatcher for NaN-AWARE operations (only for floating point)
+// Uses is_float() from DtypeTraits.h instead of custom function
+template <template <typename> class OpType>
+Tensor _reduce_nan_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+    // ✅ Use is_float() from DtypeTraits.h (teammate's function)
+    if (!is_float(input.dtype())) {
+        throw std::runtime_error(
+            "NaN-aware reductions are only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+            "Got: " + get_dtype_name(input.dtype())
+        );
+    }
     
-
-    // 1. Normalize axes
     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
-
-    // 2. Dispatch based on Dtype
+    
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        // Call the internal mean kernel dispatcher
+        return detail::dispatch_reduction<T, OpType>(input, normalized_axes, keepdim);
+    });
+}
+
+// ✅ Mean dispatcher for BASIC operations
+template <template <typename> class SumOpType>
+Tensor _reduce_mean_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
         return detail::dispatch_mean_kernel<T, SumOpType>(input, normalized_axes, keepdim);
     });
 }
 
-} // namespace (end of anonymous namespace)
+// ✅ Mean dispatcher for NaN-AWARE operations (only for floating point)
+template <template <typename> class SumOpType>
+Tensor _reduce_nanmean_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+    // ✅ Use is_float() from DtypeTraits.h
+    if (!is_float(input.dtype())) {
+        throw std::runtime_error(
+            "NaN-aware mean is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+            "Got: " + get_dtype_name(input.dtype())
+        );
+    }
+    
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_mean_kernel<T, SumOpType>(input, normalized_axes, keepdim);
+    });
+}
+
+} // anonymous namespace
 
 // =================================================================
-// 1. Core Reductions (Public Definitions in OwnTensor)
+// 1. Core Reductions (All types supported)
 // =================================================================
 Tensor reduce_sum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
     return _reduce_dispatcher<detail::SumOp>(input, axes, keepdim);
@@ -83,38 +97,34 @@ Tensor reduce_max(const Tensor& input, const std::vector<int64_t>& axes, bool ke
 }
 
 Tensor reduce_mean(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    // Mean is based on the SumOp
     return _reduce_mean_dispatcher<detail::SumOp>(input, axes, keepdim);
 }
 
-
 // =================================================================
-// 2. NaN-Aware Reductions
+// 2. NaN-Aware Reductions (FLOATING POINT ONLY)
 // =================================================================
 Tensor reduce_nansum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanSumOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanSumOp>(input, axes, keepdim);
 }
 
 Tensor reduce_nanproduct(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanProductOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanProductOp>(input, axes, keepdim);
 }
 
 Tensor reduce_nanmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanMinOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanMinOp>(input, axes, keepdim);
 }
 
 Tensor reduce_nanmax(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanMaxOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanMaxOp>(input, axes, keepdim);
 }
 
 Tensor reduce_nanmean(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    // NanMean is based on the NanSumOp
-    return _reduce_mean_dispatcher<detail::NanSumOp>(input, axes, keepdim);
+    return _reduce_nanmean_dispatcher<detail::NanSumOp>(input, axes, keepdim);
 }
 
-
 // =================================================================
-// 3. Index Reductions
+// 3. Index Reductions (All types supported)
 // =================================================================
 Tensor reduce_argmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
     return _reduce_dispatcher<detail::ArgMinOp>(input, axes, keepdim);
@@ -125,14 +135,14 @@ Tensor reduce_argmax(const Tensor& input, const std::vector<int64_t>& axes, bool
 }
 
 // =================================================================
-// 4. NaN-Aware Index Reductions
+// 4. NaN-Aware Index Reductions (FLOATING POINT ONLY)
 // =================================================================
 Tensor reduce_nanargmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanArgMinOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanArgMinOp>(input, axes, keepdim);
 }
 
 Tensor reduce_nanargmax(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanArgMaxOp>(input, axes, keepdim);
+    return _reduce_nan_dispatcher<detail::NanArgMaxOp>(input, axes, keepdim);
 }
 
 } // namespace OwnTensor

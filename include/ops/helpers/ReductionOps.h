@@ -1,4 +1,4 @@
-// include/utilities/ReductionOps.h - COMPLETE GPU INTRINSIC OPTIMIZED VERSION
+// include/ops/helpers/ReductionOps.h - REVERTED TO CUSTOM STRUCTS
 #pragma once
 
 #ifndef OWNTENSOR_REDUCTION_OPS_H
@@ -12,15 +12,7 @@
     // GPU COMPILATION (nvcc)
     #define DEVICE_HOST __device__ __host__
     #include <cuda_runtime.h>
-    #include <cuda_fp16.h>
-    #include <cuda_bf16.h>
-    
-    #include <math.h> 
-    
-    namespace OwnTensor {
-        using float16_t = __half;
-        using bfloat16_t = __nv_bfloat16;
-    }
+    #include <math.h>
     
     #ifndef CUDART_INF_F
         #define CUDART_INF_F __int_as_float(0x7f800000)
@@ -38,8 +30,6 @@
         #define __host__
     #endif
     
-    #include "dtype/Types.h"
-    
     #ifndef CUDART_INF_F
         #define CUDART_INF_F __builtin_huge_valf()
     #endif
@@ -47,6 +37,10 @@
         #define CUDART_INF __builtin_huge_val()
     #endif
 #endif
+
+// ✅ ALWAYS use custom structs (both CPU and GPU)
+#include "dtype/Types.h"
+#include "dtype/DtypeTraits.h"
 
 #include <limits>
 #include <algorithm>
@@ -90,45 +84,45 @@ struct ValueIndex {
 };
 
 // ═══════════════════════════════════════════════════════════
-// HELPER FUNCTIONS (GPU-COMPATIBLE)
+// DEVICE-SAFE HELPER FUNCTIONS (NO std::numeric_limits)
 // ═══════════════════════════════════════════════════════════
 
 template <typename T>
-DEVICE_HOST T get_lowest_value() {
+DEVICE_HOST constexpr T get_lowest_value() {
     if constexpr (std::is_same_v<T, float16_t>) {
-        #ifdef __CUDA_ARCH__
-            return __float2half(-65504.0f);
-        #else
-            return T(-65504.0f);
-        #endif
+        return T(-65504.0f);
     } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-        #ifdef __CUDA_ARCH__
-            return __float2bfloat16(-3.38953e38f);
-        #else
-            return T(-3.38953e38f);
-        #endif
-    } else if constexpr (std::is_arithmetic_v<T>) {
-        return std::numeric_limits<T>::lowest();
+        return T(-3.38953e38f);
+    } else if constexpr (std::is_same_v<T, float>) {
+        return -3.402823466e+38f;
+    } else if constexpr (std::is_same_v<T, double>) {
+        return -1.7976931348623158e+308;
+    } else if constexpr (std::is_same_v<T, int16_t>) {
+        return -32768;
+    } else if constexpr (std::is_same_v<T, int32_t>) {
+        return -2147483648;
+    } else if constexpr (std::is_same_v<T, int64_t>) {
+        return -9223372036854775807LL - 1LL;
     }
     return T{};
 }
 
 template <typename T>
-DEVICE_HOST T get_max_value() {
+DEVICE_HOST constexpr T get_max_value() {
     if constexpr (std::is_same_v<T, float16_t>) {
-        #ifdef __CUDA_ARCH__
-            return __float2half(65504.0f);
-        #else
-            return T(65504.0f);
-        #endif
+        return T(65504.0f);
     } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-        #ifdef __CUDA_ARCH__
-            return __float2bfloat16(3.38953e38f);
-        #else
-            return T(3.38953e38f);
-        #endif
-    } else if constexpr (std::is_arithmetic_v<T>) {
-        return std::numeric_limits<T>::max();
+        return T(3.38953e38f);
+    } else if constexpr (std::is_same_v<T, float>) {
+        return 3.402823466e+38f;
+    } else if constexpr (std::is_same_v<T, double>) {
+        return 1.7976931348623158e+308;
+    } else if constexpr (std::is_same_v<T, int16_t>) {
+        return 32767;
+    } else if constexpr (std::is_same_v<T, int32_t>) {
+        return 2147483647;
+    } else if constexpr (std::is_same_v<T, int64_t>) {
+        return 9223372036854775807LL;
     }
     return T{};
 }
@@ -142,18 +136,15 @@ DEVICE_HOST inline bool is_nan_check(T val) {
             return std::isnan(val);
         #endif
     } else if constexpr (is_half_float_v<T>) {
+        // Convert to float and check
+        float f_val = static_cast<float>(val);
         #ifdef __CUDA_ARCH__
-            if constexpr (std::is_same_v<T, float16_t>) {
-                return __hisnan(val);
-            } else {
-                return __hisnan(__bfloat162half(val));
-            }
+            return isnan(f_val);
         #else
-            float f_val = static_cast<float>(val);
             return std::isnan(f_val);
         #endif
     }
-    return false;  
+    return false;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -165,17 +156,12 @@ struct AccumulatorTypeSelector {
     using type = T;
 };
 
-// Integers accumulate in int64_t
 template<> struct AccumulatorTypeSelector<int16_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int32_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int64_t> { using type = int64_t; };
-
-// CRITICAL FIX: Add unsigned integer support
 template<> struct AccumulatorTypeSelector<uint16_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<uint32_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<uint64_t> { using type = int64_t; };
-
-// FP16/BF16 accumulate in float for better precision
 template<> struct AccumulatorTypeSelector<float16_t> { using type = float; };
 template<> struct AccumulatorTypeSelector<bfloat16_t> { using type = float; };
 
@@ -183,137 +169,9 @@ template<typename T>
 using AccumulatorType = typename AccumulatorTypeSelector<T>::type;
 
 // ═══════════════════════════════════════════════════════════
-// ✅ NEW: GPU INTRINSIC WRAPPERS (TYPE-GENERIC)
+// CORE REDUCTION OPERATIONS (NO INTRINSICS)
 // ═══════════════════════════════════════════════════════════
 
-#ifdef __CUDA_ARCH__
-
-// ✅ Addition intrinsics
-__device__ inline float intrinsic_add(float a, float b) {
-    return __fadd_rn(a, b);
-}
-
-__device__ inline double intrinsic_add(double a, double b) {
-    return __dadd_rn(a, b);
-}
-
-__device__ inline float16_t intrinsic_add(float16_t a, float16_t b) {
-    return __hadd(a, b);
-}
-
-#if __CUDA_ARCH__ >= 800  // Ampere+ for BF16
-__device__ inline bfloat16_t intrinsic_add(bfloat16_t a, bfloat16_t b) {
-    return __hadd(a, b);
-}
-#else
-__device__ inline bfloat16_t intrinsic_add(bfloat16_t a, bfloat16_t b) {
-    // Fallback: convert to float, add, convert back
-    return __float2bfloat16(__fadd_rn(__bfloat162float(a), __bfloat162float(b)));
-}
-#endif
-
-// ✅ Multiplication intrinsics
-__device__ inline float intrinsic_mul(float a, float b) {
-    return __fmul_rn(a, b);
-}
-
-__device__ inline double intrinsic_mul(double a, double b) {
-    return __dmul_rn(a, b);
-}
-
-__device__ inline float16_t intrinsic_mul(float16_t a, float16_t b) {
-    return __hmul(a, b);
-}
-
-#if __CUDA_ARCH__ >= 800
-__device__ inline bfloat16_t intrinsic_mul(bfloat16_t a, bfloat16_t b) {
-    return __hmul(a, b);
-}
-#else
-__device__ inline bfloat16_t intrinsic_mul(bfloat16_t a, bfloat16_t b) {
-    return __float2bfloat16(__fmul_rn(__bfloat162float(a), __bfloat162float(b)));
-}
-#endif
-
-// ✅ Max intrinsics
-__device__ inline float intrinsic_max(float a, float b) {
-    return fmaxf(a, b);
-}
-
-__device__ inline double intrinsic_max(double a, double b) {
-    return fmax(a, b);
-}
-
-__device__ inline float16_t intrinsic_max(float16_t a, float16_t b) {
-    return __hmax(a, b);
-}
-
-#if __CUDA_ARCH__ >= 800
-__device__ inline bfloat16_t intrinsic_max(bfloat16_t a, bfloat16_t b) {
-    return __hmax(a, b);
-}
-#else
-__device__ inline bfloat16_t intrinsic_max(bfloat16_t a, bfloat16_t b) {
-    return __float2bfloat16(fmaxf(__bfloat162float(a), __bfloat162float(b)));
-}
-#endif
-
-// ✅ Min intrinsics
-__device__ inline float intrinsic_min(float a, float b) {
-    return fminf(a, b);
-}
-
-__device__ inline double intrinsic_min(double a, double b) {
-    return fmin(a, b);
-}
-
-__device__ inline float16_t intrinsic_min(float16_t a, float16_t b) {
-    return __hmin(a, b);
-}
-
-#if __CUDA_ARCH__ >= 800
-__device__ inline bfloat16_t intrinsic_min(bfloat16_t a, bfloat16_t b) {
-    return __hmin(a, b);
-}
-#else
-__device__ inline bfloat16_t intrinsic_min(bfloat16_t a, bfloat16_t b) {
-    return __float2bfloat16(fminf(__bfloat162float(a), __bfloat162float(b)));
-}
-#endif
-
-// ✅ FMA intrinsics (a*b + c)
-__device__ inline float intrinsic_fma(float a, float b, float c) {
-    return __fmaf_rn(a, b, c);
-}
-
-__device__ inline double intrinsic_fma(double a, double b, double c) {
-    return __fma_rn(a, b, c);
-}
-
-__device__ inline float16_t intrinsic_fma(float16_t a, float16_t b, float16_t c) {
-    return __hfma(a, b, c);
-}
-
-#if __CUDA_ARCH__ >= 800
-__device__ inline bfloat16_t intrinsic_fma(bfloat16_t a, bfloat16_t b, bfloat16_t c) {
-    return __hfma(a, b, c);
-}
-#else
-__device__ inline bfloat16_t intrinsic_fma(bfloat16_t a, bfloat16_t b, bfloat16_t c) {
-    float fa = __bfloat162float(a);
-    float fb = __bfloat162float(b);
-    float fc = __bfloat162float(c);
-    return __float2bfloat16(__fmaf_rn(fa, fb, fc));
-}
-#endif
-
-#endif // __CUDA_ARCH__
-
-// ═══════════════════════════════════════════════════════════
-// CORE REDUCTION OPERATIONS (NOW USING INTRINSICS)
-// ═══════════════════════════════════════════════════════════
-
-// --- Sum ---
 template <typename T>
 struct SumOp {
     using AccT = AccumulatorType<T>;
@@ -323,15 +181,10 @@ struct SumOp {
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
-        #ifdef __CUDA_ARCH__
-            return intrinsic_add(a, b);  // ✅ Always use intrinsic on GPU
-        #else
-            return a + b;  // CPU path
-        #endif
+        return a + b;
     }
 };
 
-// --- Product ---
 template <typename T>
 struct ProductOp {
     using AccT = AccumulatorType<T>;
@@ -341,72 +194,50 @@ struct ProductOp {
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
-        #ifdef __CUDA_ARCH__
-            return intrinsic_mul(a, b);  // ✅ Always use intrinsic on GPU
-        #else
-            return a * b;  // CPU path
-        #endif
+        return a * b;
     }
 };
 
-// --- Min ---
 template <typename T>
 struct MinOp {
     using AccT = AccumulatorType<T>;
     
     DEVICE_HOST AccT identity() const { 
         if constexpr (std::is_integral_v<T>) {
-            return static_cast<AccT>(std::numeric_limits<T>::max());
+            return static_cast<AccT>(get_max_value<T>());
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_max_value<T>());
         } else {
-            return std::numeric_limits<AccT>::max();
+            return get_max_value<AccT>();
         }
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
-                return intrinsic_min(a, b);  // ✅ Use intrinsic for floats
-            } else {
-                return (a < b) ? a : b;  // Integer min
-            }
-        #else
-            return std::min(a, b);  // CPU path
-        #endif
+        return (a < b) ? a : b;
     }
 };
 
-// --- Max ---
 template <typename T>
 struct MaxOp {
     using AccT = AccumulatorType<T>;
     
     DEVICE_HOST AccT identity() const { 
         if constexpr (std::is_integral_v<T>) {
-            return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            return static_cast<AccT>(get_lowest_value<T>());
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_lowest_value<T>());
         } else {
-            return std::numeric_limits<AccT>::lowest();
+            return get_lowest_value<AccT>();
         }
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
-                return intrinsic_max(a, b);  // ✅ Use intrinsic for floats
-            } else {
-                return (a > b) ? a : b;  // Integer max
-            }
-        #else
-            return std::max(a, b);  // CPU path
-        #endif
+        return (a > b) ? a : b;
     }
 };
 
 // ═══════════════════════════════════════════════════════════
-// NaN-AWARE OPERATIONS (WITH INTRINSICS)
+// NaN-AWARE OPERATIONS
 // ═══════════════════════════════════════════════════════════
 
 template <typename T>
@@ -416,25 +247,11 @@ struct NanSumOp {
     DEVICE_HOST AccT identity() const { return AccT(0); }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (isnan(a)) return b;
-                if (isnan(b)) return a;
-                return intrinsic_add(a, b);  // ✅ Use intrinsic after NaN check
-            } else if constexpr (is_half_float_v<AccT>) {
-                if (is_nan_check(a)) return b;
-                if (is_nan_check(b)) return a;
-                return intrinsic_add(a, b);  // ✅ Use intrinsic
-            } else {
-                return a + b;  // Integers can't be NaN
-            }
-        #else
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (std::isnan(a)) return b;
-                if (std::isnan(b)) return a;
-            }
-            return a + b;  // CPU path
-        #endif
+        if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
+            if (is_nan_check(a)) return b;
+            if (is_nan_check(b)) return a;
+        }
+        return a + b;
     }
 };
 
@@ -445,25 +262,11 @@ struct NanProductOp {
     DEVICE_HOST AccT identity() const { return AccT(1); }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (isnan(a)) return b;
-                if (isnan(b)) return a;
-                return intrinsic_mul(a, b);  // ✅ Use intrinsic
-            } else if constexpr (is_half_float_v<AccT>) {
-                if (is_nan_check(a)) return b;
-                if (is_nan_check(b)) return a;
-                return intrinsic_mul(a, b);  // ✅ Use intrinsic
-            } else {
-                return a * b;
-            }
-        #else
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (std::isnan(a)) return b;
-                if (std::isnan(b)) return a;
-            }
-            return a * b;  // CPU path
-        #endif
+        if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
+            if (is_nan_check(a)) return b;
+            if (is_nan_check(b)) return a;
+        }
+        return a * b;
     }
 };
 
@@ -473,35 +276,20 @@ struct NanMinOp {
     
     DEVICE_HOST AccT identity() const { 
         if constexpr (std::is_integral_v<T>) {
-            return static_cast<AccT>(std::numeric_limits<T>::max());
+            return static_cast<AccT>(get_max_value<T>());
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_max_value<T>());
         } else {
-            return std::numeric_limits<AccT>::max();
+            return get_max_value<AccT>();
         }
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (isnan(a)) return b;
-                if (isnan(b)) return a;
-                return intrinsic_min(a, b);  // ✅ Use intrinsic
-            } else if constexpr (is_half_float_v<AccT>) {
-                if (is_nan_check(a)) return b;
-                if (is_nan_check(b)) return a;
-                return intrinsic_min(a, b);  // ✅ Use intrinsic
-            } else {
-                return (a < b) ? a : b;
-            }
-        #else
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (std::isnan(a)) return b;
-                if (std::isnan(b)) return a;
-                return std::min(a, b);
-            }
-            return std::min(a, b);  // CPU path
-        #endif
+        if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
+            if (is_nan_check(a)) return b;
+            if (is_nan_check(b)) return a;
+        }
+        return (a < b) ? a : b;
     }
 };
 
@@ -511,40 +299,25 @@ struct NanMaxOp {
     
     DEVICE_HOST AccT identity() const { 
         if constexpr (std::is_integral_v<T>) {
-            return static_cast<AccT>(std::numeric_limits<T>::lowest());
+            return static_cast<AccT>(get_lowest_value<T>());
         } else if constexpr (is_half_float_v<T>) {
             return static_cast<AccT>(get_lowest_value<T>());
         } else {
-            return std::numeric_limits<AccT>::lowest();
+            return get_lowest_value<AccT>();
         }
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        #ifdef __CUDA_ARCH__
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (isnan(a)) return b;
-                if (isnan(b)) return a;
-                return intrinsic_max(a, b);  // ✅ Use intrinsic
-            } else if constexpr (is_half_float_v<AccT>) {
-                if (is_nan_check(a)) return b;
-                if (is_nan_check(b)) return a;
-                return intrinsic_max(a, b);  // ✅ Use intrinsic
-            } else {
-                return (a > b) ? a : b;
-            }
-        #else
-            if constexpr (std::is_floating_point_v<AccT>) {
-                if (std::isnan(a)) return b;
-                if (std::isnan(b)) return a;
-                return std::max(a, b);
-            }
-            return std::max(a, b);  // CPU path
-        #endif
+        if constexpr (std::is_floating_point_v<AccT> || is_half_float_v<AccT>) {
+            if (is_nan_check(a)) return b;
+            if (is_nan_check(b)) return a;
+        }
+        return (a > b) ? a : b;
     }
 };
 
 // ═══════════════════════════════════════════════════════════
-// INDEX REDUCTIONS (ArgMin/ArgMax) - UNCHANGED
+// INDEX REDUCTIONS (ArgMin/ArgMax)
 // ═══════════════════════════════════════════════════════════
 
 template <typename T>
@@ -595,11 +368,7 @@ struct ArgMaxOp {
                     initial_val = get_lowest_value<T>();
                 }
             #else
-                if constexpr (std::is_floating_point_v<T>) {
-                    initial_val = -std::numeric_limits<T>::infinity();
-                } else {
-                    initial_val = get_lowest_value<T>();
-                }
+                initial_val = get_lowest_value<T>();
             #endif
         } else {
             initial_val = get_lowest_value<T>();
@@ -688,11 +457,7 @@ struct NanArgMaxOp {
                     initial_val = get_lowest_value<T>();
                 }
             #else
-                if constexpr (std::is_floating_point_v<T>) {
-                    initial_val = -std::numeric_limits<T>::infinity();
-                } else {
-                    initial_val = get_lowest_value<T>();
-                }
+                initial_val = get_lowest_value<T>();
             #endif
         } else {
             initial_val = get_lowest_value<T>();
