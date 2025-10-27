@@ -149,9 +149,10 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include "dtype/Types.h"
 
 namespace OwnTensor {
-
+using namespace detail;
 // PyTorch-style print options
 struct PrintOptions {
     int precision = 4;
@@ -273,6 +274,22 @@ void printData(std::ostream& os, const void* data, size_t count,
     }
 }
 
+template<typename HalfType>
+void printDataAsFloat(
+    std::ostream& os,
+    const void* data,
+    size_t count,
+    int precision,
+    std::function<float(HalfType)> to_float_func
+) {
+    const HalfType* ptr = static_cast<const HalfType*>(data);
+    os << std::fixed << std::setprecision(precision);
+    for (size_t i = 0; i < count; ++i) {
+        if (i != 0) os << ", ";
+        os << to_float_func(ptr[i]);
+    }
+}
+
 void dispatchPrint(std::ostream& os, Dtype dtype, const void* data, size_t count, 
                    int precision, const PrintOptions& opts) {
     switch(dtype) {
@@ -286,10 +303,16 @@ void dispatchPrint(std::ostream& os, Dtype dtype, const void* data, size_t count
             printData<float>(os, data, count, precision, true, opts); break;
         case Dtype::Float64:
             printData<double>(os, data, count, precision, true, opts); break;
+        // case Dtype::Float16:
+        //     printData<float>(os, data, count, precision, true, opts); break;
+        // case Dtype::Bfloat16:
+        //     printData<float>(os, data, count, precision, true, opts); break;
         case Dtype::Float16:
-            printData<float>(os, data, count, precision, true, opts); break;
+            printDataAsFloat<float16_t>(os, data, count, precision, float16_to_float);
+            break;
         case Dtype::Bfloat16:
-            printData<float>(os, data, count, precision, true, opts); break;
+            printDataAsFloat<bfloat16_t>(os, data, count, precision, bfloat16_to_float);
+            break;
         default:
             os << "<unsupported dtype>";
     }
