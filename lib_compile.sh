@@ -7,19 +7,19 @@ mkdir -p lib/objects
 echo "Compiling CPU source files..."
 
 # CPU COMPILATION
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/Tensor.cpp -o lib/objects/tensor.o
+g++ -std=c++20 -Iinclude -I/usr/local/cuda/include -DWITH_CUDA -fPIC -c src/Tensor.cpp -o lib/objects/tensor.o
 
 # Memory Allocation
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/device/AllocatorRegistry.cpp -o lib/objects/AllocatorRegistry.o
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/device/CPUAllocator.cpp -o lib/objects/CPUAllocator.o
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/device/DeviceCore.cpp -o lib/objects/DeviceCore.o
+g++ -std=c++20 -Iinclude -I/usr/local/cuda/include -DWITH_CUDA -fPIC -c src/device/DeviceCore.cpp -o lib/objects/DeviceCore.o
 
 # CUDA-compiled CPU files
 nvcc -std=c++20 -Iinclude -DWITH_CUDA -Xcompiler -fPIC -arch=sm_86 -c src/device/CUDAAllocator.cpp -o lib/objects/CUDAAllocator.o
 nvcc -std=c++20 -Iinclude -DWITH_CUDA -Xcompiler -fPIC -arch=sm_86 -c src/device/DeviceTransfer.cpp -o lib/objects/DeviceTransfer.o
 
 # Tensor utilities
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/TensorFactory.cpp -o lib/objects/TensorFactory.o
+g++ -std=c++20 -Iinclude -I/usr/local/cuda/include -DWITH_CUDA -fPIC -c src/TensorFactory.cpp -o lib/objects/TensorFactory.o
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/TensorUtils.cpp -o lib/objects/TensorUtils.o
 
 # Views
@@ -30,8 +30,8 @@ g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/Views/ViewOps.c
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/Arithmetics.cpp -o lib/objects/BasicArithmetic.o
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/ArithmeticsCore.cpp -o lib/objects/ArithmeticCore.o
 
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/Exponents.cpp -o lib/objects/ExponentLog.o
-g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/ExponentCore.cpp -o lib/objects/ExponentLogCore.o
+g++ -std=c++20 -Iinclude -I/usr/local/cuda/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/Exponents.cpp -o lib/objects/ExponentLog.o
+g++ -std=c++20 -Iinclude -I/usr/local/cuda/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/ExponentCore.cpp -o lib/objects/ExponentLogCore.o
 
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/Trigonometry.cpp -o lib/objects/Trigonometry.o
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/TrigonometryDispatch.cpp -o lib/objects/TrigonometryDispatch.o
@@ -41,6 +41,7 @@ g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/UnaryOps/cpu/Re
 
 # Scalar/Tensor Operations (CPU)
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/ScalarOps/cpu/ScalarOps.cpp -o lib/objects/ScalarOps.o
+g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/ScalarOps/cpu/ScalarOpsDispatcher.cpp -o lib/objects/ScalarOpsDispatcher.o
 
 # Tensor Operations
 g++ -std=c++20 -Iinclude -I/usr/include -DWITH_CUDA -fPIC -c src/TensorOps/cpu/TensorOps.cpp -o lib/objects/TensorOps.o

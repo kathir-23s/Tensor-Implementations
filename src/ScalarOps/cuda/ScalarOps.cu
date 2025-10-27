@@ -1,42 +1,21 @@
-#ifdef WITH_CUDA
-
-#include "ops/ScalarOps.h"
-#include "core/TensorDispatch.h"
-#include "dtype/Types.h"  
+// ScalarOps.cu (CUDA backend)
+#if defined(WITH_CUDA)
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-
-#include <type_traits>
-#include <stdexcept>
-#include <string>
-
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
+#include <stdexcept>
+#include <type_traits>
+#include "core/Tensor.h"
+#include "core/TensorDispatch.h"
+#include "dtype/Types.h"
 
 namespace OwnTensor {
+namespace { // file-local CUDA helpers & kernels
 
-// ======================================================================
-// Small utilities (launch + error check)
-// ======================================================================
-
-inline dim3 pick_block(size_t /*n*/) { return dim3(256); }
-inline dim3 pick_grid(size_t n, dim3 block) {
-    size_t blocks = (n + block.x - 1) / block.x;
-    if (blocks > 2147483647ULL) blocks = 2147483647ULL;
-    return dim3(static_cast<unsigned int>(blocks));
+inline int half_fmt(Dtype dt) { // 0 = numeric; 1 = fp16; 2 = bf16
+    return (dt == Dtype::Float16) ? 1 : (dt == Dtype::Bfloat16 ? 2 : 0);
 }
-
-inline void throw_if_cuda_error(const char* where) {
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        throw std::runtime_error(std::string(where) + ": " + cudaGetErrorString(err));
-    }
-}
-
-// ======================================================================
-// Conversions for uint16_t-backed half types on device
-// fmt: 0 = normal numeric types; 1 = Float16; 2 = Bfloat16
-// ======================================================================
 
 __device__ inline float dev_bf16_to_float(uint16_t b) {
     uint32_t u = ((uint32_t)b) << 16;
@@ -44,12 +23,12 @@ __device__ inline float dev_bf16_to_float(uint16_t b) {
 }
 __device__ inline uint16_t dev_float_to_bf16(float f) {
     uint32_t u = __float_as_uint(f);
-    // If you want RNE on device: uint32_t lsb=(u>>16)&1u; u += 0x7FFFu + lsb;
+    uint32_t lsb = (u >> 16) & 1u;
+    u += 0x7FFFu + lsb; // RNE
     return (uint16_t)(u >> 16);
 }
-
-__device__ inline float dev_fp16_to_float(uint16_t hbits) {
-    __half h = *reinterpret_cast<const __half*>(&hbits);
+__device__ inline float dev_fp16_to_float(uint16_t bits) {
+    __half h = *reinterpret_cast<const __half*>(&bits);
     return __half2float(h);
 }
 __device__ inline uint16_t dev_float_to_fp16(float f) {
@@ -57,482 +36,187 @@ __device__ inline uint16_t dev_float_to_fp16(float f) {
     return *reinterpret_cast<uint16_t*>(&h);
 }
 
-// typed load/store that consider fmt only for uint16_t storage
 template <typename T>
-__device__ inline float dev_load_as_float(const T* p, size_t i, int /*fmt*/) {
-    return (float)p[i];
-}
+__device__ inline float ldf(const T* p, size_t i, int) { return static_cast<float>(p[i]); }
+
+// mark specialization as maybe-unused to silence #177 when half/bf16 paths don't instantiate
 template <>
-__device__ inline float dev_load_as_float<uint16_t>(const uint16_t* p, size_t i, int fmt) {
+[[maybe_unused]] __device__ inline float ldf<uint16_t>(const uint16_t* p, size_t i, int fmt) {
     return (fmt == 1) ? dev_fp16_to_float(p[i])
          : (fmt == 2) ? dev_bf16_to_float(p[i])
-                      : (float)p[i];
+                      : static_cast<float>(p[i]);
 }
 
 template <typename T>
-__device__ inline void dev_store_from_float(T* p, size_t i, float v, int /*fmt*/) {
-    p[i] = (T)v;
-}
+__device__ inline void stf(T* p, size_t i, float v, int) { p[i] = static_cast<T>(v); }
+
+// same for store specialization
 template <>
-__device__ inline void dev_store_from_float<uint16_t>(uint16_t* p, size_t i, float v, int fmt) {
+[[maybe_unused]] __device__ inline void stf<uint16_t>(uint16_t* p, size_t i, float v, int fmt) {
     p[i] = (fmt == 1) ? dev_float_to_fp16(v)
          : (fmt == 2) ? dev_float_to_bf16(v)
-                      : (uint16_t)v;
+                      : static_cast<uint16_t>(v);
 }
 
-// ======================================================================
-// Kernels (scalar passed as float to avoid host-only conversions on device)
-// ======================================================================
+// removed: pick_block (unused)
+// inline dim3 pick_block(size_t) { return dim3(256); }
 
-template<typename T>
-__global__ void k_add_inplace(T* data, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(data, i, fmt);
-        dev_store_from_float<T>(data, i, v + s, fmt);
-    }
+inline dim3 pick_grid(size_t n, dim3 b) {
+    size_t blocks = (n + b.x - 1) / b.x;
+    if (blocks > 2147483647ULL) blocks = 2147483647ULL;
+    return dim3(static_cast<unsigned int>(blocks));
+}
+inline void ckerr(const char* where) {
+    cudaError_t e = cudaGetLastError();
+    if (e != cudaSuccess) throw std::runtime_error(std::string(where) + ": " + cudaGetErrorString(e));
 }
 
+// ---- kernels (in-place) ----
 template<typename T>
-__global__ void k_sub_inplace(T* data, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(data, i, fmt);
-        dev_store_from_float<T>(data, i, v - s, fmt);
-    }
+__global__ void k_add_inplace(T* d, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(d, i, ldf<T>(d, i, fmt) + s, fmt);
+}
+template<typename T>
+__global__ void k_sub_inplace(T* d, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(d, i, ldf<T>(d, i, fmt) - s, fmt);
+}
+template<typename T>
+__global__ void k_mul_inplace(T* d, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(d, i, ldf<T>(d, i, fmt) * s, fmt);
+}
+template<typename T>
+__global__ void k_div_inplace(T* d, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(d, i, ldf<T>(d, i, fmt) / s, fmt);
 }
 
+// ---- kernels (copy) ----
 template<typename T>
-__global__ void k_mul_inplace(T* data, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(data, i, fmt);
-        dev_store_from_float<T>(data, i, v * s, fmt);
-    }
+__global__ void k_add_copy(const T* a, T* o, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(o, i, ldf<T>(a, i, fmt) + s, fmt);
+}
+template<typename T>
+__global__ void k_sub_copy(const T* a, T* o, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(o, i, ldf<T>(a, i, fmt) - s, fmt);
+}
+template<typename T>
+__global__ void k_mul_copy(const T* a, T* o, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(o, i, ldf<T>(a, i, fmt) * s, fmt);
+}
+template<typename T>
+__global__ void k_div_copy(const T* a, T* o, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(o, i, ldf<T>(a, i, fmt) / s, fmt);
 }
 
+// scalar - tensor, scalar / tensor
 template<typename T>
-__global__ void k_div_inplace(T* data, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(data, i, fmt);
-        dev_store_from_float<T>(data, i, v / s, fmt);
-    }
+__global__ void k_sub_copy_scalar_tensor(const T* a, T* o, float s, size_t n, int fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
+        stf<T>(o, i, s - ldf<T>(a, i, fmt), fmt);
 }
-
 template<typename T>
-__global__ void k_add_copy(const T* src, T* dst, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, v + s, fmt);
-    }
-}
-
-template<typename T>
-__global__ void k_sub_copy(const T* src, T* dst, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, v - s, fmt);
-    }
-}
-
-template<typename T>
-__global__ void k_mul_copy(const T* src, T* dst, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, v * s, fmt);
-    }
-}
-
-template<typename T>
-__global__ void k_div_copy(const T* src, T* dst, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, v / s, fmt);
-    }
-}
-
-// scalar MINUS tensor (dst = s - src)
-template<typename T>
-__global__ void k_sub_copy_scalar_tensor(const T* src, T* dst, float s, size_t n, int fmt) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, s - v, fmt);
-    }
-}
-
-// scalar DIV tensor (dst = s / src); integer tensors: flag divide-by-zero
-template<typename T>
-__global__ void k_div_copy_scalar_tensor(const T* src, T* dst, float s, size_t n, int fmt, int* error_flag) {
-    for (size_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
+__global__ void k_div_copy_scalar_tensor(const T* a, T* o, float s, size_t n, int fmt, int* flag) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x) {
         if constexpr (std::is_integral_v<T>) {
-            if (src[i] == (T)0) { if (error_flag) atomicExch(error_flag, 1); }
+            if (fmt == 0 && a[i] == (T)0) { if (flag) atomicExch(flag, 1); }
         }
-        const float v = dev_load_as_float<T>(src, i, fmt);
-        dev_store_from_float<T>(dst, i, s / v, fmt);
+        stf<T>(o, i, s / ldf<T>(a, i, fmt), fmt);
     }
 }
 
-// ======================================================================
-// Public operator templates (GPU path)
-// ======================================================================
-
-template<typename S>
-Tensor& operator+=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    cudaStream_t stream = nullptr; // or tensor.device().cuda_stream();
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar); // host-side cast OK
-
-        k_add_inplace<T><<<grid, block, 0, stream>>>(data, s, n, fmt);
-        throw_if_cuda_error("k_add_inplace");
-    });
-    return tensor;
+// ---- launch helpers ----
+template <typename T, typename Kernel>
+inline void launch_copy(const Tensor& a, Tensor& out, double s, Kernel k) {
+    const size_t n = a.numel();
+    const dim3 block = dim3(256), grid = pick_grid(n, block);
+    const int fmt = half_fmt(a.dtype());
+    cudaStream_t stream = nullptr;
+    k<<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt);
+    ckerr("scalar copy");
+}
+template <typename T, typename Kernel>
+inline void launch_inplace(Tensor& t, double s, Kernel k) {
+    const size_t n = t.numel();
+    const dim3 block = dim3(256), grid = pick_grid(n, block);
+    const int fmt = half_fmt(t.dtype());
+    cudaStream_t stream = nullptr;
+    k<<<grid, block, 0, stream>>>(t.data<T>(), (float)s, n, fmt);
+    ckerr("scalar inplace");
 }
 
-template<typename S>
-Tensor& operator-=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
+} // anon
 
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_sub_inplace<T><<<grid, block, 0, stream>>>(data, s, n, fmt);
-        throw_if_cuda_error("k_sub_inplace");
-    });
-    return tensor;
+// --------- public CUDA backend (Int16/32/64 + F16/BF16/F32/F64) ---------
+void cuda_add_inplace(Tensor& t, double s) {
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_add_inplace<T>); });
+}
+void cuda_sub_inplace(Tensor& t, double s) {
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_sub_inplace<T>); });
+}
+void cuda_mul_inplace(Tensor& t, double s) {
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_mul_inplace<T>); });
+}
+void cuda_div_inplace(Tensor& t, double s) {
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_div_inplace<T>); });
 }
 
-template<typename S>
-Tensor& operator*=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_mul_inplace<T><<<grid, block, 0, stream>>>(data, s, n, fmt);
-        throw_if_cuda_error("k_mul_inplace");
-    });
-    return tensor;
+Tensor cuda_add_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_add_copy<T>); });
+    return out;
 }
-
-template<typename S>
-Tensor& operator/=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        if constexpr (std::is_integral_v<T>) {
-            if ((double)static_cast<float>(scalar) == 0.0) {
-                throw std::runtime_error("Division by zero in integer tensor /=");
-            }
-        }
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_div_inplace<T><<<grid, block, 0, stream>>>(data, s, n, fmt);
-        throw_if_cuda_error("k_div_inplace");
-    });
-    return tensor;
+Tensor cuda_sub_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy<T>); });
+    return out;
 }
-
-template<typename S>
-Tensor operator+(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_add_copy<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt);
-        throw_if_cuda_error("k_add_copy");
-    });
+Tensor cuda_mul_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_mul_copy<T>); });
+    return out;
+}
+Tensor cuda_div_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_div_copy<T>); });
     return out;
 }
 
-template<typename S>
-Tensor operator-(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_sub_copy<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt);
-        throw_if_cuda_error("k_sub_copy");
-    });
+Tensor cuda_sub_copy_scalar_tensor(double s, const Tensor& a) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy_scalar_tensor<T>); });
     return out;
 }
 
-template<typename S>
-Tensor operator*(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
+Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){
+        using T = decltype(d);
+        const size_t n = a.numel();
+        const dim3 block = dim3(256), grid = pick_grid(n, block);
+        const int fmt = half_fmt(a.dtype());
+        cudaStream_t stream = nullptr;
 
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
+        int host_flag = 0; int* dev_flag = nullptr;
+        cudaMalloc(&dev_flag, sizeof(int));
+        cudaMemsetAsync(dev_flag, 0, sizeof(int), stream);
 
-        k_mul_copy<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt);
-        throw_if_cuda_error("k_mul_copy");
+        k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag);
+        ckerr("k_div_copy_scalar_tensor");
+
+        cudaMemcpyAsync(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream);
+        cudaFree(dev_flag);
+        if (host_flag) throw std::runtime_error("Division by zero in scalar / integer tensor");
     });
     return out;
 }
-
-template<typename S>
-Tensor operator/(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        if constexpr (std::is_integral_v<T>) {
-            if ((double)static_cast<float>(scalar) == 0.0) {
-                throw std::runtime_error("Division by zero in integer tensor / scalar");
-            }
-        }
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_div_copy<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt);
-        throw_if_cuda_error("k_div_copy");
-    });
-    return out;
-}
-
-template<typename S>
-Tensor operator+(S scalar, const Tensor& tensor) {
-    return tensor + scalar;
-}
-
-template<typename S>
-Tensor operator-(S scalar, const Tensor& tensor) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_sub_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt);
-        throw_if_cuda_error("k_sub_copy_scalar_tensor");
-    });
-    return out;
-}
-
-template<typename S>
-Tensor operator*(S scalar, const Tensor& tensor) {
-    return tensor * scalar;
-}
-
-template<typename S>
-Tensor operator/(S scalar, const Tensor& tensor) {
-    if (!tensor.device().is_cuda())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    cudaStream_t stream = nullptr;
-
-    int h_flag = 0;
-    int* d_flag = nullptr;
-    cudaMalloc(&d_flag, sizeof(int));
-    cudaMemsetAsync(d_flag, 0, sizeof(int), stream);
-
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const dim3 block = pick_block(n), grid = pick_grid(n, block);
-        const int fmt = (tensor.dtype() == Dtype::Float16) ? 1
-                   : (tensor.dtype() == Dtype::Bfloat16) ? 2 : 0;
-        const float s = static_cast<float>(scalar);
-
-        k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(src, dst, s, n, fmt, d_flag);
-        throw_if_cuda_error("k_div_copy_scalar_tensor");
-    });
-
-    cudaMemcpyAsync(&h_flag, d_flag, sizeof(int), cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream);
-    cudaFree(d_flag);
-
-    if (h_flag) throw std::runtime_error("Division by zero in scalar / integer tensor");
-    return out;
-}
-
-// ======================================================================
-// Explicit instantiations (GPU TU)
-// ======================================================================
-
-template Tensor& operator+=<int16_t>(Tensor&, int16_t);
-template Tensor& operator+=<int32_t>(Tensor&, int32_t);
-template Tensor& operator+=<int64_t>(Tensor&, int64_t);
-template Tensor& operator+=<float>(Tensor&, float);
-template Tensor& operator+=<double>(Tensor&, double);
-template Tensor& operator+=<float16_t>(Tensor&, float16_t);
-template Tensor& operator+=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator-=<int16_t>(Tensor&, int16_t);
-template Tensor& operator-=<int32_t>(Tensor&, int32_t);
-template Tensor& operator-=<int64_t>(Tensor&, int64_t);
-template Tensor& operator-=<float>(Tensor&, float);
-template Tensor& operator-=<double>(Tensor&, double);
-template Tensor& operator-=<float16_t>(Tensor&, float16_t);
-template Tensor& operator-=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator*=<int16_t>(Tensor&, int16_t);
-template Tensor& operator*=<int32_t>(Tensor&, int32_t);
-template Tensor& operator*=<int64_t>(Tensor&, int64_t);
-template Tensor& operator*=<float>(Tensor&, float);
-template Tensor& operator*=<double>(Tensor&, double);
-template Tensor& operator*=<float16_t>(Tensor&, float16_t);
-template Tensor& operator*=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator/=<int16_t>(Tensor&, int16_t);
-template Tensor& operator/=<int32_t>(Tensor&, int32_t);
-template Tensor& operator/=<int64_t>(Tensor&, int64_t);
-template Tensor& operator/=<float>(Tensor&, float);
-template Tensor& operator/=<double>(Tensor&, double);
-template Tensor& operator/=<float16_t>(Tensor&, float16_t);
-template Tensor& operator/=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor operator+<int16_t>(const Tensor&, int16_t);
-template Tensor operator+<int32_t>(const Tensor&, int32_t);
-template Tensor operator+<int64_t>(const Tensor&, int64_t);
-template Tensor operator+<float>(const Tensor&, float);
-template Tensor operator+<double>(const Tensor&, double);
-template Tensor operator+<float16_t>(const Tensor&, float16_t);
-template Tensor operator+<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator-<int16_t>(const Tensor&, int16_t);
-template Tensor operator-<int32_t>(const Tensor&, int32_t);
-template Tensor operator-<int64_t>(const Tensor&, int64_t);
-template Tensor operator-<float>(const Tensor&, float);
-template Tensor operator-<double>(const Tensor&, double);
-template Tensor operator-<float16_t>(const Tensor&, float16_t);
-template Tensor operator-<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator*<int16_t>(const Tensor&, int16_t);
-template Tensor operator*<int32_t>(const Tensor&, int32_t);
-template Tensor operator*<int64_t>(const Tensor&, int64_t);
-template Tensor operator*<float>(const Tensor&, float);
-template Tensor operator*<double>(const Tensor&, double);
-template Tensor operator*<float16_t>(const Tensor&, float16_t);
-template Tensor operator*<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator/<int16_t>(const Tensor&, int16_t);
-template Tensor operator/<int32_t>(const Tensor&, int32_t);
-template Tensor operator/<int64_t>(const Tensor&, int64_t);
-template Tensor operator/<float>(const Tensor&, float);
-template Tensor operator/<double>(const Tensor&, double);
-template Tensor operator/<float16_t>(const Tensor&, float16_t);
-template Tensor operator/<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator+<int16_t>(int16_t, const Tensor&);
-template Tensor operator+<int32_t>(int32_t, const Tensor&);
-template Tensor operator+<int64_t>(int64_t, const Tensor&);
-template Tensor operator+<float>(float, const Tensor&);
-template Tensor operator+<double>(double, const Tensor&);
-template Tensor operator+<float16_t>(float16_t, const Tensor&);
-template Tensor operator+<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator-<int16_t>(int16_t, const Tensor&);
-template Tensor operator-<int32_t>(int32_t, const Tensor&);
-template Tensor operator-<int64_t>(int64_t, const Tensor&);
-template Tensor operator-<float>(float, const Tensor&);
-template Tensor operator-<double>(double, const Tensor&);
-template Tensor operator-<float16_t>(float16_t, const Tensor&);
-template Tensor operator-<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator*<int16_t>(int16_t, const Tensor&);
-template Tensor operator*<int32_t>(int32_t, const Tensor&);
-template Tensor operator*<int64_t>(int64_t, const Tensor&);
-template Tensor operator*<float>(float, const Tensor&);
-template Tensor operator*<double>(double, const Tensor&);
-template Tensor operator*<float16_t>(float16_t, const Tensor&);
-template Tensor operator*<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator/<int16_t>(int16_t, const Tensor&);
-template Tensor operator/<int32_t>(int32_t, const Tensor&);
-template Tensor operator/<int64_t>(int64_t, const Tensor&);
-template Tensor operator/<float>(float, const Tensor&);
-template Tensor operator/<double>(double, const Tensor&);
-template Tensor operator/<float16_t>(float16_t, const Tensor&);
-template Tensor operator/<bfloat16_t>(bfloat16_t, const Tensor&);
 
 } // namespace OwnTensor
-
 #endif // WITH_CUDA
-
-
-
-
-/*nvcc -std=c++17 -O2 -DWITH_CUDA -Iinclude -Isrc   src/Tensor.cpp src/TensorFactory.cpp src/TensorUtils.cpp   src/device/CPUAllocator.cpp src/device/DeviceTransfer.cpp   src/device/AllocatorRegistry.cpp src/device/DeviceCore.cpp   src/device/CUDAAllocator.cpp  src/ScalarOps/ScalarOps.cu local_test/scalar_cuda_full.cpp   -o scalar_cuda_ful
-l   -lcudart -lcurand*/
