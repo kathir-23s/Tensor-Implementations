@@ -1,6 +1,9 @@
 #pragma once
-#include <cuda_runtime.h>
 #include "core/Tensor.h"
+
+#ifdef WITH_CUDA
+#include <cuda_runtime.h>
+#endif
 
 namespace OwnTensor{
 // CPU wrappers - Out-of-place
