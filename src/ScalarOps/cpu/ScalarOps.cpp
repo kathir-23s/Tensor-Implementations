@@ -1,378 +1,146 @@
-// ScalarOps.cpp — CPU path (no macros)
-#include "ops/ScalarOps.h"
-#include "core/TensorDispatch.h"   // dispatch_by_dtype + Dtype
-#include "dtype/Types.h"            // Dtype enum if not already included by Tensor.h
-#include <type_traits>
+// ScalarOps.cpp (CPU backend)
+#include <cstdint>
 #include <stdexcept>
-#include <cstring>            // memcpy for safety
+#include "core/Tensor.h"
+#include "core/TensorDispatch.h"
+#include "dtype/Types.h"
 
 namespace OwnTensor {
+namespace { // file-local helpers
 
-// ---- use your existing precise conversions from the uploaded file ----
-inline float load_as_float(uint16_t bits, Dtype dt) {
+inline bool is_integer_dtype(Dtype dt) {
+    return dt == Dtype::Int16 || dt == Dtype::Int32 || dt == Dtype::Int64;
+}
+
+// conversions supplied by your numeric utilities
+namespace detail {
+    float    float16_to_float(uint16_t);
+    uint16_t float_to_float16(float);
+    float    bfloat16_to_float(uint16_t);
+    uint16_t float_to_bfloat16(float);
+}
+
+// uint16_t-backed half/bfloat16 helpers
+inline float load_u16_as_f32(uint16_t bits, Dtype dt) {
     if (dt == Dtype::Float16)  return detail::float16_to_float(bits);
     if (dt == Dtype::Bfloat16) return detail::bfloat16_to_float(bits);
     return static_cast<float>(bits);
 }
-inline uint16_t store_from_float(float v, Dtype dt) {
+inline uint16_t store_f32_to_u16(float v, Dtype dt) {
     if (dt == Dtype::Float16)  return detail::float_to_float16(v);
     if (dt == Dtype::Bfloat16) return detail::float_to_bfloat16(v);
     return static_cast<uint16_t>(v);
 }
 
 template <typename T>
-inline float load_as_float_typed(const T* p, size_t i, Dtype) {
-    if constexpr (std::is_same_v<T, uint16_t>) {
-        // unreachable for non-fp16/bf16 if your traits map only those to u16
-        return static_cast<float>(p[i]);
-    } else {
-        return static_cast<float>(p[i]);
-    }
-}
+inline double ld(const T* p, size_t i, Dtype) { return static_cast<double>(p[i]); }
 template <>
-inline float load_as_float_typed<uint16_t>(const uint16_t* p, size_t i, Dtype dt) {
-    return load_as_float(p[i], dt);
+inline double ld<uint16_t>(const uint16_t* p, size_t i, Dtype dt) {
+    return static_cast<double>(load_u16_as_f32(p[i], dt));
 }
 
 template <typename T>
-inline void store_from_float_typed(T* p, size_t i, float v, Dtype) {
-    if constexpr (std::is_same_v<T, uint16_t>) {
-        p[i] = static_cast<uint16_t>(v);
-    } else {
-        p[i] = static_cast<T>(v);
-    }
-}
+inline void st(T* p, size_t i, double v, Dtype) { p[i] = static_cast<T>(v); }
 template <>
-inline void store_from_float_typed<uint16_t>(uint16_t* p, size_t i, float v, Dtype dt) {
-    p[i] = store_from_float(v, dt);
+inline void st<uint16_t>(uint16_t* p, size_t i, double v, Dtype dt) {
+    p[i] = store_f32_to_u16(static_cast<float>(v), dt);
 }
 
-// ------------------------- In-place operators -------------------------
+template <typename T, typename F>
+inline void apply_inplace(T* data, size_t n, Dtype dt, F&& f) {
+    for (size_t i = 0; i < n; ++i) st<T>(data, i, f(ld<T>(data, i, dt)), dt);
+}
+template <typename T, typename F>
+inline void apply_copy(const T* src, T* dst, size_t n, Dtype dt, F&& f) {
+    for (size_t i = 0; i < n; ++i) st<T>(dst, i, f(ld<T>(src, i, dt)), dt);
+}
 
-template <typename S>
-Tensor& operator+=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
+} // anon
 
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(data, i, dt);
-            store_from_float_typed<T>(data, i, v + s, dt);
-        }
+// --------- public CPU backend (Int16/32/64 + F16/BF16/F32/F64) ---------
+void cpu_add_inplace(Tensor& t, double s) {
+    const Dtype dt = t.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_inplace<T>(t.data<T>(), t.numel(), dt, [=](double v){ return v + s; });
     });
-    return tensor;
 }
-
-template <typename S>
-Tensor& operator-=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(data, i, dt);
-            store_from_float_typed<T>(data, i, v - s, dt);
-        }
+void cpu_sub_inplace(Tensor& t, double s) {
+    const Dtype dt = t.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_inplace<T>(t.data<T>(), t.numel(), dt, [=](double v){ return v - s; });
     });
-    return tensor;
 }
-
-template <typename S>
-Tensor& operator*=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(data, i, dt);
-            store_from_float_typed<T>(data, i, v * s, dt);
-        }
+void cpu_mul_inplace(Tensor& t, double s) {
+    const Dtype dt = t.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_inplace<T>(t.data<T>(), t.numel(), dt, [=](double v){ return v * s; });
     });
-    return tensor;
 }
-
-template <typename S>
-Tensor& operator/=(Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        if constexpr (std::is_integral_v<T>) {
-            if (static_cast<double>(scalar) == 0.0)
-                throw std::runtime_error("Division by zero");
-        }
-        T* data = tensor.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(data, i, dt);
-            store_from_float_typed<T>(data, i, v / s, dt);
-        }
+void cpu_div_inplace(Tensor& t, double s) {
+    const Dtype dt = t.dtype();
+    if (is_integer_dtype(dt) && s == 0.0) throw std::runtime_error("Division by zero");
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_inplace<T>(t.data<T>(), t.numel(), dt, [=](double v){ return v / s; });
     });
-    return tensor;
 }
 
-// --------------------- Tensor (lhs) ⊗ Scalar (rhs) --------------------
-
-template <typename S>
-Tensor operator+(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, v + s, dt);
-        }
+Tensor cpu_add_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    const Dtype dt = a.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v + s; });
+    });
+    return out;
+}
+Tensor cpu_sub_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    const Dtype dt = a.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v - s; });
+    });
+    return out;
+}
+Tensor cpu_mul_copy(const Tensor& a, double s) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    const Dtype dt = a.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v * s; });
+    });
+    return out;
+}
+Tensor cpu_div_copy(const Tensor& a, double s) {
+    const Dtype dt = a.dtype();
+    if (is_integer_dtype(dt) && s == 0.0) throw std::runtime_error("Division by zero");
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v / s; });
     });
     return out;
 }
 
-template <typename S>
-Tensor operator-(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, v - s, dt);
-        }
+Tensor cpu_sub_copy_scalar_tensor(double s, const Tensor& a) {
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    const Dtype dt = a.dtype();
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return s - v; });
     });
     return out;
 }
 
-template <typename S>
-Tensor operator*(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, v * s, dt);
-        }
+Tensor cpu_div_copy_scalar_tensor(double s, const Tensor& a) {
+    const Dtype dt = a.dtype();
+    if (is_integer_dtype(dt)) {
+        dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+            const T* p = a.data<T>();
+            for (size_t i = 0, n = a.numel(); i < n; ++i)
+                if (p[i] == (T)0) throw std::runtime_error("Division by zero");
+        });
+    }
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
+        apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return s / v; });
     });
     return out;
 }
-
-template <typename S>
-Tensor operator/(const Tensor& tensor, S scalar) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("GPU operations not implemented in CPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        if constexpr (std::is_integral_v<T>) {
-            if (static_cast<double>(scalar) == 0.0)
-                throw std::runtime_error("Division by zero");
-        }
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, v / s, dt);
-        }
-    });
-    return out;
-}
-
-// --------------------- Scalar (lhs) ⊗ Tensor (rhs) --------------------
-
-template <typename S>
-Tensor operator+(S scalar, const Tensor& tensor) { return tensor + scalar; }
-
-template <typename S>
-Tensor operator-(S scalar, const Tensor& tensor) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, s - v, dt);
-        }
-    });
-    return out;
-}
-
-template <typename S>
-Tensor operator*(S scalar, const Tensor& tensor) { return tensor * scalar; }
-
-template <typename S>
-Tensor operator/(S scalar, const Tensor& tensor) {
-    if (!tensor.device().is_cpu())
-        throw std::runtime_error("CPU operations not implemented in GPU file");
-
-    Tensor out(tensor.shape(), tensor.dtype(), tensor.device(), tensor.requires_grad());
-    dispatch_by_dtype(tensor.dtype(), [&](auto dummy){
-        using T = decltype(dummy);
-        const T* src = tensor.data<T>();
-        T* dst = out.data<T>();
-        const size_t n = tensor.numel();
-        const Dtype dt = tensor.dtype();
-
-        if constexpr (std::is_integral_v<T>) {
-            for (size_t i = 0; i < n; ++i) {
-                if (src[i] == static_cast<T>(0))
-                    throw std::runtime_error("Division by zero");
-            }
-        }
-        const float s = static_cast<float>(scalar);
-        for (size_t i = 0; i < n; ++i) {
-            const float v = load_as_float_typed<T>(src, i, dt);
-            store_from_float_typed<T>(dst, i, s / v, dt);
-        }
-    });
-    return out;
-}
-
-// -------------------- explicit instantiations (no macros) --------------------
-
-template Tensor& operator+=<int16_t>(Tensor&, int16_t);
-template Tensor& operator+=<int32_t>(Tensor&, int32_t);
-template Tensor& operator+=<int64_t>(Tensor&, int64_t);
-template Tensor& operator+=<float>(Tensor&, float);
-template Tensor& operator+=<double>(Tensor&, double);
-template Tensor& operator+=<float16_t>(Tensor&, float16_t);
-template Tensor& operator+=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator-=<int16_t>(Tensor&, int16_t);
-template Tensor& operator-=<int32_t>(Tensor&, int32_t);
-template Tensor& operator-=<int64_t>(Tensor&, int64_t);
-template Tensor& operator-=<float>(Tensor&, float);
-template Tensor& operator-=<double>(Tensor&, double);
-template Tensor& operator-=<float16_t>(Tensor&, float16_t);
-template Tensor& operator-=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator*=<int16_t>(Tensor&, int16_t);
-template Tensor& operator*=<int32_t>(Tensor&, int32_t);
-template Tensor& operator*=<int64_t>(Tensor&, int64_t);
-template Tensor& operator*=<float>(Tensor&, float);
-template Tensor& operator*=<double>(Tensor&, double);
-template Tensor& operator*=<float16_t>(Tensor&, float16_t);
-template Tensor& operator*=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor& operator/=<int16_t>(Tensor&, int16_t);
-template Tensor& operator/=<int32_t>(Tensor&, int32_t);
-template Tensor& operator/=<int64_t>(Tensor&, int64_t);
-template Tensor& operator/=<float>(Tensor&, float);
-template Tensor& operator/=<double>(Tensor&, double);
-template Tensor& operator/=<float16_t>(Tensor&, float16_t);
-template Tensor& operator/=<bfloat16_t>(Tensor&, bfloat16_t);
-
-template Tensor operator+<int16_t>(const Tensor&, int16_t);
-template Tensor operator+<int32_t>(const Tensor&, int32_t);
-template Tensor operator+<int64_t>(const Tensor&, int64_t);
-template Tensor operator+<float>(const Tensor&, float);
-template Tensor operator+<double>(const Tensor&, double);
-template Tensor operator+<float16_t>(const Tensor&, float16_t);
-template Tensor operator+<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator-<int16_t>(const Tensor&, int16_t);
-template Tensor operator-<int32_t>(const Tensor&, int32_t);
-template Tensor operator-<int64_t>(const Tensor&, int64_t);
-template Tensor operator-<float>(const Tensor&, float);
-template Tensor operator-<double>(const Tensor&, double);
-template Tensor operator-<float16_t>(const Tensor&, float16_t);
-template Tensor operator-<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator*<int16_t>(const Tensor&, int16_t);
-template Tensor operator*<int32_t>(const Tensor&, int32_t);
-template Tensor operator*<int64_t>(const Tensor&, int64_t);
-template Tensor operator*<float>(const Tensor&, float);
-template Tensor operator*<double>(const Tensor&, double);
-template Tensor operator*<float16_t>(const Tensor&, float16_t);
-template Tensor operator*<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator/<int16_t>(const Tensor&, int16_t);
-template Tensor operator/<int32_t>(const Tensor&, int32_t);
-template Tensor operator/<int64_t>(const Tensor&, int64_t);
-template Tensor operator/<float>(const Tensor&, float);
-template Tensor operator/<double>(const Tensor&, double);
-template Tensor operator/<float16_t>(const Tensor&, float16_t);
-template Tensor operator/<bfloat16_t>(const Tensor&, bfloat16_t);
-
-template Tensor operator+<int16_t>(int16_t, const Tensor&);
-template Tensor operator+<int32_t>(int32_t, const Tensor&);
-template Tensor operator+<int64_t>(int64_t, const Tensor&);
-template Tensor operator+<float>(float, const Tensor&);
-template Tensor operator+<double>(double, const Tensor&);
-template Tensor operator+<float16_t>(float16_t, const Tensor&);
-template Tensor operator+<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator-<int16_t>(int16_t, const Tensor&);
-template Tensor operator-<int32_t>(int32_t, const Tensor&);
-template Tensor operator-<int64_t>(int64_t, const Tensor&);
-template Tensor operator-<float>(float, const Tensor&);
-template Tensor operator-<double>(double, const Tensor&);
-template Tensor operator-<float16_t>(float16_t, const Tensor&);
-template Tensor operator-<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator*<int16_t>(int16_t, const Tensor&);
-template Tensor operator*<int32_t>(int32_t, const Tensor&);
-template Tensor operator*<int64_t>(int64_t, const Tensor&);
-template Tensor operator*<float>(float, const Tensor&);
-template Tensor operator*<double>(double, const Tensor&);
-template Tensor operator*<float16_t>(float16_t, const Tensor&);
-template Tensor operator*<bfloat16_t>(bfloat16_t, const Tensor&);
-
-template Tensor operator/<int16_t>(int16_t, const Tensor&);
-template Tensor operator/<int32_t>(int32_t, const Tensor&);
-template Tensor operator/<int64_t>(int64_t, const Tensor&);
-template Tensor operator/<float>(float, const Tensor&);
-template Tensor operator/<double>(double, const Tensor&);
-template Tensor operator/<float16_t>(float16_t, const Tensor&);
-template Tensor operator/<bfloat16_t>(bfloat16_t, const Tensor&);
 
 } // namespace OwnTensor
-
