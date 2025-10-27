@@ -17,6 +17,10 @@
 #include <numeric>
 #include <omp.h>
 
+#ifdef WITH_CUDA
+#include "ReductionImplGPU.h" 
+#endif
+
 namespace OwnTensor {
 namespace detail {
 
@@ -61,7 +65,8 @@ Tensor reduce_kernel(
     const int64_t reduced_count = calculate_reduced_count(input_dims, normalized_axes);
     
     if (reduced_count == 0 && input.numel() > 0) {
-        throw std::runtime_error("Reduction error: reduced count is zero but input is non-empty.");
+        throw std::runtime_error("Reduction error: reduced count is zero but input has " + 
+                                std::to_string(input.numel()) + " elements.");
     }
     
     // Determine output C++ type
@@ -159,82 +164,119 @@ Tensor reduce_kernel(
             // VALUE REDUCTIONS PATH (sum, max, mean, etc.)
             // =========================================================
             
-            // Kahan state (only used if use_kahan is true)
-            AccumulatorT kahan_sum = 0;
-            AccumulatorT kahan_c = 0;
-            
-            // Initialize accumulator
-            AccumulatorT accumulator;
-            if constexpr (should_use_double_accumulation<T>()) {
-                accumulator = static_cast<double>(op.identity());
-            } else if constexpr (std::is_integral_v<T>) {
-                accumulator = static_cast<int64_t>(op.identity());
-            } else {
-                accumulator = op.identity();
-            }
-            
             std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
 
-            for (int64_t i = 0; i < reduced_count; ++i) {
-                std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims); 
-                std::vector<int64_t> full_input_coords(input_dims.size());
-                int out_coord_idx = 0;
-                int slice_coord_idx = 0;
+            if constexpr (use_kahan) {
+                // Kahan state and initialization (used only for SumOp)
+                AccumulatorT kahan_sum = 0;
+                AccumulatorT kahan_c = 0;
                 
-                for (size_t dim = 0; dim < input_dims.size(); ++dim) {
-                    bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
-                    if (is_reduced) {
-                        full_input_coords[dim] = slice_coords[slice_coord_idx++];
-                    } else {
-                        if (rank_preserved) {
-                            full_input_coords[dim] = out_coords[dim];
+                // Kahan Loop
+                for (int64_t i = 0; i < reduced_count; ++i) {
+                    std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims); 
+                    std::vector<int64_t> full_input_coords(input_dims.size());
+                    int out_coord_idx = 0;
+                    int slice_coord_idx = 0;
+                    
+                    for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                        bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+                        if (is_reduced) {
+                            full_input_coords[dim] = slice_coords[slice_coord_idx++];
                         } else {
-                            full_input_coords[dim] = out_coords[out_coord_idx];
+                            if (rank_preserved) {
+                                full_input_coords[dim] = out_coords[dim];
+                            } else {
+                                full_input_coords[dim] = out_coords[out_coord_idx];
+                            }
+                            out_coord_idx++;
                         }
-                        out_coord_idx++;
+                    }
+                    
+                    int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+                    T input_value = input_data[input_lin_idx];
+
+                    // Kahan summation for maximum numerical stability
+                    AccumulatorT val_acc = static_cast<AccumulatorT>(input_value);
+                    
+                    // Overflow/NaN detection for numerical stability
+                    if (std::isinf(kahan_sum) || std::isnan(kahan_sum)) {
+                        kahan_sum += val_acc;  // Fallback to simple accumulation
+                    } else {
+                        AccumulatorT y = val_acc - kahan_c;
+                        AccumulatorT t = kahan_sum + y;
+                        kahan_c = (t - kahan_sum) - y;
+                        kahan_sum = t;
                     }
                 }
                 
-                int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
-                T input_value = input_data[input_lin_idx];
+                // =================================================================
+                // CRITICAL: Safe conversion back to output type (Kahan path)
+                // =================================================================
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    // FP16: overflow→inf handled by float_to_float16
+                    output_data[output_index] = static_cast<OutputCppT>(
+                        static_cast<T>(static_cast<float>(kahan_sum))
+                    );
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    // BF16: overflow→inf handled by float_to_bfloat16
+                    output_data[output_index] = static_cast<OutputCppT>(
+                        static_cast<T>(static_cast<float>(kahan_sum))
+                    );
+                } else {
+                    output_data[output_index] = static_cast<OutputCppT>(kahan_sum);
+                }
 
-                if constexpr (use_kahan) {
-        // Kahan summation for maximum numerical stability
-        AccumulatorT val_acc = static_cast<AccumulatorT>(input_value);
-        
-        // CRITICAL: Overflow/NaN detection for numerical stability
-        if (std::isinf(kahan_sum) || std::isnan(kahan_sum)) {
-            kahan_sum += val_acc;  // Fallback to simple accumulation
-        } else {
-            AccumulatorT y = val_acc - kahan_c;
-            AccumulatorT t = kahan_sum + y;
-            kahan_c = (t - kahan_sum) - y;
-            kahan_sum = t;
-        }
-    }  else {
+            } else {
+                // Initialize standard accumulator (used for all other reductions)
+                AccumulatorT accumulator;
+                if constexpr (should_use_double_accumulation<T>()) {
+                    accumulator = static_cast<double>(op.identity());
+                } else if constexpr (std::is_integral_v<T>) {
+                    accumulator = static_cast<int64_t>(op.identity());
+                } else {
+                    accumulator = op.identity();
+                }
+
+                // Standard Loop
+                for (int64_t i = 0; i < reduced_count; ++i) {
+                    std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims); 
+                    std::vector<int64_t> full_input_coords(input_dims.size());
+                    int out_coord_idx = 0;
+                    int slice_coord_idx = 0;
+                    
+                    for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                        bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+                        if (is_reduced) {
+                            full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                        } else {
+                            if (rank_preserved) {
+                                full_input_coords[dim] = out_coords[dim];
+                            } else {
+                                full_input_coords[dim] = out_coords[out_coord_idx];
+                            }
+                            out_coord_idx++;
+                        }
+                    }
+                    
+                    int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+                    T input_value = input_data[input_lin_idx];
+
                     // Standard accumulation
                     AccumulatorT val_acc = static_cast<AccumulatorT>(input_value);
                     accumulator = op.reduce(accumulator, val_acc);
                 }
-            }
-            
-            // CRITICAL: Safe conversion back to output type
-            // Let natural overflow/underflow happen - float_to_float16 handles it correctly
-            if constexpr (use_kahan) {
+                
+                // =================================================================
+                // CRITICAL: Safe conversion back to output type (Standard path)
+                // =================================================================
                 if constexpr (std::is_same_v<T, float16_t>) {
-                    // Convert via float, let float_to_float16 handle overflow→inf
-                    output_data[output_index] = static_cast<OutputCppT>(static_cast<T>(static_cast<float>(kahan_sum)));
+                    output_data[output_index] = static_cast<OutputCppT>(
+                        static_cast<T>(static_cast<float>(accumulator))
+                    );
                 } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-                    output_data[output_index] = static_cast<OutputCppT>(static_cast<T>(static_cast<float>(kahan_sum)));
-                } else {
-                    output_data[output_index] = static_cast<OutputCppT>(kahan_sum);
-                }
-            } else {
-                if constexpr (std::is_same_v<T, float16_t>) {
-                    // Convert via float, let float_to_float16 handle overflow→inf
-                    output_data[output_index] = static_cast<OutputCppT>(static_cast<T>(static_cast<float>(accumulator)));
-                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-                    output_data[output_index] = static_cast<OutputCppT>(static_cast<T>(static_cast<float>(accumulator)));
+                    output_data[output_index] = static_cast<OutputCppT>(
+                        static_cast<T>(static_cast<float>(accumulator))
+                    );
                 } else {
                     output_data[output_index] = static_cast<OutputCppT>(accumulator);
                 }
@@ -249,9 +291,53 @@ Tensor reduce_kernel(
 // --- DISPATCHER TEMPLATES ---
 // =================================================================
 
+// =================================================================
+// --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
+// =================================================================
+
 template <typename T, template <typename> class OpType>
 Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
     
+    // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
+    constexpr bool is_nan_op = 
+        std::is_same_v<OpType<T>, NanSumOp<T>> ||
+        std::is_same_v<OpType<T>, NanProductOp<T>> ||
+        std::is_same_v<OpType<T>, NanMinOp<T>> ||
+        std::is_same_v<OpType<T>, NanMaxOp<T>> ||
+        std::is_same_v<OpType<T>, NanArgMinOp<T>> ||
+        std::is_same_v<OpType<T>, NanArgMaxOp<T>>;
+    
+    constexpr bool is_float_type = 
+        std::is_same_v<T, float> || 
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float16_t> ||
+        std::is_same_v<T, bfloat16_t>;
+    
+    // Block NaN operations on non-float types at compile time
+    if constexpr (is_nan_op && !is_float_type) {
+        throw std::runtime_error(
+            "NaN-aware operations are only supported for floating point types"
+        );
+    }
+    
+#ifdef WITH_CUDA
+    if (input.is_cuda()) {
+        // Route to GPU implementation
+        if constexpr (std::is_same_v<OpType<T>, ArgMaxOp<T>> || 
+                      std::is_same_v<OpType<T>, ArgMinOp<T>> || 
+                      std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
+                      std::is_same_v<OpType<T>, NanArgMinOp<T>>) 
+        {
+            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+        } 
+        else 
+        {
+            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+        }
+    }
+#endif
+
+    // CPU path continues as before
     if constexpr (std::is_same_v<OpType<T>, ArgMaxOp<T>> || 
                   std::is_same_v<OpType<T>, ArgMinOp<T>> || 
                   std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
@@ -268,12 +354,33 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 }
 
 // =================================================================
-// --- MEAN REDUCTION DISPATCHER ---
+// --- MEAN REDUCTION DISPATCHER WITH TYPE VALIDATION ---
 // =================================================================
 
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
     
+    // ✅ CRITICAL: Validate NaN-aware mean operations
+    constexpr bool is_nan_sum = std::is_same_v<SumOpType<T>, NanSumOp<T>>;
+    constexpr bool is_float_type = 
+        std::is_same_v<T, float> || 
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float16_t> ||
+        std::is_same_v<T, bfloat16_t>;
+    
+    if constexpr (is_nan_sum && !is_float_type) {
+        throw std::runtime_error(
+            "NaN-aware mean is only supported for floating point types"
+        );
+    }
+    
+#ifdef WITH_CUDA
+    if (input.is_cuda()) {
+        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim);
+    }
+#endif
+
+    // CPU implementation continues as before...
     int64_t reduced_count = detail::calculate_reduced_count(input.shape().dims, normalized_axes);
 
     if (reduced_count == 0) {
@@ -350,35 +457,53 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         >::type;
         
         Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
-        T* sum_data = sum_result.data<T>();
         
-        // Divide by count to get mean
-        if constexpr (should_use_double_accumulation<T>()) {
-            const double divisor_d = static_cast<double>(reduced_count);
-            
-            #pragma omp parallel for
-            for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
-                double val_d = static_cast<double>(sum_data[i]);
-                val_d /= divisor_d;
-                
-                // Safe conversion with clamping for FP16
-                if constexpr (std::is_same_v<T, float16_t>) {
-                    double clamped = std::max(-65504.0, std::min(65504.0, val_d));
-                    sum_data[i] = static_cast<T>(static_cast<float>(clamped));
-                } else {
-                    sum_data[i] = static_cast<T>(static_cast<float>(val_d));
-                }
-            }
-        } else {
-            const T divisor = static_cast<T>(reduced_count);
-            
-            #pragma omp parallel for
-            for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
-                sum_data[i] /= divisor;
+        using SumT = typename std::conditional<
+            should_use_double_accumulation<T>(),
+            double,  
+            T        
+        >::type;
+        
+        SumT* sum_data = sum_result.data<SumT>();
+        const SumT divisor = static_cast<SumT>(reduced_count);
+        
+        #pragma omp parallel for
+        for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+            SumT val = sum_data[i];
+            val /= divisor;
+
+            if constexpr (std::is_same_v<T, float16_t>) {
+                sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
+            } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
+            } else {
+                sum_data[i] = val;
             }
         }
 
-        return sum_result;
+        // Final result must be cast back to the original Tensor type (T) if AccT was double.
+        // The reduce_kernel returns a Tensor<T> or Tensor<double>, but the output Dtype is T.
+        // The previous code had a bug here.
+        // We ensure the output Tensor's data type matches the original T
+        if constexpr (should_use_double_accumulation<T>()) {
+            Tensor final_output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
+            T* final_output_data = final_output.data<T>();
+            
+            #pragma omp parallel for
+            for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+                // Safe conversion from SumT (double) back to output type (T)
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
+                } else {
+                    final_output_data[i] = static_cast<T>(sum_data[i]);
+                }
+            }
+            return final_output;
+        } else {
+            return sum_result;
+        }
     }
 }
 

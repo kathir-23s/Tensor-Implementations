@@ -5,28 +5,41 @@
 #include <cmath>
 #include <cstring>
 #include <type_traits>
-
+// ==================================================================================
+// CUDA COMPATIBILITY MACROS
+// ==================================================================================
+#ifndef __CUDACC__
+    // When NOT compiling with nvcc, these macros do nothing
+    #ifndef __device__
+        #define __device__
+    #endif
+    #ifndef __host__
+        #define __host__
+    #endif
+#endif
 namespace OwnTensor {
 
+// ✅ ALWAYS define custom structs (both CPU and GPU compilation)
+// These are the ONLY types we use in all code paths
+
 // ==================================================================================
-// SECTION 1: LOW-LEVEL CONVERSION FUNCTIONS (From fp16_bf16_convert.h)
+// LOW-LEVEL CONVERSION FUNCTIONS - NOW DEVICE-COMPATIBLE
 // ==================================================================================
-// These are the mathematically correct, portable conversion routines.
 
 namespace detail {
 
 // ---- BFloat16 Conversions (Google Brain Float) ----
-inline float bfloat16_to_float(uint16_t b) {
+__device__ __host__ inline float bfloat16_to_float(uint16_t b) {
     // BFloat16: Sign(1) + Exp(8) + Mantissa(7) -> Just shift left 16 bits
     uint32_t u = static_cast<uint32_t>(b) << 16;
     float f;
-    std::memcpy(&f, &u, sizeof(f));
+    ::std::memcpy(&f, &u, sizeof(f));
     return f;
 }
 
-inline uint16_t float_to_bfloat16(float f) {
+__device__ __host__ inline uint16_t float_to_bfloat16(float f) {
     uint32_t u;
-    std::memcpy(&u, &f, sizeof(u));
+    ::std::memcpy(&u, &f, sizeof(u));
     // Round-to-nearest-even (RNE) logic
     uint32_t lsb = (u >> 16) & 1u;
     uint32_t rounding_bias = 0x7FFFu + lsb;
@@ -35,7 +48,7 @@ inline uint16_t float_to_bfloat16(float f) {
 }
 
 // ---- Float16 Conversions (IEEE 754 Half-Precision) ----
-inline float float16_to_float(uint16_t h) {
+__device__ __host__ inline float float16_to_float(uint16_t h) {
     uint32_t sign = (h & 0x8000u) << 16;
     uint32_t exp  = (h & 0x7C00u) >> 10;
     uint32_t frac = (h & 0x03FFu);
@@ -48,9 +61,13 @@ inline float float16_to_float(uint16_t h) {
         } else {
             // Denormal number
             float f = static_cast<float>(frac) / 1024.0f;
-            f = std::ldexp(f, -14);
+            #ifdef __CUDA_ARCH__
+            f = ldexpf(f, -14);
+            #else
+            f = ::std::ldexp(f, -14);
+            #endif
             if (sign) f = -f;
-            std::memcpy(&u, &f, sizeof(f));
+            ::std::memcpy(&u, &f, sizeof(f));
         }
     } else if (exp == 0x1F) {
         // Infinity or NaN
@@ -66,7 +83,7 @@ inline float float16_to_float(uint16_t h) {
     return f;
 }
 
-inline uint16_t float_to_float16(float f) {
+__device__ __host__ inline uint16_t float_to_float16(float f) {
     uint32_t x;
     std::memcpy(&x, &f, sizeof(x));
     
@@ -82,22 +99,15 @@ inline uint16_t float_to_float16(float f) {
         } else {
             // NaN
             uint32_t qnan_mant = mant_32 >> 13;
-            if (qnan_mant == 0) {
-                 qnan_mant = 1; 
-            }
+            if (qnan_mant == 0) qnan_mant = 1;
             return static_cast<uint16_t>(sign | 0x7C00u | qnan_mant);
         }
     }
 
-    // 2. Handle Normal/Denormal conversion
-    int32_t exp_16  = static_cast<int32_t>(exp_32) - 127 + 15;
+    int32_t exp_16 = static_cast<int32_t>(exp_32) - 127 + 15;
 
     if (exp_16 <= 0) {
-        // Underflow handling
-        if (exp_16 < -10) {
-            return static_cast<uint16_t>(sign);
-        }
-        // Denormal conversion
+        if (exp_16 < -10) return static_cast<uint16_t>(sign);
         mant_32 |= 0x00800000u;
         uint32_t shift = static_cast<uint32_t>(1 - exp_16);
         uint32_t half_mant = mant_32 >> (shift + 13);
@@ -106,8 +116,7 @@ inline uint16_t float_to_float16(float f) {
         // Overflow to infinity
         return static_cast<uint16_t>(sign | 0x7C00u);
     } else {
-        // Normal conversion with rounding
-        uint16_t half_exp  = static_cast<uint16_t>(exp_16);
+        uint16_t half_exp = static_cast<uint16_t>(exp_16);
         uint32_t half_mant = mant_32 + 0x00001000u;
         return static_cast<uint16_t>(sign | (half_exp << 10) | (half_mant >> 13));
     }
@@ -116,7 +125,7 @@ inline uint16_t float_to_float16(float f) {
 } // namespace detail
 
 // ==================================================================================
-// SECTION 2: C++ TYPE WRAPPERS (16-bit Floating Point Types)
+// CUSTOM STRUCT DEFINITIONS FOR BF16/FP16 - FULLY DEVICE-COMPATIBLE
 // ==================================================================================
 
 /**
@@ -129,99 +138,92 @@ struct bfloat16_t {
     uint16_t raw_bits;
 
     // ---- Constructors ----
-    bfloat16_t() : raw_bits(0) {}
-    
-    explicit bfloat16_t(float val) {
-        raw_bits = detail::float_to_bfloat16(val);
-    }
+    __device__ __host__ bfloat16_t() : raw_bits(0) {}
+    __device__ __host__ explicit bfloat16_t(float val) { raw_bits = detail::float_to_bfloat16(val); }
+    __device__ __host__ bfloat16_t(const bfloat16_t& other) : raw_bits(other.raw_bits) {}
 
-    bfloat16_t(const bfloat16_t& other) : raw_bits(other.raw_bits) {}
-
-    template <typename U, typename = std::enable_if_t<
-        std::is_arithmetic_v<U> && !std::is_same_v<std::decay_t<U>, float>
+    template <typename U, typename = ::std::enable_if_t<
+        ::std::is_arithmetic_v<U> && !::std::is_same_v<std::decay_t<U>, float>
     >>
-    explicit bfloat16_t(U val) {
+    __device__ __host__ explicit bfloat16_t(U val) {
         raw_bits = detail::float_to_bfloat16(static_cast<float>(val));
     }
 
-    // ---- Conversion ----
-    operator float() const {
-        return detail::bfloat16_to_float(raw_bits);
-    }
+    __device__ __host__ operator float() const { return detail::bfloat16_to_float(raw_bits); }
 
     // ---- Assignment Operators ----
-    bfloat16_t& operator=(float val) {
+    __device__ __host__ bfloat16_t& operator=(float val) {
         raw_bits = detail::float_to_bfloat16(val);
         return *this;
     }
     
-    bfloat16_t& operator=(const bfloat16_t& other) {
+    __device__ __host__ bfloat16_t& operator=(const bfloat16_t& other) {
         raw_bits = other.raw_bits;
         return *this;
     }
 
-    template <typename U, typename = std::enable_if_t<
-        std::is_arithmetic_v<U> && !std::is_same_v<std::decay_t<U>, float>
+    template <typename U, typename = ::std::enable_if_t<
+        ::std::is_arithmetic_v<U> && !::std::is_same_v<std::decay_t<U>, float>
     >>
-    bfloat16_t& operator=(U val) {
+    __device__ __host__ bfloat16_t& operator=(U val) {
         raw_bits = detail::float_to_bfloat16(static_cast<float>(val));
         return *this;
     }
 
     // ---- Comparison Operators ----
-    bool operator>(const bfloat16_t& other) const {
+    __device__ __host__ bool operator>(const bfloat16_t& other) const {
         return static_cast<float>(*this) > static_cast<float>(other);
     }
-    bool operator<(const bfloat16_t& other) const {
+    __device__ __host__ bool operator<(const bfloat16_t& other) const {
         return static_cast<float>(*this) < static_cast<float>(other);
     }
-    bool operator>=(const bfloat16_t& other) const {
+    __device__ __host__ bool operator>=(const bfloat16_t& other) const {
         return static_cast<float>(*this) >= static_cast<float>(other);
     }
-    bool operator<=(const bfloat16_t& other) const {
+    __device__ __host__ bool operator<=(const bfloat16_t& other) const {
         return static_cast<float>(*this) <= static_cast<float>(other);
     }
-    bool operator==(const bfloat16_t& other) const {
+    __device__ __host__ bool operator==(const bfloat16_t& other) const {
         return raw_bits == other.raw_bits;
     }
-    bool operator!=(const bfloat16_t& other) const {
+    __device__ __host__ bool operator!=(const bfloat16_t& other) const {
         return raw_bits != other.raw_bits;
     }
 
     // ---- Arithmetic Operators ----
-    bfloat16_t operator+(const bfloat16_t& other) const {
+    __device__ __host__ bfloat16_t operator+(const bfloat16_t& other) const {
         return bfloat16_t(static_cast<float>(*this) + static_cast<float>(other));
     }
     
-    bfloat16_t operator-(const bfloat16_t& other) const {
+    __device__ __host__ bfloat16_t operator-(const bfloat16_t& other) const {
         return bfloat16_t(static_cast<float>(*this) - static_cast<float>(other));
     }
     
-    bfloat16_t operator*(const bfloat16_t& other) const {
+    __device__ __host__ bfloat16_t operator*(const bfloat16_t& other) const {
         return bfloat16_t(static_cast<float>(*this) * static_cast<float>(other));
     }
     
-    bfloat16_t operator/(const bfloat16_t& other) const {
+    __device__ __host__ bfloat16_t operator/(const bfloat16_t& other) const {
         return bfloat16_t(static_cast<float>(*this) / static_cast<float>(other));
     }
 
     // ---- Compound Assignment Operators ----
-    bfloat16_t& operator+=(const bfloat16_t& other) {
+    __device__ __host__ bfloat16_t& operator+=(const bfloat16_t& other) {
         *this = bfloat16_t(static_cast<float>(*this) + static_cast<float>(other));
         return *this;
     }
     
-    bfloat16_t& operator-=(const bfloat16_t& other) {
+    __device__ __host__ bfloat16_t& operator-=(const bfloat16_t& other) {
         *this = bfloat16_t(static_cast<float>(*this) - static_cast<float>(other));
         return *this;
     }
     
-    bfloat16_t& operator*=(const bfloat16_t& other) {
+    __device__ __host__ bfloat16_t& operator*=(const bfloat16_t& other) {
         *this = bfloat16_t(static_cast<float>(*this) * static_cast<float>(other));
         return *this;
     }
     
-    bfloat16_t& operator/=(const bfloat16_t& other) {
+    __device__ __host__ bfloat16_t& operator/=(const bfloat16_t& other) {
         *this = bfloat16_t(static_cast<float>(*this) / static_cast<float>(other));
         return *this;
     }
@@ -237,146 +239,101 @@ struct float16_t {
     uint16_t raw_bits;
 
     // ---- Constructors ----
-    float16_t() : raw_bits(0) {}
-    
-    explicit float16_t(float val) {
-        raw_bits = detail::float_to_float16(val);
-    }
+    __device__ __host__ float16_t() : raw_bits(0) {}
+    __device__ __host__ explicit float16_t(float val) { raw_bits = detail::float_to_float16(val); }
+    __device__ __host__ float16_t(const float16_t& other) : raw_bits(other.raw_bits) {}
 
-    float16_t(const float16_t& other) : raw_bits(other.raw_bits) {}
-
-    template <typename U, typename = std::enable_if_t<
-        std::is_arithmetic_v<U> && !std::is_same_v<std::decay_t<U>, float>
+    template <typename U, typename = ::std::enable_if_t<
+        ::std::is_arithmetic_v<U> && !::std::is_same_v<std::decay_t<U>, float>
     >>
-    explicit float16_t(U val) {
+    __device__ __host__ explicit float16_t(U val) {
         raw_bits = detail::float_to_float16(static_cast<float>(val));
     }
 
-    // ---- Conversion ----
-    operator float() const {
-        return detail::float16_to_float(raw_bits);
-    }
+    __device__ __host__ operator float() const { return detail::float16_to_float(raw_bits); }
 
     // ---- Assignment Operators ----
-    float16_t& operator=(float val) {
+    __device__ __host__ float16_t& operator=(float val) {
         raw_bits = detail::float_to_float16(val);
         return *this;
     }
     
-    float16_t& operator=(const float16_t& other) {
+    __device__ __host__ float16_t& operator=(const float16_t& other) {
         raw_bits = other.raw_bits;
         return *this;
     }
 
-    template <typename U, typename = std::enable_if_t<
-        std::is_arithmetic_v<U> && !std::is_same_v<std::decay_t<U>, float>
+    template <typename U, typename = ::std::enable_if_t<
+        ::std::is_arithmetic_v<U> && !::std::is_same_v<std::decay_t<U>, float>
     >>
-    float16_t& operator=(U val) {
+    __device__ __host__ float16_t& operator=(U val) {
         raw_bits = detail::float_to_float16(static_cast<float>(val));
         return *this;
     }
 
     // ---- Comparison Operators ----
-    bool operator>(const float16_t& other) const {
+    __device__ __host__ bool operator>(const float16_t& other) const {
         return static_cast<float>(*this) > static_cast<float>(other);
     }
-    bool operator<(const float16_t& other) const {
+    __device__ __host__ bool operator<(const float16_t& other) const {
         return static_cast<float>(*this) < static_cast<float>(other);
     }
-    bool operator>=(const float16_t& other) const {
+    __device__ __host__ bool operator>=(const float16_t& other) const {
         return static_cast<float>(*this) >= static_cast<float>(other);
     }
-    bool operator<=(const float16_t& other) const {
+    __device__ __host__ bool operator<=(const float16_t& other) const {
         return static_cast<float>(*this) <= static_cast<float>(other);
     }
-    bool operator==(const float16_t& other) const {
+    __device__ __host__ bool operator==(const float16_t& other) const {
         return raw_bits == other.raw_bits;
     }
-    bool operator!=(const float16_t& other) const {
+    __device__ __host__ bool operator!=(const float16_t& other) const {
         return raw_bits != other.raw_bits;
     }
 
     // ---- Arithmetic Operators ----
-    float16_t operator+(const float16_t& other) const {
+    __device__ __host__ float16_t operator+(const float16_t& other) const {
         return float16_t(static_cast<float>(*this) + static_cast<float>(other));
     }
     
-    float16_t operator-(const float16_t& other) const {
+    __device__ __host__ float16_t operator-(const float16_t& other) const {
         return float16_t(static_cast<float>(*this) - static_cast<float>(other));
     }
     
-    float16_t operator*(const float16_t& other) const {
+    __device__ __host__ float16_t operator*(const float16_t& other) const {
         return float16_t(static_cast<float>(*this) * static_cast<float>(other));
     }
     
-    float16_t operator/(const float16_t& other) const {
+    __device__ __host__ float16_t operator/(const float16_t& other) const {
         return float16_t(static_cast<float>(*this) / static_cast<float>(other));
     }
 
     // ---- Compound Assignment Operators ----
-    float16_t& operator+=(const float16_t& other) {
+    __device__ __host__ float16_t& operator+=(const float16_t& other) {
         *this = float16_t(static_cast<float>(*this) + static_cast<float>(other));
         return *this;
     }
     
-    float16_t& operator-=(const float16_t& other) {
+    __device__ __host__ float16_t& operator-=(const float16_t& other) {
         *this = float16_t(static_cast<float>(*this) - static_cast<float>(other));
         return *this;
     }
     
-    float16_t& operator*=(const float16_t& other) {
+    __device__ __host__ float16_t& operator*=(const float16_t& other) {
         *this = float16_t(static_cast<float>(*this) * static_cast<float>(other));
         return *this;
     }
     
-    float16_t& operator/=(const float16_t& other) {
+    __device__ __host__ float16_t& operator/=(const float16_t& other) {
         *this = float16_t(static_cast<float>(*this) / static_cast<float>(other));
         return *this;
     }
 };
 
-// ==================================================================================
-// SECTION 3: TYPE TRAITS AND EXTENSIONS (Future-Ready)
-// ==================================================================================
-
-/**
- * @brief Type trait to check if a type is a half-precision float.
- * Extensible for future types.
- */
-template <typename T>
-struct is_half_float : std::false_type {};
-
-template <>
-struct is_half_float<bfloat16_t> : std::true_type {};
-
-template <>
-struct is_half_float<float16_t> : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_half_float_v = is_half_float<T>::value;
-
-/**
- * @brief Combined type trait: checks if T is any floating point (standard or custom).
- */
-template <typename T>
-inline constexpr bool is_any_float_v = std::is_floating_point_v<T> || is_half_float_v<T>;
-
-// ==================================================================================
-// FUTURE TYPE PLACEHOLDERS (To be implemented later)
-// ==================================================================================
-
-// Uncomment and implement when needed:
-/*
-struct int8_t_custom { int8_t value; };
-struct uint8_t_custom { uint8_t value; };
-struct float8_e4m3_t { uint8_t raw_bits; }; // FP8 E4M3 format
-struct float8_e5m2_t { uint8_t raw_bits; }; // FP8 E5M2 format
-*/
-
 } // namespace OwnTensor
 
 // ==================================================================================
-// SECTION 4: std::numeric_limits SPECIALIZATIONS (Must be in std namespace)
+// std::numeric_limits SPECIALIZATIONS
 // ==================================================================================
 
 namespace std {
@@ -431,37 +388,3 @@ inline OwnTensor::float16_t numeric_limits_fp16_helper<OwnTensor::float16_t>::ma
 }
 
 } // namespace std
-
-// ==================================================================================
-// SECTION 5: DOCUMENTATION AND USAGE GUIDE
-// ==================================================================================
-
-/*
- * ==================================================================================
- * USAGE EXAMPLES:
- * ==================================================================================
- * 
- * // 1. Basic creation and conversion
- * OwnTensor::bfloat16_t bf16_val(3.14f);
- * OwnTensor::float16_t fp16_val(2.71f);
- * float f = static_cast<float>(bf16_val);
- * 
- * // 2. Arithmetic operations
- * auto result = bf16_val + bf16_val;
- * bf16_val *= 2.0f;
- * 
- * // 3. Template usage (automatically works with reduction kernels)
- * template <typename T>
- * T compute(T a, T b) { return a * b + T(1.0f); }
- * auto res = compute(bf16_val, OwnTensor::bfloat16_t(5.0f));
- * 
- * // 4. Type traits
- * static_assert(OwnTensor::is_half_float_v<OwnTensor::bfloat16_t>);
- * static_assert(OwnTensor::is_any_float_v<float>);
- * 
- * // 5. Numeric limits
- * auto max_bf16 = std::numeric_limits<OwnTensor::bfloat16_t>::max();
- * auto inf_fp16 = std::numeric_limits<OwnTensor::float16_t>::infinity();
- * 
- * ==================================================================================
- */
