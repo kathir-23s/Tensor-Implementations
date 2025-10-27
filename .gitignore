@@ -43,6 +43,7 @@
 # Global
 *.vscode
 local_test
+doc
 
 # Local
 Log.md 
