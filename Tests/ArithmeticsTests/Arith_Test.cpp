@@ -178,7 +178,7 @@ void test_square_root_function(TestReport& report, const DeviceIndex& device,
             // Check for integer dtypes (should throw)
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    square_root_(input);
+                    sqrt_(input);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -191,13 +191,13 @@ void test_square_root_function(TestReport& report, const DeviceIndex& device,
                 }
             }
             
-            square_root_(input);
+            sqrt_(input);
             bool passed = verify_tensor_values(input, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = square_root(input);
+            Tensor output = sqrt(input);
             bool passed = verify_tensor_values(output, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -306,13 +306,13 @@ void test_absolute_function(TestReport& report, const DeviceIndex& device,
                                get_dtype_name(dtype) + ")";
         
         if (inplace) {
-            absolute_(input);
+            abs_(input);
             bool passed = verify_tensor_values(input, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = absolute(input);
+            Tensor output = abs(input);
             bool passed = verify_tensor_values(output, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();

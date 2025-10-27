@@ -24,7 +24,7 @@ Tensor square(const Tensor& input) {
     }
 }
 
-Tensor square_root(const Tensor& input) {
+Tensor sqrt(const Tensor& input) {
     if (input.is_cpu()) {
         return square_root_out_cpu_wrap(input);
     }
@@ -52,7 +52,7 @@ Tensor negator(const Tensor& input) {
     }
 }
 
-Tensor absolute(const Tensor& input) {
+Tensor abs(const Tensor& input) {
     if (input.is_cpu()) {
         return absolute_out_cpu_wrap(input);
     }
@@ -95,7 +95,7 @@ Tensor reciprocal(const Tensor& input) {
 }
 
 
-Tensor power(const Tensor& input, int exponent) {
+Tensor pow(const Tensor& input, int exponent) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
@@ -109,7 +109,7 @@ Tensor power(const Tensor& input, int exponent) {
     }
 }
 
-Tensor power(const Tensor& input, float exponent) {
+Tensor pow(const Tensor& input, float exponent) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
@@ -123,7 +123,7 @@ Tensor power(const Tensor& input, float exponent) {
     }
 }
 
-Tensor power(const Tensor& input, double exponent) {
+Tensor pow(const Tensor& input, double exponent) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
@@ -154,7 +154,7 @@ void square_(Tensor& input) {
     }
 }
 
-void square_root_(Tensor& input) {
+void sqrt_(Tensor& input) {
     if (input.is_cpu()) {
         square_root_in_cpu_wrap(input);
     }
@@ -182,7 +182,7 @@ void negator_(Tensor& input) {
     }
 }
 
-void absolute_(Tensor& input) {
+void abs_(Tensor& input) {
     if (input.is_cpu()) {
         absolute_in_cpu_wrap(input);
     }
@@ -224,7 +224,7 @@ void reciprocal_(Tensor& input) {
     }
 }
 
-void power_(Tensor& input, int exponent) {
+void pow_(Tensor& input, int exponent) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
@@ -238,7 +238,7 @@ void power_(Tensor& input, int exponent) {
     }
 }
 
-void power_(Tensor& input, float exponent) {
+void pow_(Tensor& input, float exponent) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
@@ -252,7 +252,7 @@ void power_(Tensor& input, float exponent) {
     }
 }
 
-void power_(Tensor& input, double exponent) {
+void pow_(Tensor& input, double exponent) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
