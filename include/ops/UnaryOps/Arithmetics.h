@@ -23,4 +23,13 @@ void absolute_(Tensor& t);
 void sign_(Tensor& t);
 void reciprocal_(Tensor& t);
 
+// Out-of-place power functions
+Tensor power(const Tensor& t, int exponent);
+Tensor power(const Tensor& t, float exponent);
+Tensor power(const Tensor& t, double exponent);
+
+// In-place power functions
+void power_(Tensor& t, int exponent);
+void power_(Tensor& t, float exponent);
+void power_(Tensor& t, double exponent);
 } // end of namespace
