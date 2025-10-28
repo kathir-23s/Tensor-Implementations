@@ -29,23 +29,79 @@ namespace OwnTensor {
 namespace detail {
 
 // ---- BFloat16 Conversions (Google Brain Float) ----
+// __device__ __host__ inline float bfloat16_to_float(uint16_t b) {
+//     // BFloat16: Sign(1) + Exp(8) + Mantissa(7) -> Just shift left 16 bits
+//     uint32_t u = static_cast<uint32_t>(b) << 16;
+//     float f;
+//     ::std::memcpy(&f, &u, sizeof(f));
+//     return f;
+// }
 __device__ __host__ inline float bfloat16_to_float(uint16_t b) {
-    // BFloat16: Sign(1) + Exp(8) + Mantissa(7) -> Just shift left 16 bits
-    uint32_t u = static_cast<uint32_t>(b) << 16;
+    uint32_t sign = (b & 0x8000u) << 16;      // Sign bit to float position
+    uint32_t exp = (b & 0x7F80u) >> 7;        // Extract exponent (8 bits)
+    uint32_t frac = (b & 0x007Fu);             // Extract mantissa (7 bits)
+    uint32_t u;
+
+    if (exp == 0xFF) {
+        // Inf or NaN
+        if (frac == 0) {
+            // Infinity
+            u = sign | 0x7F800000u; // float infinity pattern
+        } else {
+            // NaN - set quiet NaN with some mantissa bits preserved
+            u = sign | 0x7F800000u | (frac << 16);
+        }
+    } else {
+        // Normal or subnormal number: shift bfloat16 bits to float position
+        u = (static_cast<uint32_t>(b)) << 16;
+    }
+
     float f;
     ::std::memcpy(&f, &u, sizeof(f));
     return f;
 }
 
+
 __device__ __host__ inline uint16_t float_to_bfloat16(float f) {
     uint32_t u;
-    ::std::memcpy(&u, &f, sizeof(u));
-    // Round-to-nearest-even (RNE) logic
+    std::memcpy(&u, &f, sizeof(u));
+    uint32_t sign = u & 0x80000000u;
+    uint32_t exponent = (u >> 23) & 0xFF;
+    uint32_t mantissa = u & 0x7FFFFFu;
+
+    // Handle NaN and Infinity explicitly
+    if (exponent == 0xFF) {
+        if (mantissa == 0) {
+            // Infinity
+            return static_cast<uint16_t>((sign >> 16) | 0x7F80u);
+        } else {
+            // NaN: keep quiet NaN pattern
+            return static_cast<uint16_t>((sign >> 16) | 0x7FC1u);
+        }
+    }
+
+    // Overflow, clamp to Infinity
+    if (exponent > 0x8E) {  // exponent > 142 decimal (127+15)
+        return static_cast<uint16_t>((sign >> 16) | 0x7F80u);
+    }
+
+    // Normal rounding and truncation
     uint32_t lsb = (u >> 16) & 1u;
-    uint32_t rounding_bias = 0x7FFFu + lsb;
+    uint32_t rounding_bias = 0x7FFFu;
+    if (lsb) rounding_bias = 0x8000u;
     u += rounding_bias;
+
     return static_cast<uint16_t>(u >> 16);
 }
+
+//     uint32_t u;
+//     ::std::memcpy(&u, &f, sizeof(u));
+//     // Round-to-nearest-even (RNE) logic
+//     uint32_t lsb = (u >> 16) & 1u;
+//     uint32_t rounding_bias = 0x7FFFu + lsb;
+//     u += rounding_bias;
+//     return static_cast<uint16_t>(u >> 16);
+// }
 
 // ---- Float16 Conversions (IEEE 754 Half-Precision) ----
 __device__ __host__ inline float float16_to_float(uint16_t h) {

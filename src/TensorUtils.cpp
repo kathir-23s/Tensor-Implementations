@@ -67,18 +67,43 @@ struct FormatInfo {
     }
 };
 
+// template <typename T>
+// inline void format_value(std::ostream& os, T v, const FormatInfo& fmt, int precision) {
+//     std::ostringstream s;
+//     if (fmt.int_mode) {
+//         s << static_cast<long long>(std::llround(static_cast<double>(v)));
+//     } else if (fmt.sci_mode) {
+//         s << std::scientific << std::setprecision(precision) << static_cast<double>(v);
+//     } else {
+//         s << std::fixed << std::setprecision(precision) << static_cast<double>(v);
+//     }
+//     os << std::setw(fmt.max_width) << std::right << s.str();
+// }
 template <typename T>
-inline void format_value(std::ostream& os, T v, const FormatInfo& fmt, int precision) {
+inline void format_value(std::ostream& os, T val, const FormatInfo& fmt, int precision) {
     std::ostringstream s;
-    if (fmt.int_mode) {
-        s << static_cast<long long>(std::llround(static_cast<double>(v)));
+
+    // // Convert bfloat16 to float before checks if applicable:
+    // float val = static_cast<float>(v);
+
+    if (std::isnan(val)) {
+        s << "nan";
+    } else if (std::isinf(val)) {
+        if (val > 0)
+            s << "inf";
+        else
+            s << "-inf";
+    } else if (fmt.int_mode) {
+        s << static_cast<long long>(std::llround(static_cast<double>(val)));
     } else if (fmt.sci_mode) {
-        s << std::scientific << std::setprecision(precision) << static_cast<double>(v);
+        s << std::scientific << std::setprecision(precision) << val;
     } else {
-        s << std::fixed << std::setprecision(precision) << static_cast<double>(v);
+        s << std::fixed << std::setprecision(precision) << val;
     }
+
     os << std::setw(fmt.max_width) << std::right << s.str();
 }
+
 
 // ---------- printers for concrete C++ element types ----------
 template <typename T>
@@ -248,16 +273,16 @@ void Tensor::display(std::ostream& os, int precision) const {
     if (numel() > 0) {
         if (dtype_ == Dtype::Float16) {
             auto* p = reinterpret_cast<const float16_t*>(this->data());
-            os << "[debug] first f16 raw_bits=0x"
-               << std::hex << std::setw(4) << std::setfill('0')
-               << static_cast<unsigned>(p[0].raw_bits)
-               << std::dec << " (expect 0x3c00 for 1.0)\n";
+            // os << "[debug] first f16 raw_bits=0x"
+            //    << std::hex << std::setw(4) << std::setfill('0')
+            //    << static_cast<unsigned>(p[0].raw_bits)
+            //    << std::dec << " (expect 0x3c00 for 1.0)\n";
         } else if (dtype_ == Dtype::Bfloat16) {
             auto* p = reinterpret_cast<const bfloat16_t*>(this->data());
-            os << "[debug] first bf16 raw_bits=0x"
-               << std::hex << std::setw(4) << std::setfill('0')
-               << static_cast<unsigned>(p[0].raw_bits)
-               << std::dec << " (expect 0x3f80 for 1.0)\n";
+            // os << "[debug] first bf16 raw_bits=0x"
+            //    << std::hex << std::setw(4) << std::setfill('0')
+            //    << static_cast<unsigned>(p[0].raw_bits)
+            //    << std::dec << " (expect 0x3f80 for 1.0)\n";
         }
     }
 
