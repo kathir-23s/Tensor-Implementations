@@ -32,20 +32,23 @@ namespace OwnTensor {
         if (i >= m || j >= p) return;
 
         // Calculate batch offsets
+        // Calculate batch offsets
         size_t a_batch_offset = 0;
         size_t b_batch_offset = 0;
         size_t out_batch_offset = 0;
-        
+
+        // FIXED: Proper batch offset calculation
         size_t temp_batch = batch_idx;
         for (int dim = out_ndim - 3; dim >= 0; --dim) {
-            size_t batch_coord = temp_batch % out_shape[dim];
-            temp_batch /= out_shape[dim];
+            size_t batch_dim_size = out_shape[dim];
+            size_t batch_coord = temp_batch % batch_dim_size;
+            temp_batch /= batch_dim_size;
             
-            if (dim < a_ndim - 2 && a_shape[dim] > 1) 
-            {
+            // Calculate offsets using the actual batch coordinates
+            if (dim < a_ndim - 2) {
                 a_batch_offset += batch_coord * a_strides[dim];
             }
-            if (dim < b_ndim - 2 && b_shape[dim] > 1) {
+            if (dim < b_ndim - 2) {
                 b_batch_offset += batch_coord * b_strides[dim];
             }
             out_batch_offset += batch_coord * out_strides[dim];
@@ -81,24 +84,27 @@ namespace OwnTensor {
 
         if (i >= m || j >= p) return;
 
-        size_t a_batch_offset = 0;
-        size_t b_batch_offset = 0;
-        size_t out_batch_offset = 0;
-        
-        size_t temp_batch = batch_idx;
-        for (int dim = out_ndim - 3; dim >= 0; --dim) {
-            size_t batch_coord = temp_batch % out_shape[dim];
-            temp_batch /= out_shape[dim];
-            
-            if (dim < a_ndim - 2 && a_shape[dim] > 1) 
-            {
-                a_batch_offset += batch_coord * a_strides[dim];
-            }
-            if (dim < b_ndim - 2 && b_shape[dim] > 1) {
-                b_batch_offset += batch_coord * b_strides[dim];
-            }
-            out_batch_offset += batch_coord * out_strides[dim];
-        }
+        // Calculate batch offsets
+size_t a_batch_offset = 0;
+size_t b_batch_offset = 0;
+size_t out_batch_offset = 0;
+
+// FIXED: Proper batch offset calculation
+size_t temp_batch = batch_idx;
+for (int dim = out_ndim - 3; dim >= 0; --dim) {
+    size_t batch_dim_size = out_shape[dim];
+    size_t batch_coord = temp_batch % batch_dim_size;
+    temp_batch /= batch_dim_size;
+    
+    // Calculate offsets using the actual batch coordinates
+    if (dim < a_ndim - 2) {
+        a_batch_offset += batch_coord * a_strides[dim];
+    }
+    if (dim < b_ndim - 2) {
+        b_batch_offset += batch_coord * b_strides[dim];
+    }
+    out_batch_offset += batch_coord * out_strides[dim];
+}
 
         float sum = 0.0f;
         for (size_t k = 0; k < n; ++k) {
@@ -129,24 +135,27 @@ namespace OwnTensor {
 
         if (i >= m || j >= p) return;
 
-        size_t a_batch_offset = 0;
-        size_t b_batch_offset = 0;
-        size_t out_batch_offset = 0;
+        // Calculate batch offsets
+    size_t a_batch_offset = 0;
+    size_t b_batch_offset = 0;
+    size_t out_batch_offset = 0;
+
+    // FIXED: Proper batch offset calculation
+    size_t temp_batch = batch_idx;
+    for (int dim = out_ndim - 3; dim >= 0; --dim) {
+        size_t batch_dim_size = out_shape[dim];
+        size_t batch_coord = temp_batch % batch_dim_size;
+        temp_batch /= batch_dim_size;
         
-        size_t temp_batch = batch_idx;
-        for (int dim = out_ndim - 3; dim >= 0; --dim) {
-            size_t batch_coord = temp_batch % out_shape[dim];
-            temp_batch /= out_shape[dim];
-            
-            if (dim < a_ndim - 2 && a_shape[dim] > 1) 
-            {
-                a_batch_offset += batch_coord * a_strides[dim];
-            }
-            if (dim < b_ndim - 2 && b_shape[dim] > 1) {
-                b_batch_offset += batch_coord * b_strides[dim];
-            }
-            out_batch_offset += batch_coord * out_strides[dim];
+        // Calculate offsets using the actual batch coordinates
+        if (dim < a_ndim - 2) {
+            a_batch_offset += batch_coord * a_strides[dim];
         }
+        if (dim < b_ndim - 2) {
+            b_batch_offset += batch_coord * b_strides[dim];
+        }
+        out_batch_offset += batch_coord * out_strides[dim];
+    }
 
         float sum = 0.0f;
         for (size_t k = 0; k < n; ++k) {
@@ -225,6 +234,14 @@ namespace OwnTensor {
                 cudaFree(d_a_strides); cudaFree(d_b_strides); cudaFree(d_out_strides);
                 throw std::runtime_error("Batched Matmul Cuda Kernel Failed: " + 
                 std::string(cudaGetErrorString(err)));
+            }
+
+            err = cudaDeviceSynchronize();
+            if (err != cudaSuccess) {
+                cudaFree(d_a_shape); cudaFree(d_b_shape); cudaFree(d_out_shape);
+                cudaFree(d_a_strides); cudaFree(d_b_strides); cudaFree(d_out_strides);
+                throw std::runtime_error("Batched Matmul Cuda Kernel Sync Failed: " + 
+                    std::string(cudaGetErrorString(err)));
             }
         });
 

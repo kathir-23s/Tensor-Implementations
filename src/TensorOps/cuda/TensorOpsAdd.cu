@@ -7,12 +7,15 @@
 #include "ops/TensorOps.cuh"
 #include "core/Tensor.h"
 
+#include <stdio.h>
+
 namespace OwnTensor
 {
 
     template<typename T>
     __global__ void add_kernel(const T* a, const T* b, T* output, size_t n)
     {
+        // printf("General Template Add kernel is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -23,6 +26,7 @@ namespace OwnTensor
     template <>
     __global__ void add_kernel<__half>(const __half* a, const __half* b, __half* output, size_t n)
     {
+        // printf("Add Kernel of fp16(half) is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -33,6 +37,7 @@ namespace OwnTensor
     template <>
     __global__ void add_kernel<__nv_bfloat16>(const __nv_bfloat16* a, const __nv_bfloat16* b, __nv_bfloat16* output, size_t n)
     {
+        // printf("Add Kernel of bf16(nv_bfloat16) is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -45,7 +50,9 @@ namespace OwnTensor
                                        size_t a_rows, size_t a_cols,
                                        size_t b_rows, size_t b_cols,
                                        size_t out_rows, size_t out_cols)
-    {
+    {        
+        // printf("General Template Add kernel broadcast is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         
@@ -74,6 +81,7 @@ namespace OwnTensor
                                                size_t b_rows, size_t b_cols,
                                                size_t out_rows, size_t out_cols)
     {
+        // printf("Add Kernel of fp16(half) broadcast is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         
@@ -98,7 +106,9 @@ namespace OwnTensor
                                                       size_t a_rows, size_t a_cols,
                                                       size_t b_rows, size_t b_cols,
                                                       size_t out_rows, size_t out_cols)
-    {
+    {   
+        // printf("Add Kernel of bf16(nv_bfloat16) broadcast is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         
@@ -170,7 +180,9 @@ namespace OwnTensor
 
     template <typename T>
     __global__ void add_inplace_kernel(T* lhs, const T* rhs, size_t n)
-    {
+    {        
+        // printf("General Template Add kernel inplace is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -181,6 +193,7 @@ namespace OwnTensor
     template <>
     __global__ void add_inplace_kernel<__half>(__half* lhs, const __half* rhs, size_t n)
     {
+        // printf("Add Kernel of fp16(half) inplace is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -191,6 +204,8 @@ namespace OwnTensor
     template <>
     __global__ void add_inplace_kernel<__nv_bfloat16>(__nv_bfloat16* lhs, const __nv_bfloat16* rhs, size_t n)
     {
+        // printf("Add Kernel of bf16(nv_bfloat16) inplace is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < n)
         {
@@ -203,7 +218,9 @@ namespace OwnTensor
                                                size_t lhs_rows, size_t lhs_cols,
                                                size_t rhs_rows, size_t rhs_cols,
                                                size_t out_rows, size_t out_cols)
-    {
+    {        
+        // printf("General Template Add kernel inplace broadcast is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         
@@ -228,7 +245,8 @@ namespace OwnTensor
                                                        size_t lhs_rows, size_t lhs_cols,
                                                        size_t rhs_rows, size_t rhs_cols,
                                                        size_t out_rows, size_t out_cols)
-    {
+    {        
+        // printf("Add Kernel of fp16(half) inplace broadcast is executed");
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         
@@ -254,6 +272,8 @@ namespace OwnTensor
                                                               size_t rhs_rows, size_t rhs_cols,
                                                               size_t out_rows, size_t out_cols)
     {
+        // printf("Add Kernel of bf16(nv_bfloat16) inplace broadcast is executed");
+
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         size_t total_elems = out_rows * out_cols;
         

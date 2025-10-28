@@ -25,7 +25,7 @@ compile_and_run() {
     local test_num=$2
     local run_tests=$3
     
-    local test_file="Tests/Tensor Tests/${test_type}_${test_num}.cpp"
+    local test_file="Tests/TensorTests/${test_type}_${test_num}.cpp"
     local output_file="local_test/${test_type}_${test_num}"
     
     ((TOTAL_TESTS++))
