@@ -1,408 +1,276 @@
-// #include "core/Tensor.h"
-// #include "dtype/DtypeTraits.h"
-// #include <iostream>
-// #include <iomanip>
-// #include <vector>
-// #include <algorithm>
-
-// namespace OwnTensor
-// {   
-//     template <typename T>
-//     void printData(std::ostream& os, const void* data, size_t count, int precision, bool isFloat)
-//     {
-//         const T* ptr = static_cast<const T*>(data);
-//         for (size_t i = 0; i < count; ++i)
-//         {
-//             if (isFloat)
-//             {
-//                 os << std::setprecision(precision) << ptr[i];
-//             }
-//             else
-//             {
-//                 os << ptr[i];
-//             }
-//             if (i < count - 1) os << " ";
-//         }
-//     }
-
-//     void dispatchPrint(std::ostream& os, Dtype dtype, const void* data, size_t count, int precision)
-//     {
-//         switch(dtype)
-//         {
-//             case Dtype::Int16:
-//                 printData<int16_t>(os, data, count, precision, false); break;
-//             case Dtype::Int32:
-//                 printData<int32_t>(os, data, count, precision, false); break;
-//             case Dtype::Int64:
-//                 printData<int64_t>(os, data, count, precision, false); break;
-//             case Dtype::Float32:
-//                 printData<float>(os, data, count, precision, true); break;
-//             case Dtype::Float64:
-//                 printData<double>(os, data, count, precision, true); break;
-//             case Dtype::Float16:
-//                 printData<float16_t>(os, data, count, precision, true); break;
-//             case Dtype::Bfloat16:
-//                 printData<bfloat16_t>(os, data, count, precision, true); break;
-//             default:
-//                 os << "<unsupported dtype>";
-//         }
-//     }
-
-//     void printTensorRecursive(std::ostream& os, const Tensor& tensor, 
-//                              const std::vector<int64_t>& indices, int depth, 
-//                              int precision, int max_elements = 6) 
-//     {
-//         const auto& dims = tensor.shape().dims;
-        
-//         if (depth == dims.size() - 1) {
-//             // Last dimension - print the elements
-//             os << "[";
-            
-//             // Calculate the offset for this slice
-//             int64_t offset = 0;
-//             for (size_t i = 0; i < indices.size(); ++i) {
-//                 offset += indices[i] * tensor.stride().strides[i];
-//             }
-            
-//             const void* slice_data = static_cast<const char*>(tensor.data()) + offset * tensor.dtype_size(tensor.dtype());
-//             int64_t elements_to_print = std::min(dims[depth], static_cast<int64_t>(max_elements));
-            
-//             dispatchPrint(os, tensor.dtype(), slice_data, elements_to_print, precision);
-            
-//             if (dims[depth] > max_elements) {
-//                 os << " ...";
-//             }
-            
-//             os << "]";
-//         } else {
-//             // Recursive case - print nested arrays
-//             os << "[";
-            
-//             int64_t current_dim = dims[depth];
-//             int64_t elements_to_print = std::min(current_dim, static_cast<int64_t>(max_elements));
-            
-//             for (int64_t i = 0; i < elements_to_print; ++i) {
-//                 std::vector<int64_t> new_indices = indices;
-//                 new_indices.push_back(i);
-                
-//                 printTensorRecursive(os, tensor, new_indices, depth + 1, precision, max_elements);
-                
-//                 if (i < elements_to_print - 1) {
-//                     os << "\n" << std::string(depth + 1, ' ');
-//                 }
-//             }
-            
-//             if (current_dim > max_elements) {
-//                 os << "\n" << std::string(depth + 1, ' ') << "...";
-//             }
-            
-//             if (depth == 0) {
-//                 os << "]";
-//             } else {
-//                 os << "\n" << std::string(depth, ' ') << "]";
-//             }
-//         }
-//     }
-
-//     void Tensor::display(std::ostream& os, int precision) const {
-//         // Print header like PyTorch
-//         os << "Tensor(";
-        
-//         // Print shape
-//         const auto& dims = shape_.dims;
-//         os << "shape=(";
-//         for (size_t i = 0; i < dims.size(); ++i) {
-//             os << dims[i];
-//             if (i < dims.size() - 1) os << ", ";
-//         }
-//         os << "), ";
-        
-//         // Print dtype using the provided function
-//         os << "dtype=" << get_dtype_name(dtype_) << ", ";
-        
-//         // Print device
-//         os << "device='";
-//         if (device_.device == Device::CPU) {
-//             os << "cpu";
-//         } else {
-//             os << "cuda:" << device_.index;
-//         }
-//         os << "'";
-        
-//         os << ")\n";
-        
-//         // Print tensor data
-//         if (dims.empty() || numel() == 0) {
-//             os << "[]";
-//         } else {
-//             printTensorRecursive(os, *this, {}, 0, precision);
-//         }
-        
-//         os << std::endl;
-//     }
-// }
-
+// src/TensorUtils.cpp
 #include "core/Tensor.h"
 #include "dtype/DtypeTraits.h"
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <cmath>
-#include <algorithm>
 #include "dtype/Types.h"
 
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
 namespace OwnTensor {
-using namespace detail;
-// PyTorch-style print options
+
+namespace {
+
+// ---------- pretty-print config ----------
 struct PrintOptions {
-    int precision = 4;
-    int threshold = 1000;    // Summarize if numel() > threshold
-    int edgeitems = 3;       // Items to show at start/end when summarizing
-    int linewidth = 80;      // Max characters per line
+    int precision  = 6;     // default print precision
+    int threshold  = 1000;  // summarize if numel() > threshold
+    int edgeitems  = 3;     // show these many from start/end when summarized
+    int linewidth  = 120;   // not enforced strictly here, but kept for parity
 };
 
-// Helper to determine if a float value looks like an integer
-template<typename T>
-bool is_int_like(T val) {
-    return std::abs(val - std::round(val)) < 1e-6;
+// ---------- helpers for number formatting ----------
+template <typename T>
+inline bool is_int_like(T v) {
+    // simple heuristic: close to nearest integer in double space
+    return std::abs(static_cast<double>(v) - std::round(static_cast<double>(v))) < 1e-9;
 }
 
-// Analyze data to determine formatting parameters
 struct FormatInfo {
-    bool int_mode = true;
-    bool sci_mode = false;
-    int max_width = 1;
+    bool int_mode = true;   // all values integer-like?
+    bool sci_mode = false;  // use scientific?
+    int  max_width = 1;
     double max_abs = 0.0;
-    
-    template<typename T>
-    void analyze(const T* data, size_t count) {
-        for (size_t i = 0; i < count; ++i) {
-            T val = data[i];
-            double abs_val = std::abs(static_cast<double>(val));
-            
-            if (abs_val > max_abs) max_abs = abs_val;
-            
-            // Check if all values are integer-like
-            if (int_mode && !is_int_like(val)) {
+
+    template <typename T>
+    void analyze(const T* data, size_t n, int precision) {
+        int_mode = true;
+        max_abs = 0.0;
+
+        for (size_t i = 0; i < n; ++i) {
+            double a = std::abs(static_cast<double>(data[i]));
+            if (a > max_abs) max_abs = a;
+            if (int_mode && !is_int_like(data[i])) {
                 int_mode = false;
             }
         }
-        
-        // Decide scientific notation
+
         if (!int_mode) {
-            sci_mode = (max_abs >= 1e8 || (max_abs > 0 && max_abs < 1e-4));
+            sci_mode = (max_abs >= 1e8) || (max_abs > 0.0 && max_abs < 1e-4);
+        } else {
+            sci_mode = false;
         }
-        
-        // Calculate max width needed
+
         std::ostringstream oss;
         if (int_mode) {
-            oss << static_cast<int64_t>(max_abs);
+            oss << static_cast<long long>(std::llround(max_abs));
         } else if (sci_mode) {
-            oss << std::scientific << std::setprecision(4) << max_abs;
+            oss << std::scientific << std::setprecision(precision) << max_abs;
         } else {
-            oss << std::fixed << std::setprecision(4) << max_abs;
+            oss << std::fixed << std::setprecision(precision) << max_abs;
         }
-        max_width = std::max(static_cast<int>(oss.str().length()), max_width);
+        max_width = std::max<int>(static_cast<int>(oss.str().size()), 1);
     }
 };
 
-// Format a single value with proper width and alignment
-template<typename T>
-void formatValue(std::ostream& os, T val, const FormatInfo& fmt, int precision) {
-    std::ostringstream oss;
-    
+template <typename T>
+inline void format_value(std::ostream& os, T v, const FormatInfo& fmt, int precision) {
+    std::ostringstream s;
     if (fmt.int_mode) {
-        oss << static_cast<int64_t>(val);
+        s << static_cast<long long>(std::llround(static_cast<double>(v)));
     } else if (fmt.sci_mode) {
-        oss << std::scientific << std::setprecision(precision) << val;
+        s << std::scientific << std::setprecision(precision) << static_cast<double>(v);
     } else {
-        oss << std::fixed << std::setprecision(precision) << val;
+        s << std::fixed << std::setprecision(precision) << static_cast<double>(v);
     }
-    
-    // Right-align the output
-    os << std::setw(fmt.max_width) << std::right << oss.str();
+    os << std::setw(fmt.max_width) << std::right << s.str();
 }
 
-// Print data with proper formatting
-template<typename T>
-void printData(std::ostream& os, const void* data, size_t count, 
-               int precision, bool isFloat, const PrintOptions& opts) {
-    const T* ptr = static_cast<const T*>(data);
-    
-    // Analyze data for formatting
+// ---------- printers for concrete C++ element types ----------
+template <typename T>
+void print_1d(std::ostream& os, const T* ptr, size_t count, int precision, const PrintOptions& opts) {
     FormatInfo fmt;
-    if (isFloat) {
-        fmt.analyze(ptr, count);
-    } else {
-        fmt.int_mode = true;
-        // Calculate max width for integers
-        int64_t max_val = 0;
-        for (size_t i = 0; i < count; ++i) {
-            int64_t val = static_cast<int64_t>(ptr[i]);
-            if (std::abs(val) > max_val) max_val = std::abs(val);
-        }
-        std::ostringstream oss;
-        oss << max_val;
-        fmt.max_width = oss.str().length();
+    fmt.analyze(ptr, count, precision);
+
+    const bool summarize = (count > static_cast<size_t>(opts.edgeitems * 2 + 1));
+    const size_t head = summarize ? static_cast<size_t>(opts.edgeitems) : count;
+    const size_t tail = summarize ? static_cast<size_t>(opts.edgeitems) : 0;
+
+    for (size_t i = 0; i < head; ++i) {
+        if (i) os << ", ";
+        format_value(os, ptr[i], fmt, precision);
     }
-    
-    // Check if we should summarize (for 1D arrays)
-    bool summarize = count > static_cast<size_t>(opts.edgeitems * 2 + 1);
-    size_t items_to_print = summarize ? opts.edgeitems : count;
-    
-    for (size_t i = 0; i < items_to_print; ++i) {
-        if (isFloat) {
-            formatValue(os, ptr[i], fmt, precision);
-        } else {
-            os << std::setw(fmt.max_width) << std::right << ptr[i];
-        }
-        
-        if (i < items_to_print - 1) os << ", ";
-    }
-    
+
     if (summarize) {
         os << ", ..., ";
-        // Print last edgeitems
-        for (size_t i = count - opts.edgeitems; i < count; ++i) {
-            if (isFloat) {
-                formatValue(os, ptr[i], fmt, precision);
-            } else {
-                os << std::setw(fmt.max_width) << std::right << ptr[i];
-            }
-            if (i < count - 1) os << ", ";
+        for (size_t i = count - tail; i < count; ++i) {
+            if (i != count - tail) os << ", ";
+            format_value(os, ptr[i], fmt, precision);
         }
     }
 }
 
-template<typename HalfType>
-void printDataAsFloat(
-    std::ostream& os,
-    const void* data,
-    size_t count,
-    int precision,
-    std::function<float(HalfType)> to_float_func
-) {
-    const HalfType* ptr = static_cast<const HalfType*>(data);
-    os << std::fixed << std::setprecision(precision);
-    for (size_t i = 0; i < count; ++i) {
-        if (i != 0) os << ", ";
-        os << to_float_func(ptr[i]);
+// Convert-and-print path for half types stored as custom wrappers
+template <typename HalfT, typename ToFloatFn>
+void print_1d_half(std::ostream& os, const HalfT* ptr, size_t count, int precision, const PrintOptions& opts, ToFloatFn to_float) {
+    // Convert a view to float for formatting determination
+    std::vector<float> tmp;
+    tmp.reserve(count);
+    for (size_t i = 0; i < count; ++i) tmp.push_back(to_float(ptr[i]));
+
+    FormatInfo fmt;
+    fmt.analyze(tmp.data(), tmp.size(), precision);
+
+    const bool summarize = (count > static_cast<size_t>(opts.edgeitems * 2 + 1));
+    const size_t head = summarize ? static_cast<size_t>(opts.edgeitems) : count;
+    const size_t tail = summarize ? static_cast<size_t>(opts.edgeitems) : 0;
+
+    for (size_t i = 0; i < head; ++i) {
+        if (i) os << ", ";
+        format_value(os, tmp[i], fmt, precision);
+    }
+    if (summarize) {
+        os << ", ..., ";
+        for (size_t i = count - tail; i < count; ++i) {
+            if (i != count - tail) os << ", ";
+            format_value(os, tmp[i], fmt, precision);
+        }
     }
 }
 
-void dispatchPrint(std::ostream& os, Dtype dtype, const void* data, size_t count, 
-                   int precision, const PrintOptions& opts) {
-    switch(dtype) {
-        case Dtype::Int16:
-            printData<int16_t>(os, data, count, precision, false, opts); break;
-        case Dtype::Int32:
-            printData<int32_t>(os, data, count, precision, false, opts); break;
-        case Dtype::Int64:
-            printData<int64_t>(os, data, count, precision, false, opts); break;
-        case Dtype::Float32:
-            printData<float>(os, data, count, precision, true, opts); break;
-        case Dtype::Float64:
-            printData<double>(os, data, count, precision, true, opts); break;
-        // case Dtype::Float16:
-        //     printData<float>(os, data, count, precision, true, opts); break;
-        // case Dtype::Bfloat16:
-        //     printData<float>(os, data, count, precision, true, opts); break;
-        case Dtype::Float16:
-            printDataAsFloat<float16_t>(os, data, count, precision, float16_to_float);
-            break;
-        case Dtype::Bfloat16:
-            printDataAsFloat<bfloat16_t>(os, data, count, precision, bfloat16_to_float);
-            break;
+// Dispatch to a concrete print implementation by dtype.
+// Expects a pointer to the start of the contiguous slice (CPU-accessible).
+void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t count, int precision, const PrintOptions& opts) {
+    switch (dt) {
+        case Dtype::Int16:   return print_1d(os, static_cast<const int16_t*>(data),  count, precision, opts);
+        case Dtype::Int32:   return print_1d(os, static_cast<const int32_t*>(data),  count, precision, opts);
+        case Dtype::Int64:   return print_1d(os, static_cast<const int64_t*>(data),  count, precision, opts);
+        case Dtype::Float32: return print_1d(os, static_cast<const float*>(data),    count, precision, opts);
+        case Dtype::Float64: return print_1d(os, static_cast<const double*>(data),   count, precision, opts);
+
+        case Dtype::Float16: {
+            const auto* p = reinterpret_cast<const float16_t*>(data);
+            // convert via detail::float16_to_float on the raw bits
+            auto to_float = [](float16_t h) -> float {
+                return detail::float16_to_float(h.raw_bits);
+            };
+            return print_1d_half(os, p, count, precision, opts, to_float);
+        }
+
+        case Dtype::Bfloat16: {
+            const auto* p = reinterpret_cast<const bfloat16_t*>(data);
+            auto to_float = [](bfloat16_t b) -> float {
+                return detail::bfloat16_to_float(b.raw_bits);
+            };
+            return print_1d_half(os, p, count, precision, opts, to_float);
+        }
+
         default:
             os << "<unsupported dtype>";
+            return;
     }
 }
 
-void printTensorRecursive(std::ostream& os, const Tensor& tensor,
-                         const std::vector<int64_t>& indices, int depth,
-                         const PrintOptions& opts) {
-    const auto& dims = tensor.shape().dims;
-    
-    if (depth == dims.size() - 1) {
-        // Last dimension - print the elements
+// Recursive printer over ndim
+void print_recursive(std::ostream& os,
+                     const Tensor& t,
+                     std::vector<int64_t>& indices,
+                     int depth,
+                     const PrintOptions& opts)
+{
+    const auto& dims = t.shape().dims;
+    const auto& strides = t.stride().strides;
+
+    if (depth == static_cast<int>(dims.size()) - 1) {
+        // Last dimension: print one contiguous line
         os << "[";
-        
-        // Calculate the offset for this slice
-        int64_t offset = 0;
+        // Compute byte offset of this slice
+        int64_t linear = 0;
         for (size_t i = 0; i < indices.size(); ++i) {
-            offset += indices[i] * tensor.stride().strides[i];
+            linear += indices[i] * strides[i];
         }
-        
-        const void* slice_data = static_cast<const char*>(tensor.data()) + 
-                                offset * tensor.dtype_size(tensor.dtype());
-        
-        dispatchPrint(os, tensor.dtype(), slice_data, dims[depth], opts.precision, opts);
+        const size_t elem_sz = t.dtype_size(t.dtype());
+        const auto* base = static_cast<const std::uint8_t*>(t.data());
+        const void* slice = base + static_cast<size_t>(linear) * elem_sz;
+
+        dispatch_print_1d(os, t.dtype(), slice, static_cast<size_t>(dims[depth]), opts.precision, opts);
         os << "]";
-    } else {
-        // Recursive case - print nested arrays
-        os << "[";
-        int64_t current_dim = dims[depth];
-        
-        // Check if we should summarize this dimension
-        bool summarize = current_dim > static_cast<int64_t>(opts.edgeitems * 2);
-        int64_t items_to_print = summarize ? opts.edgeitems : current_dim;
-        
-        for (int64_t i = 0; i < items_to_print; ++i) {
-            std::vector<int64_t> new_indices = indices;
-            new_indices.push_back(i);
-            printTensorRecursive(os, tensor, new_indices, depth + 1, opts);
-            
-            if (i < items_to_print - 1 || summarize) {
+        return;
+    }
+
+    // Higher dims: recurse
+    os << "[";
+    const int64_t dim = dims[depth];
+    const bool summarize = (dim > opts.edgeitems * 2);
+    const int64_t head = summarize ? opts.edgeitems : dim;
+    const int64_t tail_start = summarize ? (dim - opts.edgeitems) : dim;
+
+    for (int64_t i = 0; i < head; ++i) {
+        indices.push_back(i);
+        print_recursive(os, t, indices, depth + 1, opts);
+        indices.pop_back();
+        if (i != head - 1 || summarize) {
+            os << ",\n" << std::string(depth + 1, ' ');
+        }
+    }
+
+    if (summarize) {
+        os << "...,\n" << std::string(depth + 1, ' ');
+        for (int64_t i = tail_start; i < dim; ++i) {
+            indices.push_back(i);
+            print_recursive(os, t, indices, depth + 1, opts);
+            indices.pop_back();
+            if (i != dim - 1) {
                 os << ",\n" << std::string(depth + 1, ' ');
             }
         }
-        
-        if (summarize) {
-            os << "...,\n" << std::string(depth + 1, ' ');
-            // Print last edgeitems
-            for (int64_t i = current_dim - opts.edgeitems; i < current_dim; ++i) {
-                std::vector<int64_t> new_indices = indices;
-                new_indices.push_back(i);
-                printTensorRecursive(os, tensor, new_indices, depth + 1, opts);
-                if (i < current_dim - 1) {
-                    os << ",\n" << std::string(depth + 1, ' ');
-                }
-            }
-        }
-        
-        os << "]";
     }
+
+    os << "]";
 }
 
+} // namespace (anon)
+
+// ========== public: Tensor::display ==========
 void Tensor::display(std::ostream& os, int precision) const {
     PrintOptions opts;
     opts.precision = precision;
-    
-    // Print tensor info header
+
+    // Header like PyTorch
     os << "Tensor(shape=(";
-    const auto& dims = shape_.dims;
-    for (size_t i = 0; i < dims.size(); ++i) {
-        os << dims[i];
-        if (i < dims.size() - 1) os << ", ";
+    for (size_t i = 0; i < shape_.dims.size(); ++i) {
+        os << shape_.dims[i];
+        if (i + 1 < shape_.dims.size()) os << ", ";
     }
-    os << "), dtype=" << get_dtype_name(dtype_);
-    
-    os << ", device='";
+    os << "), dtype=" << get_dtype_name(dtype_) << ", device='";
     if (device_.device == Device::CPU) {
         os << "cpu";
     } else {
         os << "cuda:" << device_.index;
     }
     os << "')\n";
-    
-    // Print tensor data
-    if (shape_.dims.empty() || numel() == 0) {
-        os << "[]";
-    } else {
-        printTensorRecursive(os, *this, {}, 0, opts);
+
+    // Optional debug: dump first element raw bits for half types
+    if (numel() > 0) {
+        if (dtype_ == Dtype::Float16) {
+            auto* p = reinterpret_cast<const float16_t*>(this->data());
+            os << "[debug] first f16 raw_bits=0x"
+               << std::hex << std::setw(4) << std::setfill('0')
+               << static_cast<unsigned>(p[0].raw_bits)
+               << std::dec << " (expect 0x3c00 for 1.0)\n";
+        } else if (dtype_ == Dtype::Bfloat16) {
+            auto* p = reinterpret_cast<const bfloat16_t*>(this->data());
+            os << "[debug] first bf16 raw_bits=0x"
+               << std::hex << std::setw(4) << std::setfill('0')
+               << static_cast<unsigned>(p[0].raw_bits)
+               << std::dec << " (expect 0x3f80 for 1.0)\n";
+        }
     }
-    
-    os << std::endl;
+
+    // Data
+    if (shape_.dims.empty() || numel() == 0) {
+        os << "[]\n";
+        return;
+    }
+
+    std::vector<int64_t> idx;
+    idx.reserve(shape_.dims.size());
+    print_recursive(os, *this, idx, /*depth=*/0, opts);
+    os << "\n";
 }
 
 } // namespace OwnTensor

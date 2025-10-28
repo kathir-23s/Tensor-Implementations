@@ -45,7 +45,7 @@ void cuda_mul_tensor(const Tensor& A, const Tensor& B, Tensor& output)
     size_t total_elems = A.numel();
     size_t block_size = 256;
     size_t grid_size = (total_elems + block_size - 1) / block_size;
-    std::cout << "Multiplication CUDA\n";
+    //std::cout << "Multiplication CUDA\n";
 
     dispatch_by_dtype(A.dtype(), [&](auto dummy)
     {
@@ -109,7 +109,7 @@ template <typename T>
             size_t block_size = 256;
             size_t grid_size = (total_elems + block_size - 1) / block_size;
 
-            std::cout << "Addition Inplace CUDA\n";
+            //std::cout << "Addition Inplace CUDA\n";
 
             dispatch_by_dtype(A.dtype(), [&](auto dummy)
             {

@@ -125,7 +125,7 @@ namespace OwnTensor
         size_t block_size = 256;
         size_t grid_size = (total_elems + block_size - 1) / block_size;
         
-        std::cout << "Addition CUDA\n";
+       // std::cout << "Addition CUDA\n";
         
         dispatch_by_dtype(A.dtype(), [&](auto dummy)
         {
@@ -280,7 +280,7 @@ namespace OwnTensor
         size_t block_size = 256;
         size_t grid_size = (total_elems + block_size - 1) / block_size;
 
-        std::cout << "Addition Inplace CUDA\n";
+        //std::cout << "Addition Inplace CUDA\n";
 
         dispatch_by_dtype(A.dtype(), [&](auto dummy)
         {
