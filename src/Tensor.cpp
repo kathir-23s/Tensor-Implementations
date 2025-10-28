@@ -175,17 +175,17 @@ namespace OwnTensor
                 Dtype dtype,
                 DeviceIndex device,
                 bool requires_grad) :
-        shape_(shape),
-        stride_(stride),
-        dtype_(dtype),
-        device_(device),
-        requires_grad_(requires_grad),
-        data_ptr_(data_ptr),
-        grad_ptr_(nullptr),
-        owns_data_(false),
-        owns_grad_(true),
-        storage_offset_(offset),
-        data_size_(0)
+                shape_(shape),
+                stride_(stride),
+                dtype_(dtype),
+                device_(device),
+                requires_grad_(requires_grad),
+                data_ptr_(data_ptr),
+                grad_ptr_(nullptr),
+                owns_data_(false),
+                owns_grad_(true),
+                storage_offset_(offset),
+                data_size_(0)
     {
         // No memory allocation - sharing existing memory
     }

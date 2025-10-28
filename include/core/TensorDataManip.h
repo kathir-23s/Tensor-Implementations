@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef TENSOR_UTILS_H
-#define TENSOR_UTILS_H
+#ifndef TENSOR_DATAMANIP_H
+#define TENSOR_DATAMANIP_H
 
 #include "core/Tensor.h"
 #include "dtype/Types.h"
