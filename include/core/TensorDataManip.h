@@ -86,9 +86,7 @@
 #include <vector> // Required for temporary vector in specialization
 #include "dtype/DtypeTraits.h" // For is_same_type
 
-namespace OwnTensor
-{
-    
+namespace OwnTensor {
 // Forward declaration for is_same_type
     template<typename T>
     bool is_same_type(Dtype dtype);
