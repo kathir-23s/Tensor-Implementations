@@ -70,7 +70,7 @@ nvcc $NVCC_FLAGS -c src/UnaryOps/cuda/ReductionImplGPU.cu -o lib/objects/Reducti
 
 # Scalar/Tensor Operations (CUDA)
 nvcc $NVCC_FLAGS -c src/ScalarOps/cuda/ScalarOps.cu -o lib/objects/ScalarOpsCuda.o
-nvcc $NVCC_FLAGS -c src/TensorOps/cuda/TensorOpsBrAdd.cu -o lib/objects/TensorOpsCudaAdd.o
+nvcc $NVCC_FLAGS -c src/TensorOps/cuda/TensorOpsAdd.cu -o lib/objects/TensorOpsCudaAdd.o
 nvcc $NVCC_FLAGS -c src/TensorOps/cuda/TensorOpsSub.cu -o lib/objects/TensorOpsCudaSub.o
 nvcc $NVCC_FLAGS -c src/TensorOps/cuda/TensorOpsMul.cu -o lib/objects/TensorOpsCudaMul.o
 nvcc $NVCC_FLAGS -c src/TensorOps/cuda/TensorOpsDiv.cu -o lib/objects/TensorOpsCudaDiv.o
