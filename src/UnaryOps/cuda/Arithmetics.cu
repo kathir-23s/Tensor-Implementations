@@ -5,7 +5,6 @@
 #include "ops/helpers/arith.hpp"
 #include "core/Tensor.h"
 #include "dtype/Types.h"
-
 namespace OwnTensor {
 
 // ============================================================================
