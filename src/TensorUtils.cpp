@@ -2,9 +2,11 @@
 #include "core/Tensor.h"
 #include "dtype/DtypeTraits.h"
 #include "dtype/Types.h"
+#include "device/DeviceTransfer.h"  // for device::copy_memory (CUDA/CPU copy)
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -20,7 +22,7 @@ struct PrintOptions {
     int precision  = 6;     // default print precision
     int threshold  = 1000;  // summarize if numel() > threshold
     int edgeitems  = 3;     // show these many from start/end when summarized
-    int linewidth  = 120;   // not enforced strictly here, but kept for parity
+    int linewidth  = 120;   // not enforced strictly here, parity with numpy/torch
 };
 
 // ---------- helpers for number formatting ----------
@@ -31,85 +33,90 @@ inline bool is_int_like(T v) {
 }
 
 struct FormatInfo {
-    bool int_mode = true;   // all values integer-like?
-    bool sci_mode = false;  // use scientific?
-    int  max_width = 1;
-    double max_abs = 0.0;
+    bool   int_mode = true;   // render integers? (only when not forced to float)
+    bool   sci_mode = false;  // use scientific? (decided from finite magnitudes)
+    int    max_width = 1;
 
+    // Analyze only finite values for sci decision; track width for specials too
     template <typename T>
-    void analyze(const T* data, size_t n, int precision) {
-        int_mode = true;
-        max_abs = 0.0;
+    void analyze(const T* data, size_t n, int precision, bool force_float = false) {
+        int_mode = !force_float;
+
+        double max_abs_finite = 0.0;
+        bool   has_finite     = false;
+        int    special_w      = 0;   // width for "nan"/"inf"/"-inf"
+
+        auto upd_special = [&](double x) {
+            if (std::isnan(x))      special_w = std::max(special_w, 3);     // "nan"
+            else if (std::isinf(x)) special_w = std::max(special_w, x > 0 ? 3 : 4); // "inf"/"-inf"
+        };
 
         for (size_t i = 0; i < n; ++i) {
-            double a = std::abs(static_cast<double>(data[i]));
-            if (a > max_abs) max_abs = a;
-            if (int_mode && !is_int_like(data[i])) {
-                int_mode = false;
+            double d = static_cast<double>(data[i]);
+            if (std::isfinite(d)) {
+                has_finite = true;
+                double a = std::abs(d);
+                if (a > max_abs_finite) max_abs_finite = a;
+                if (!force_float && int_mode) {
+                    if (!is_int_like(d)) int_mode = false;
+                }
+            } else {
+                upd_special(d);
             }
         }
 
         if (!int_mode) {
-            sci_mode = (max_abs >= 1e8) || (max_abs > 0.0 && max_abs < 1e-4);
+            // choose scientific only by finite magnitudes
+            sci_mode = has_finite && ((max_abs_finite >= 1e8) || (max_abs_finite > 0.0 && max_abs_finite < 1e-4));
         } else {
             sci_mode = false;
         }
 
-        std::ostringstream oss;
-        if (int_mode) {
-            oss << static_cast<long long>(std::llround(max_abs));
-        } else if (sci_mode) {
-            oss << std::scientific << std::setprecision(precision) << max_abs;
-        } else {
-            oss << std::fixed << std::setprecision(precision) << max_abs;
+        // Compute width from the largest finite representation
+        int numeric_w = 1;
+        if (has_finite) {
+            std::ostringstream oss;
+            if (int_mode) {
+                oss << static_cast<long long>(std::llround(max_abs_finite));
+            } else if (sci_mode) {
+                oss << std::scientific << std::setprecision(precision) << max_abs_finite;
+            } else {
+                oss << std::fixed << std::setprecision(precision) << max_abs_finite;
+            }
+            numeric_w = static_cast<int>(oss.str().size());
         }
-        max_width = std::max<int>(static_cast<int>(oss.str().size()), 1);
+
+        max_width = std::max(numeric_w, special_w);
     }
 };
 
-// template <typename T>
-// inline void format_value(std::ostream& os, T v, const FormatInfo& fmt, int precision) {
-//     std::ostringstream s;
-//     if (fmt.int_mode) {
-//         s << static_cast<long long>(std::llround(static_cast<double>(v)));
-//     } else if (fmt.sci_mode) {
-//         s << std::scientific << std::setprecision(precision) << static_cast<double>(v);
-//     } else {
-//         s << std::fixed << std::setprecision(precision) << static_cast<double>(v);
-//     }
-//     os << std::setw(fmt.max_width) << std::right << s.str();
-// }
 template <typename T>
 inline void format_value(std::ostream& os, T val, const FormatInfo& fmt, int precision) {
     std::ostringstream s;
+    double dv = static_cast<double>(val);
 
-    // // Convert bfloat16 to float before checks if applicable:
-    // float val = static_cast<float>(v);
-
-    if (std::isnan(val)) {
+    // Render IEEE-754 specials first
+    if (std::isnan(dv)) {
         s << "nan";
-    } else if (std::isinf(val)) {
-        if (val > 0)
-            s << "inf";
-        else
-            s << "-inf";
+    } else if (std::isinf(dv)) {
+        s << (dv > 0 ? "inf" : "-inf");
     } else if (fmt.int_mode) {
-        s << static_cast<long long>(std::llround(static_cast<double>(val)));
+        s << static_cast<long long>(std::llround(dv));
     } else if (fmt.sci_mode) {
-        s << std::scientific << std::setprecision(precision) << val;
+        s << std::scientific << std::setprecision(precision) << dv;
     } else {
-        s << std::fixed << std::setprecision(precision) << val;
+        s << std::fixed << std::setprecision(precision) << dv;
     }
 
     os << std::setw(fmt.max_width) << std::right << s.str();
 }
 
-
 // ---------- printers for concrete C++ element types ----------
 template <typename T>
-void print_1d(std::ostream& os, const T* ptr, size_t count, int precision, const PrintOptions& opts) {
+void print_1d(std::ostream& os, const T* ptr, size_t count, int precision,
+              const PrintOptions& opts, bool force_float) {
     FormatInfo fmt;
-    fmt.analyze(ptr, count, precision);
+    fmt.analyze(ptr, count, precision, /*force_float=*/force_float);
 
     const bool summarize = (count > static_cast<size_t>(opts.edgeitems * 2 + 1));
     const size_t head = summarize ? static_cast<size_t>(opts.edgeitems) : count;
@@ -131,14 +138,15 @@ void print_1d(std::ostream& os, const T* ptr, size_t count, int precision, const
 
 // Convert-and-print path for half types stored as custom wrappers
 template <typename HalfT, typename ToFloatFn>
-void print_1d_half(std::ostream& os, const HalfT* ptr, size_t count, int precision, const PrintOptions& opts, ToFloatFn to_float) {
+void print_1d_half(std::ostream& os, const HalfT* ptr, size_t count, int precision,
+                   const PrintOptions& opts, ToFloatFn to_float) {
     // Convert a view to float for formatting determination
     std::vector<float> tmp;
     tmp.reserve(count);
     for (size_t i = 0; i < count; ++i) tmp.push_back(to_float(ptr[i]));
 
     FormatInfo fmt;
-    fmt.analyze(tmp.data(), tmp.size(), precision);
+    fmt.analyze(tmp.data(), tmp.size(), precision, /*force_float=*/true);
 
     const bool summarize = (count > static_cast<size_t>(opts.edgeitems * 2 + 1));
     const size_t head = summarize ? static_cast<size_t>(opts.edgeitems) : count;
@@ -159,17 +167,18 @@ void print_1d_half(std::ostream& os, const HalfT* ptr, size_t count, int precisi
 
 // Dispatch to a concrete print implementation by dtype.
 // Expects a pointer to the start of the contiguous slice (CPU-accessible).
-void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t count, int precision, const PrintOptions& opts) {
+void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t count,
+                       int precision, const PrintOptions& opts) {
     switch (dt) {
-        case Dtype::Int16:   return print_1d(os, static_cast<const int16_t*>(data),  count, precision, opts);
-        case Dtype::Int32:   return print_1d(os, static_cast<const int32_t*>(data),  count, precision, opts);
-        case Dtype::Int64:   return print_1d(os, static_cast<const int64_t*>(data),  count, precision, opts);
-        case Dtype::Float32: return print_1d(os, static_cast<const float*>(data),    count, precision, opts);
-        case Dtype::Float64: return print_1d(os, static_cast<const double*>(data),   count, precision, opts);
+        case Dtype::Int16:   return print_1d(os, static_cast<const int16_t*>(data),  count, precision, opts, /*force_float=*/false);
+        case Dtype::Int32:   return print_1d(os, static_cast<const int32_t*>(data),  count, precision, opts, /*force_float=*/false);
+        case Dtype::Int64:   return print_1d(os, static_cast<const int64_t*>(data),  count, precision, opts, /*force_float=*/false);
+
+        case Dtype::Float32: return print_1d(os, static_cast<const float*>(data),    count, precision, opts, /*force_float=*/true);
+        case Dtype::Float64: return print_1d(os, static_cast<const double*>(data),   count, precision, opts, /*force_float=*/true);
 
         case Dtype::Float16: {
             const auto* p = reinterpret_cast<const float16_t*>(data);
-            // convert via detail::float16_to_float on the raw bits
             auto to_float = [](float16_t h) -> float {
                 return detail::float16_to_float(h.raw_bits);
             };
@@ -190,43 +199,45 @@ void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t coun
     }
 }
 
-// Recursive printer over ndim
-void print_recursive(std::ostream& os,
-                     const Tensor& t,
-                     std::vector<int64_t>& indices,
-                     int depth,
-                     const PrintOptions& opts)
+// Recursive printer over ndim for an arbitrary base pointer (data or grad)
+void print_recursive_from_base(std::ostream& os,
+                               const Tensor& t,
+                               const void* base_ptr,
+                               std::vector<int64_t>& indices,
+                               int depth,
+                               const PrintOptions& opts)
 {
-    const auto& dims = t.shape().dims;
+    const auto& dims    = t.shape().dims;
     const auto& strides = t.stride().strides;
 
     if (depth == static_cast<int>(dims.size()) - 1) {
         // Last dimension: print one contiguous line
         os << "[";
-        // Compute byte offset of this slice
         int64_t linear = 0;
         for (size_t i = 0; i < indices.size(); ++i) {
             linear += indices[i] * strides[i];
         }
         const size_t elem_sz = t.dtype_size(t.dtype());
-        const auto* base = static_cast<const std::uint8_t*>(t.data());
-        const void* slice = base + static_cast<size_t>(linear) * elem_sz;
+        const auto* base     = static_cast<const std::uint8_t*>(base_ptr);
+        const void* slice    = base + static_cast<size_t>(linear) * elem_sz;
 
-        dispatch_print_1d(os, t.dtype(), slice, static_cast<size_t>(dims[depth]), opts.precision, opts);
+        dispatch_print_1d(os, t.dtype(), slice,
+                          static_cast<size_t>(dims[depth]),
+                          opts.precision, opts);
         os << "]";
         return;
     }
 
     // Higher dims: recurse
     os << "[";
-    const int64_t dim = dims[depth];
-    const bool summarize = (dim > opts.edgeitems * 2);
-    const int64_t head = summarize ? opts.edgeitems : dim;
+    const int64_t dim        = dims[depth];
+    const bool summarize     = (dim > opts.edgeitems * 2);
+    const int64_t head       = summarize ? opts.edgeitems : dim;
     const int64_t tail_start = summarize ? (dim - opts.edgeitems) : dim;
 
     for (int64_t i = 0; i < head; ++i) {
         indices.push_back(i);
-        print_recursive(os, t, indices, depth + 1, opts);
+        print_recursive_from_base(os, t, base_ptr, indices, depth + 1, opts);
         indices.pop_back();
         if (i != head - 1 || summarize) {
             os << ",\n" << std::string(depth + 1, ' ');
@@ -237,7 +248,7 @@ void print_recursive(std::ostream& os,
         os << "...,\n" << std::string(depth + 1, ' ');
         for (int64_t i = tail_start; i < dim; ++i) {
             indices.push_back(i);
-            print_recursive(os, t, indices, depth + 1, opts);
+            print_recursive_from_base(os, t, base_ptr, indices, depth + 1, opts);
             indices.pop_back();
             if (i != dim - 1) {
                 os << ",\n" << std::string(depth + 1, ' ');
@@ -248,14 +259,25 @@ void print_recursive(std::ostream& os,
     os << "]";
 }
 
+// Convenience: data-path recursive printer (uses tensor's own data())
+void print_recursive_data(std::ostream& os,
+                          const Tensor& t,
+                          std::vector<int64_t>& indices,
+                          int depth,
+                          const PrintOptions& opts)
+{
+    print_recursive_from_base(os, t, t.data(), indices, depth, opts);
+}
+
 } // namespace (anon)
 
-// ========== public: Tensor::display ==========
+
+// ========== public: Tensor::display (data + gradient) ==========
 void Tensor::display(std::ostream& os, int precision) const {
     PrintOptions opts;
     opts.precision = precision;
 
-    // Header like PyTorch
+    // ---- Header (PyTorch-like) ----
     os << "Tensor(shape=(";
     for (size_t i = 0; i < shape_.dims.size(); ++i) {
         os << shape_.dims[i];
@@ -267,35 +289,46 @@ void Tensor::display(std::ostream& os, int precision) const {
     } else {
         os << "cuda:" << device_.index;
     }
-    os << "')\n";
+    os << "'";
+    if (requires_grad_) os << ", requires_grad=True";
+    os << ")\n";
 
-    // Optional debug: dump first element raw bits for half types
-    if (numel() > 0) {
-        if (dtype_ == Dtype::Float16) {
-            auto* p = reinterpret_cast<const float16_t*>(this->data());
-            // os << "[debug] first f16 raw_bits=0x"
-            //    << std::hex << std::setw(4) << std::setfill('0')
-            //    << static_cast<unsigned>(p[0].raw_bits)
-            //    << std::dec << " (expect 0x3c00 for 1.0)\n";
-        } else if (dtype_ == Dtype::Bfloat16) {
-            auto* p = reinterpret_cast<const bfloat16_t*>(this->data());
-            // os << "[debug] first bf16 raw_bits=0x"
-            //    << std::hex << std::setw(4) << std::setfill('0')
-            //    << static_cast<unsigned>(p[0].raw_bits)
-            //    << std::dec << " (expect 0x3f80 for 1.0)\n";
-        }
-    }
-
-    // Data
+    // ---- Data ----
     if (shape_.dims.empty() || numel() == 0) {
         os << "[]\n";
-        return;
+    } else {
+        std::vector<int64_t> idx;
+        idx.reserve(shape_.dims.size());
+        print_recursive_data(os, *this, idx, /*depth=*/0, opts);
+        os << "\n";
     }
 
-    std::vector<int64_t> idx;
-    idx.reserve(shape_.dims.size());
-    print_recursive(os, *this, idx, /*depth=*/0, opts);
-    os << "\n";
+    // ---- Gradient (NEW) ----
+    // Print only if a grad buffer was allocated (requires_grad_ && grad_ptr_ != nullptr)
+    if (requires_grad_ && grad_ptr_) {
+        os << "\nGrad(shape=(";
+        for (size_t i = 0; i < shape_.dims.size(); ++i) {
+            os << shape_.dims[i];
+            if (i + 1 < shape_.dims.size()) os << ", ";
+        }
+        os << "), dtype=" << get_dtype_name(dtype_) << ", device='";
+        if (device_.device == Device::CPU) os << "cpu";
+        else                               os << "cuda:" << device_.index;
+        os << "')\n";
+
+        if (shape_.dims.empty() || numel() == 0) {
+            os << "[]\n";
+            return;
+        }
+
+        // CPU path (direct); if you enable CUDA-copy in future, handle it above.
+        {
+            std::vector<int64_t> idx;
+            idx.reserve(shape_.dims.size());
+            print_recursive_from_base(os, *this, grad_ptr_.get(), idx, /*depth=*/0, opts);
+            os << "\n";
+        }
+    }
 }
 
 } // namespace OwnTensor
