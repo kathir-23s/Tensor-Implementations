@@ -1,4 +1,3 @@
-// ScalarOps.cu (CUDA backend)
 #if defined(WITH_CUDA)
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -39,7 +38,6 @@ __device__ inline uint16_t dev_float_to_fp16(float f) {
 template <typename T>
 __device__ inline float ldf(const T* p, size_t i, int) { return static_cast<float>(p[i]); }
 
-// mark specialization as maybe-unused to silence #177 when half/bf16 paths don't instantiate
 template <>
 [[maybe_unused]] __device__ inline float ldf<uint16_t>(const uint16_t* p, size_t i, int fmt) {
     return (fmt == 1) ? dev_fp16_to_float(p[i])
@@ -50,7 +48,6 @@ template <>
 template <typename T>
 __device__ inline void stf(T* p, size_t i, float v, int) { p[i] = static_cast<T>(v); }
 
-// same for store specialization
 template <>
 [[maybe_unused]] __device__ inline void stf<uint16_t>(uint16_t* p, size_t i, float v, int fmt) {
     p[i] = (fmt == 1) ? dev_float_to_fp16(v)
@@ -58,14 +55,12 @@ template <>
                       : static_cast<uint16_t>(v);
 }
 
-// removed: pick_block (unused)
-// inline dim3 pick_block(size_t) { return dim3(256); }
-
 inline dim3 pick_grid(size_t n, dim3 b) {
     size_t blocks = (n + b.x - 1) / b.x;
     if (blocks > 2147483647ULL) blocks = 2147483647ULL;
     return dim3(static_cast<unsigned int>(blocks));
 }
+
 inline void ckerr(const char* where) {
     cudaError_t e = cudaGetLastError();
     if (e != cudaSuccess) throw std::runtime_error(std::string(where) + ": " + cudaGetErrorString(e));
@@ -115,12 +110,12 @@ __global__ void k_div_copy(const T* a, T* o, float s, size_t n, int fmt) {
         stf<T>(o, i, ldf<T>(a, i, fmt) / s, fmt);
 }
 
-// scalar - tensor, scalar / tensor
 template<typename T>
 __global__ void k_sub_copy_scalar_tensor(const T* a, T* o, float s, size_t n, int fmt) {
     for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
         stf<T>(o, i, s - ldf<T>(a, i, fmt), fmt);
 }
+
 template<typename T>
 __global__ void k_div_copy_scalar_tensor(const T* a, T* o, float s, size_t n, int fmt, int* flag) {
     for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x) {
@@ -137,23 +132,22 @@ inline void launch_copy(const Tensor& a, Tensor& out, double s, Kernel k) {
     const size_t n = a.numel();
     const dim3 block = dim3(256), grid = pick_grid(n, block);
     const int fmt = half_fmt(a.dtype());
-    cudaStream_t stream = nullptr;
-    k<<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt);
+    k<<<grid, block>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt);
     ckerr("scalar copy");
 }
+
 template <typename T, typename Kernel>
 inline void launch_inplace(Tensor& t, double s, Kernel k) {
     const size_t n = t.numel();
     const dim3 block = dim3(256), grid = pick_grid(n, block);
     const int fmt = half_fmt(t.dtype());
-    cudaStream_t stream = nullptr;
-    k<<<grid, block, 0, stream>>>(t.data<T>(), (float)s, n, fmt);
+    k<<<grid, block>>>(t.data<T>(), (float)s, n, fmt);
     ckerr("scalar inplace");
 }
 
-} // anon
+} // anon namespace
 
-// --------- public CUDA backend (Int16/32/64 + F16/BF16/F32/F64) ---------
+// --------- public CUDA backend ---------
 void cuda_add_inplace(Tensor& t, double s) {
     dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_add_inplace<T>); });
 }
@@ -201,18 +195,18 @@ Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a) {
         const size_t n = a.numel();
         const dim3 block = dim3(256), grid = pick_grid(n, block);
         const int fmt = half_fmt(a.dtype());
-        cudaStream_t stream = nullptr;
 
-        int host_flag = 0; int* dev_flag = nullptr;
+        int host_flag = 0;
+        int* dev_flag = nullptr;
         cudaMalloc(&dev_flag, sizeof(int));
-        cudaMemsetAsync(dev_flag, 0, sizeof(int), stream);
+        cudaMemset(dev_flag, 0, sizeof(int));
 
-        k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag);
+        k_div_copy_scalar_tensor<T><<<grid, block>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag);
         ckerr("k_div_copy_scalar_tensor");
 
-        cudaMemcpyAsync(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream);
+        cudaMemcpy(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost);
         cudaFree(dev_flag);
+
         if (host_flag) throw std::runtime_error("Division by zero in scalar / integer tensor");
     });
     return out;
