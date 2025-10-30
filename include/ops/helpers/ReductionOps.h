@@ -213,7 +213,11 @@ struct MinOp {
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
-        return (a < b) ? a : b;
+         if constexpr (is_any_float_v<T>) {
+        if (is_nan_check(a)) return a;
+        if (is_nan_check(b)) return b;
+    }
+    return (a < b) ? a : b;
     }
 };
 
@@ -232,7 +236,12 @@ struct MaxOp {
     }
     
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const {
-        return (a > b) ? a : b;
+         // ✅ NumPy-compatible NaN propagation:
+    if constexpr (is_any_float_v<T>) {
+        if (is_nan_check(a)) return a;
+        if (is_nan_check(b)) return b;
+    }
+    return (a > b) ? a : b;
     }
 };
 

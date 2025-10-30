@@ -144,6 +144,5 @@ int64_t ravel_index(const std::vector<int64_t>& coords, const std::vector<int64_
     return linear_index;
 }
 
-
 } // namespace detail
 } // namespace OwnTensor
