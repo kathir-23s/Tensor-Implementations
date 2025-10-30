@@ -94,7 +94,12 @@ Tensor reduce_kernel(
             reduced_dims.push_back(input_dims[dim]);
         }
     }
-
+ constexpr size_t MAX_DIMS = 16;
+    const size_t ndim = output_shape.dims.size();
+    
+    if (ndim > MAX_DIMS) {
+        throw std::runtime_error("Tensor rank exceeds maximum supported dimensions (16)");
+    }
     // =================================================================
     // Use double accumulation for FP16/BF16 for maximum precision
     // =================================================================
@@ -124,13 +129,15 @@ Tensor reduce_kernel(
     #pragma omp parallel for
     for (int64_t output_index = 0; output_index < num_slices; ++output_index) 
     {
+          // ✅ STACK-ALLOCATED BUFFER (no heap allocation)
+        int64_t out_coords_buf[MAX_DIMS];
+        unravel_index_stack(output_index, output_shape.dims.data(), ndim, out_coords_buf);
         if constexpr (std::is_same_v<AccT, ValueIndex<T>>) {
             // =========================================================
             // INDEX REDUCTIONS PATH (argmax, argmin, etc.)
             // =========================================================
             ValueIndex<T> accumulator = op.identity();
-            std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
-
+          
             for (int64_t i = 0; i < reduced_count; ++i) {
                 std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims); 
                 std::vector<int64_t> full_input_coords(input_dims.size());
@@ -143,9 +150,9 @@ Tensor reduce_kernel(
                         full_input_coords[dim] = slice_coords[slice_coord_idx++];
                     } else {
                         if (rank_preserved) {
-                            full_input_coords[dim] = out_coords[dim];
+                            full_input_coords[dim] = out_coords_buf[dim];
                         } else {
-                            full_input_coords[dim] = out_coords[out_coord_idx];
+                            full_input_coords[dim] = out_coords_buf[out_coord_idx];
                         }
                         out_coord_idx++;
                     }
@@ -164,7 +171,8 @@ Tensor reduce_kernel(
             // VALUE REDUCTIONS PATH (sum, max, mean, etc.)
             // =========================================================
             
-            std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
+           // std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);(commented out as no use)
+           // out_coords_buf already computed above
 
             if constexpr (use_kahan) {
                 // Kahan state and initialization (used only for SumOp)
@@ -184,9 +192,9 @@ Tensor reduce_kernel(
                             full_input_coords[dim] = slice_coords[slice_coord_idx++];
                         } else {
                             if (rank_preserved) {
-                                full_input_coords[dim] = out_coords[dim];
+                                full_input_coords[dim] = out_coords_buf[dim];
                             } else {
-                                full_input_coords[dim] = out_coords[out_coord_idx];
+                                full_input_coords[dim] = out_coords_buf[out_coord_idx];
                             }
                             out_coord_idx++;
                         }
@@ -229,7 +237,12 @@ Tensor reduce_kernel(
             } else {
                 // Initialize standard accumulator (used for all other reductions)
                 AccumulatorT accumulator;
-                if constexpr (should_use_double_accumulation<T>()) {
+                    // ✅ FIX: Don't cast identity for index reductions (ValueIndex type)
+                if constexpr (std::is_same_v<AccT, ValueIndex<T>>) {
+                    // This path should never be reached since index reductions
+                    // are handled in the first if branch above
+                    accumulator = op.identity();
+                } else if constexpr (should_use_double_accumulation<T>()) {
                     accumulator = static_cast<double>(op.identity());
                 } else if constexpr (std::is_integral_v<T>) {
                     accumulator = static_cast<int64_t>(op.identity());
@@ -250,9 +263,9 @@ Tensor reduce_kernel(
                             full_input_coords[dim] = slice_coords[slice_coord_idx++];
                         } else {
                             if (rank_preserved) {
-                                full_input_coords[dim] = out_coords[dim];
+                                full_input_coords[dim] = out_coords_buf[dim];
                             } else {
-                                full_input_coords[dim] = out_coords[out_coord_idx];
+                                full_input_coords[dim] = out_coords_buf[out_coord_idx];
                             }
                             out_coord_idx++;
                         }
@@ -261,10 +274,16 @@ Tensor reduce_kernel(
                     int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
                     T input_value = input_data[input_lin_idx];
 
-                    // Standard accumulation
-                    AccumulatorT val_acc = static_cast<AccumulatorT>(input_value);
-                    accumulator = op.reduce(accumulator, val_acc);
+                      // ✅ FIX: Proper type conversion based on AccumulatorT
+                    if constexpr (std::is_same_v<AccT, ValueIndex<T>>) {
+                        // Should never reach here - handled above
+                    } else {
+                        AccumulatorT val_acc = static_cast<AccumulatorT>(input_value);
+                        accumulator = op.reduce(accumulator, val_acc);
+                    }
                 }
+                
+
                 
                 // =================================================================
                 // CRITICAL: Safe conversion back to output type (Standard path)
@@ -316,7 +335,8 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
     // Block NaN operations on non-float types at compile time
     if constexpr (is_nan_op && !is_float_type) {
         throw std::runtime_error(
-            "NaN-aware operations are only supported for floating point types"
+            "NaN-aware operations are only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+             "Got: " + get_dtype_name(input.dtype())
         );
     }
     
@@ -370,7 +390,8 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
     
     if constexpr (is_nan_sum && !is_float_type) {
         throw std::runtime_error(
-            "NaN-aware mean is only supported for floating point types"
+            "NaN-aware mean is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+             "Got: " + get_dtype_name(input.dtype())
         );
     }
     
@@ -409,11 +430,11 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         }
         
         double* output_data = output.data<double>();
-        SumOpType<T> op;
+        //SumOpType<T> op;
         
         #pragma omp parallel for
         for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
-            double accumulator = 0.0;
+            int64_t accumulator = 0;
             
             std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
             
@@ -440,10 +461,10 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
                 int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
                 T input_value = input_data[input_lin_idx];
                 
-                accumulator += static_cast<double>(input_value);
+                accumulator += input_value;
             }
             
-            output_data[output_index] = accumulator / static_cast<double>(reduced_count);
+            output_data[output_index] = static_cast<double>(accumulator) / static_cast<double>(reduced_count);
         }
         
         return output;
@@ -464,46 +485,46 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
             T        
         >::type;
         
-        SumT* sum_data = sum_result.data<SumT>();
+        T* sum_data = sum_result.data<T>();
         const SumT divisor = static_cast<SumT>(reduced_count);
         
         #pragma omp parallel for
         for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
-            SumT val = sum_data[i];
+            SumT val = static_cast<SumT>(sum_data[i]);
             val /= divisor;
 
             if constexpr (std::is_same_v<T, float16_t>) {
-                sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
+                sum_data[i] = static_cast<T>(static_cast<float>(val));
             } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-                sum_data[i] = static_cast<SumT>(static_cast<T>(static_cast<float>(val)));
+                sum_data[i] = static_cast<T>(static_cast<float>(val));
             } else {
                 sum_data[i] = val;
             }
         }
-
+        return sum_result;
         // Final result must be cast back to the original Tensor type (T) if AccT was double.
         // The reduce_kernel returns a Tensor<T> or Tensor<double>, but the output Dtype is T.
         // The previous code had a bug here.
         // We ensure the output Tensor's data type matches the original T
-        if constexpr (should_use_double_accumulation<T>()) {
-            Tensor final_output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
-            T* final_output_data = final_output.data<T>();
+        // if constexpr (should_use_double_accumulation<T>()) {
+        //     Tensor final_output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
+        //     T* final_output_data = final_output.data<T>();
             
-            #pragma omp parallel for
-            for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
-                // Safe conversion from SumT (double) back to output type (T)
-                if constexpr (std::is_same_v<T, float16_t>) {
-                    final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
-                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
-                    final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
-                } else {
-                    final_output_data[i] = static_cast<T>(sum_data[i]);
-                }
-            }
-            return final_output;
-        } else {
-            return sum_result;
-        }
+        //     #pragma omp parallel for
+        //     for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+        //         // Safe conversion from SumT (double) back to output type (T)
+        //         if constexpr (std::is_same_v<T, float16_t>) {
+        //             final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
+        //         } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+        //             final_output_data[i] = static_cast<T>(static_cast<float>(sum_data[i]));
+        //         } else {
+        //             final_output_data[i] = static_cast<T>(sum_data[i]);
+        //         }
+        //     }
+        //     return final_output;
+        // } else {
+        //     return sum_result;
+        // }
     }
 }
 
