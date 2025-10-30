@@ -11,19 +11,19 @@
 #include <type_traits>
 
 namespace OwnTensor {
-
+using namespace detail;
 namespace {
 
-// ✅ Base dispatcher for BASIC operations (works on all types)
-template <template <typename> class OpType>
-Tensor _reduce_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+// // ✅ Base dispatcher for BASIC operations (works on all types)
+// template <template <typename> class OpType>
+// Tensor _reduce_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+//     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
     
-    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
-        using T = decltype(T_val);
-        return detail::dispatch_reduction<T, OpType>(input, normalized_axes, keepdim);
-    });
-}
+//     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+//         using T = decltype(T_val);
+//         return detail::dispatch_reduction<T, OpType>(input, normalized_axes, keepdim);
+//     });
+// }
 
 // ✅ Dispatcher for NaN-AWARE operations (only for floating point)
 // Uses is_float() from DtypeTraits.h instead of custom function
@@ -45,16 +45,16 @@ Tensor _reduce_dispatcher(const Tensor& input, const std::vector<int64_t>& axes,
 //     });
 // }
 
-// ✅ Mean dispatcher for BASIC operations
-template <template <typename> class SumOpType>
-Tensor _reduce_mean_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+// // ✅ Mean dispatcher for BASIC operations
+// template <template <typename> class SumOpType>
+// Tensor _reduce_mean_dispatcher(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
+//     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
     
-    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
-        using T = decltype(T_val);
-        return detail::dispatch_mean_kernel<T, SumOpType>(input, normalized_axes, keepdim);
-    });
-}
+//     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+//         using T = decltype(T_val);
+//         return detail::dispatch_mean_kernel<T, SumOpType>(input, normalized_axes, keepdim);
+//     });
+// }
 
 // ✅ Mean dispatcher for NaN-AWARE operations (only for floating point)
 // template <template <typename> class SumOpType>
@@ -81,68 +81,136 @@ Tensor _reduce_mean_dispatcher(const Tensor& input, const std::vector<int64_t>& 
 // 1. Core Reductions (All types supported)
 // =================================================================
 Tensor reduce_sum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::SumOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, SumOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_product(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::ProductOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, ProductOp>(input, normalized_axes, keepdim);
+    });
 }
-
 Tensor reduce_min(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::MinOp>(input, axes, keepdim);
+     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, MinOp>(input, normalized_axes, keepdim);
+    });
 }
-
 Tensor reduce_max(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::MaxOp>(input, axes, keepdim);
+     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, MaxOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_mean(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_mean_dispatcher<detail::SumOp>(input, axes, keepdim);
+     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_mean_kernel<T, SumOp>(input, normalized_axes, keepdim);
+    });
 }
 
 // =================================================================
 // 2. NaN-Aware Reductions (FLOATING POINT ONLY)
 // =================================================================
 Tensor reduce_nansum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanSumOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanSumOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_nanproduct(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanProductOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanProductOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_nanmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanMinOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanMinOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_nanmax(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanMaxOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanMaxOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_nanmean(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_mean_dispatcher<detail::NanSumOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, keepdim);
+    });
 }
 
 // =================================================================
 // 3. Index Reductions (All types supported)
 // =================================================================
 Tensor reduce_argmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::ArgMinOp>(input, axes, keepdim);
+     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, ArgMinOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_argmax(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::ArgMaxOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, ArgMaxOp>(input, normalized_axes, keepdim);
+    });
 }
 
 // =================================================================
 // 4. NaN-Aware Index Reductions (FLOATING POINT ONLY)
 // =================================================================
 Tensor reduce_nanargmin(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanArgMinOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanArgMinOp>(input, normalized_axes, keepdim);
+    });
 }
 
 Tensor reduce_nanargmax(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim) {
-    return _reduce_dispatcher<detail::NanArgMaxOp>(input, axes, keepdim);
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_reduction<T, NanArgMaxOp>(input, normalized_axes, keepdim);
+    });
 }
 
 } // namespace OwnTensor

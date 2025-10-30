@@ -531,3 +531,134 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 } // namespace detail
 } // namespace OwnTensor
 #endif // OWNTENSOR_REDUCTIONS_IMPL_H
+
+
+
+
+/* OPTIMIZED SINGLE-PASS NaN-AWARE MEAN (KEPT FOR REFERENCE)
+} else {
+    // Floating point: use double accumulation for FP16/BF16
+    using AccT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,  
+        T        
+    >::type;
+    
+    // ✅ OPTIMIZATION: For NaN-aware mean, compute sum AND count in ONE pass
+    if constexpr (is_nan_sum) {
+        // Build sum result manually with NaN counting
+        Tensor output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
+        T* output_data = output.data<T>();
+        
+        const T* input_data = input.data<T>();
+        const std::vector<int64_t>& input_dims = input.shape().dims;
+        const std::vector<int64_t>& input_strides = input.stride().strides;
+        
+        const int64_t num_slices = output.numel();
+        const bool rank_preserved = input_dims.size() == output_shape.dims.size();
+        
+        std::vector<int64_t> reduced_dims;
+        for(size_t dim = 0; dim < input_dims.size(); ++dim) {
+            bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+            if (is_reduced) {
+                reduced_dims.push_back(input_dims[dim]);
+            }
+        }
+        
+        // ✅ SINGLE PASS: Accumulate sum AND count non-NaN values
+        #pragma omp parallel for
+        for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
+            AccT accumulator = 0;
+            int64_t valid_count = 0;
+            
+            std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
+            
+            for (int64_t i = 0; i < reduced_count; ++i) {
+                std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
+                std::vector<int64_t> full_input_coords(input_dims.size());
+                int out_coord_idx = 0;
+                int slice_coord_idx = 0;
+                
+                for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                    bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+                    if (is_reduced) {
+                        full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                    } else {
+                        if (rank_preserved) {
+                            full_input_coords[dim] = out_coords[dim];
+                        } else {
+                            full_input_coords[dim] = out_coords[out_coord_idx];
+                        }
+                        out_coord_idx++;
+                    }
+                }
+                
+                int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+                T input_value = input_data[input_lin_idx];
+                
+                // Check if not NaN and accumulate
+                bool is_valid;
+                if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
+                    is_valid = !std::isnan(static_cast<float>(input_value));
+                } else {
+                    is_valid = !std::isnan(input_value);
+                }
+                
+                if (is_valid) {
+                    accumulator += static_cast<AccT>(input_value);
+                    valid_count++;
+                }
+            }
+            
+            // Compute mean
+            if (valid_count > 0) {
+                AccT mean_val = accumulator / static_cast<AccT>(valid_count);
+                
+                // Convert back to output type
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    output_data[output_index] = static_cast<T>(static_cast<float>(mean_val));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    output_data[output_index] = static_cast<T>(static_cast<float>(mean_val));
+                } else {
+                    output_data[output_index] = static_cast<T>(mean_val);
+                }
+            } else {
+                // All values were NaN
+                output_data[output_index] = static_cast<T>(std::nanf(""));
+            }
+        }
+        
+        return output;
+        
+    } else {
+        // Regular mean: use reduce_kernel for sum, then divide
+        Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
+        
+        using SumT = typename std::conditional<
+            should_use_double_accumulation<T>(),
+            double,  
+            T        
+        >::type;
+        
+        T* sum_data = sum_result.data<T>();
+        const SumT divisor = static_cast<SumT>(reduced_count);
+        
+        #pragma omp parallel for
+        for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+            SumT val = static_cast<SumT>(sum_data[i]);
+            val /= divisor;
+
+            if constexpr (std::is_same_v<T, float16_t>) {
+                sum_data[i] = static_cast<T>(static_cast<float>(val));
+            } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                sum_data[i] = static_cast<T>(static_cast<float>(val));
+            } else {
+                sum_data[i] = val;
+            }
+        }
+        
+        return sum_result;
+    }
+}
+
+*/
