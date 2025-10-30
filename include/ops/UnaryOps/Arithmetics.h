@@ -7,7 +7,7 @@ namespace OwnTensor {
 // ============================================================
 Tensor square(const Tensor& t);
 Tensor sqrt(const Tensor& t);
-Tensor negator(const Tensor& t); 
+Tensor neg(const Tensor& t); 
 Tensor abs(const Tensor& t);
 Tensor sign(const Tensor& t);
 Tensor reciprocal(const Tensor& t);
@@ -16,7 +16,7 @@ Tensor reciprocal(const Tensor& t);
 // ============================================================
 void square_(Tensor& t);
 void sqrt_(Tensor& t);
-void negator_(Tensor& t); 
+void neg_(Tensor& t); 
 void abs_(Tensor& t); 
 void sign_(Tensor& t);
 void reciprocal_(Tensor& t);
