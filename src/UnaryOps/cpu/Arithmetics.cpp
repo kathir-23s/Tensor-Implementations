@@ -38,7 +38,7 @@ Tensor sqrt(const Tensor& input) {
     }
 }
 
-Tensor negator(const Tensor& input) {
+Tensor neg(const Tensor& input) {
     if (input.is_cpu()) {
         return negator_out_cpu_wrap(input);
     }
@@ -168,7 +168,7 @@ void sqrt_(Tensor& input) {
     }
 }
 
-void negator_(Tensor& input) {
+void neg_(Tensor& input) {
     if (input.is_cpu()) {
         negator_in_cpu_wrap(input);
     }

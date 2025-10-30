@@ -96,33 +96,71 @@ __global__ void sqrt_bfloat16_kernel(const __nv_bfloat16* in, __nv_bfloat16* out
 
 template<typename T, typename ExpT>
 __device__ inline T safe_pow_device(T base, ExpT exponent) {
-    // Handle NaN
-    if (isnan(base) || isnan(exponent)) {
-        return nanf("");
+    // Use if constexpr to handle floating-point vs integer types at compile time
+    if constexpr (std::is_floating_point<T>::value) {
+        // Handle NaN for floating-point types
+        if (::isnan(base) || ::isnan(static_cast<float>(exponent))) {
+            return static_cast<T>(nanf(""));
+        }
+        
+        // 0^0 = 1 (convention)
+        if (base == T(0) && exponent == ExpT(0)) {
+            return T(1);
+        }
+        
+        // 0^(negative) = inf
+        if (base == T(0) && exponent < ExpT(0)) {
+            return static_cast<T>(INFINITY);
+        }
+        
+        // 0^(positive) = 0
+        if (base == T(0) && exponent > ExpT(0)) {
+            return T(0);
+        }
+        
+        // Negative base with non-integer exponent = NaN
+        if constexpr (std::is_floating_point<ExpT>::value) {
+            if (base < T(0) && ::floor(static_cast<float>(exponent)) != static_cast<float>(exponent)) {
+                return static_cast<T>(nanf(""));
+            }
+        }
+        
+        return static_cast<T>(::pow(static_cast<double>(base), static_cast<double>(exponent)));
+    } 
+    else {
+        // Integer type handling - no NaN checks needed
+        // 0^0 = 1 (convention)
+        if (base == T(0) && exponent == ExpT(0)) {
+            return T(1);
+        }
+        
+        // 0^(negative) - undefined for integers, return 0 or throw error
+        if (base == T(0) && exponent < ExpT(0)) {
+            return T(0); // or handle as error
+        }
+        
+        // 0^(positive) = 0
+        if (base == T(0) && exponent > ExpT(0)) {
+            return T(0);
+        }
+        
+        // For integers, use simple integer power
+        T result = T(1);
+        ExpT exp = exponent;
+        T b = base;
+        
+        while (exp > 0) {
+            if (exp % 2 == 1) {
+                result *= b;
+            }
+            b *= b;
+            exp /= 2;
+        }
+        
+        return result;
     }
-    
-    // 0^0 = 1 (convention)
-    if (base == T(0) && exponent == ExpT(0)) {
-        return T(1);
-    }
-    
-    // 0^(negative) = inf
-    if (base == T(0) && exponent < ExpT(0)) {
-        return INFINITY;
-    }
-    
-    // 0^(positive) = 0
-    if (base == T(0) && exponent > ExpT(0)) {
-        return T(0);
-    }
-    
-    // Negative base with non-integer exponent = NaN
-    if (base < T(0) && floor(exponent) != exponent) {
-        return nanf("");
-    }
-    
-    return pow(base, static_cast<T>(exponent));
 }
+
 
 // Power kernel for all numeric types
 template<typename T_In, typename T_Out, typename ExpT>
@@ -461,9 +499,9 @@ Tensor power_out_gpu_wrap_impl(const Tensor& input, ExpT exponent) {
 
 template<typename ExpT>
 void power_in_gpu_wrap_impl(Tensor& input, ExpT exponent) {
-    if (input.dtype() == Dtype::Int16 || input.dtype() == Dtype::Int32 || input.dtype() == Dtype::Int64) {
-        throw std::invalid_argument("In-place power not supported for integer tensors");
-    }
+    // if (input.dtype() == Dtype::Int16 || input.dtype() == Dtype::Int32 || input.dtype() == Dtype::Int64) {
+    //     throw std::invalid_argument("In-place power not supported for integer tensors");
+    // }
     
     size_t n = input.numel();
     int threads = 256;
@@ -477,7 +515,14 @@ void power_in_gpu_wrap_impl(Tensor& input, ExpT exponent) {
         power_kernel_gpu<<<blocks, threads>>>(input.data<float>(), input.data<float>(), n, exponent);
     } else if (input.dtype() == Dtype::Float64) {
         power_kernel_gpu<<<blocks, threads>>>(input.data<double>(), input.data<double>(), n, exponent);
+    } else if (input.dtype() == Dtype::Int32){
+        power_kernel_gpu<<<blocks, threads>>>(input.data<int32_t>(), input.data<int32_t>(), n, exponent);
+    } else if (input.dtype() == Dtype::Int16){
+        power_kernel_gpu<<<blocks, threads>>>(input.data<int16_t>(), input.data<int16_t>(), n, exponent);
+    } else if (input.dtype() == Dtype::Int64){
+        power_kernel_gpu<<<blocks, threads>>>(input.data<int64_t>(), input.data<int64_t>(), n, exponent);
     }
+
     
     cudaDeviceSynchronize();
 }
@@ -496,14 +541,28 @@ Tensor power_out_gpu_wrap(const Tensor& input, double exponent) {
 }
 
 void power_in_gpu_wrap(Tensor& input, int exponent) {
+    if(exponent < 0) {
+        throw std::runtime_error(
+            "Inplace power operations with negative exponents are not supported. "
+            "Use out-of-place power operation instead."
+        );
+    }
     power_in_gpu_wrap_impl(input, exponent);
 }
 
 void power_in_gpu_wrap(Tensor& input, float exponent) {
-    power_in_gpu_wrap_impl(input, exponent);
+    throw std::runtime_error(
+            "Inplace power operations is accepted only for int exponent values. "
+            "Use out-of-place power operation instead."
+        );
+    //power_in_gpu_wrap_impl(input, exponent);
 }
 
 void power_in_gpu_wrap(Tensor& input, double exponent) {
+    throw std::runtime_error(
+            "Inplace power operations is accepted only for int exponent values. "
+            "Use out-of-place power operation instead."
+        );
     power_in_gpu_wrap_impl(input, exponent);
 }
 
