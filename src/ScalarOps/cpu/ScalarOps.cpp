@@ -13,12 +13,12 @@ inline bool is_integer_dtype(Dtype dt) {
 }
 
 // conversions supplied by your numeric utilities
-namespace detail {
-    float    float16_to_float(uint16_t);
-    uint16_t float_to_float16(float);
-    float    bfloat16_to_float(uint16_t);
-    uint16_t float_to_bfloat16(float);
-}
+// namespace detail {
+//     float    float16_to_float(uint16_t);
+//     uint16_t float_to_float16(float);
+//     float    bfloat16_to_float(uint16_t);
+//     uint16_t float_to_bfloat16(float);
+// }
 
 // uint16_t-backed half/bfloat16 helpers
 inline float load_u16_as_f32(uint16_t bits, Dtype dt) {

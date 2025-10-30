@@ -5,6 +5,9 @@
 #include <stdexcept>
 #include <functional>
 
+// Testing if makefile can detect this
+
+
 namespace OwnTensor {
     Tensor operator+(const Tensor& lhs, const Tensor& rhs) 
     {
@@ -101,34 +104,78 @@ namespace OwnTensor {
 
     Tensor operator+=(Tensor& lhs, const Tensor& rhs)
     {
-        // Tensor output(lhs.shape(), lhs.dtype(), lhs.device());
-        apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
-            return a + b;  // This lambda gets passed as 'op'
-        });
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cuda_add_tensor_inplace(lhs, rhs);
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+            // Tensor output(lhs.shape(), lhs.dtype(), lhs.device());
+            apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
+                return a + b;  // This lambda gets passed as 'op'
+            });
+        }
         return lhs;
     }
 
     Tensor operator-=(Tensor& lhs, const Tensor& rhs)
     {
-        apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
-            return a - b;  // This lambda gets passed as 'op'
-        });
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cuda_sub_tensor_inplace(lhs, rhs);
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+            apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
+                return a - b;  // This lambda gets passed as 'op'
+            });
+        }
         return lhs;
     }
 
     Tensor operator*=(Tensor& lhs, const Tensor& rhs)
     {
-        apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
-            return a * b;  // This lambda gets passed as 'op'
-        });
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cuda_mul_tensor_inplace(lhs, rhs);
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+            apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
+                return a * b;  // This lambda gets passed as 'op'
+            });
+        }
         return lhs;
     }
 
     Tensor operator/=(Tensor& lhs, const Tensor& rhs)
     {
-        apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
-            return a / b;  // This lambda gets passed as 'op'
-        });
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cuda_div_tensor_inplace(lhs, rhs);
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+            apply_binary_operation(lhs, rhs, lhs, [](auto a, auto b) {
+                return a / b;  // This lambda gets passed as 'op'
+            });
+        }
         return lhs;
     }
 } 

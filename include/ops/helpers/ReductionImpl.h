@@ -430,7 +430,8 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         }
         
         double* output_data = output.data<double>();
-        //SumOpType<T> op;
+        
+        [[maybe_unused]] SumOpType<T> op;
         
         #pragma omp parallel for
         for (int64_t output_index = 0; output_index < num_slices; ++output_index) {

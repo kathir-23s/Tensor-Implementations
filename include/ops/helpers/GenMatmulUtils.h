@@ -7,7 +7,8 @@
 namespace OwnTensor
 {
 
-    void cpu_matmul(const Tensor& A, const Tensor& B, Tensor& output) {
+    void cpu_matmul(const Tensor& A, const Tensor& B, Tensor& output) 
+    {
         dispatch_by_dtype(A.dtype(), [&](auto dummy) {
             using T = decltype(dummy);
             const T* a_ptr = A.data<T>();
@@ -43,7 +44,7 @@ namespace OwnTensor
                 size_t b_batch_offset = 0;
                 size_t out_batch_offset = 0;
                 
-                for (int i = 0; i < batch_dims; ++i) {
+                for (size_t i = 0; i < batch_dims; ++i) {
                     size_t a_dim_idx = (i < a_ndim - 2 && a_shape[i] > 1) ? batch_idx[batch_dims - 1 - i] : 0;
                     size_t b_dim_idx = (i < b_ndim - 2 && b_shape[i] > 1) ? batch_idx[batch_dims - 1 - i] : 0;
                     
@@ -66,18 +67,28 @@ namespace OwnTensor
                     }
                 }
                 
-                // Increment batch indices
-                int dim = batch_dims - 1;
-                while (dim >= 0) {
-                    batch_idx[dim]++;
-                    if (batch_idx[dim] < out_shape[dim]) {
+            // Loops and counts down from (batch_dims - 1) to 0
+            for (size_t dim = batch_dims; dim-- > 0; )
+            {
+                batch_idx[dim]++;
+                    if (batch_idx[dim] < static_cast<size_t>(out_shape[dim])) {
                         break;
                     }
                     batch_idx[dim] = 0;
-                    dim--;
-                }
-                if (dim < 0) break;
             }
-        });
+        }});
+
+            //     // Increment batch indices
+            //     size_t dim = batch_dims - 1;
+            //     while (dim >= 0) {
+            //         batch_idx[dim]++;
+            //         if (batch_idx[dim] < out_shape[dim]) {
+            //             break;
+            //         }
+            //         batch_idx[dim] = 0;
+            //         dim--;
+            //     }
+            //     if (dim < 0) break;
+            // }
     }
 }
