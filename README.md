@@ -4,6 +4,14 @@
 
 This explains how to build `TensorLib` and link it against your own C++ projects.
 
+## Requirements
+CUDA Toolkit version used: 13.0
+CUDA Toolkit Required version (minimum): >12.5
+
+g++ Version: > 11
+
+
+
 ## Part 1: Building the Library
 
 The first step is to compile `TensorLib` into shared (`.so`) and static (`.a`) library files.
@@ -98,7 +106,7 @@ make run-snippet FILE=<filename>
 ### Verifying if the library is compiled properly and available to use
 
 * Once imported and run ```make rebuild``` command on terminal, to verify if its working properly.
-* Run this command ```make run-snippet FILE=Example/test_library_setup.cpp ```
+* Run this command ```make run-snippet FILE=starter_examples/test_library_setup.cpp ```
 * Verify if the terminal showing the following output:
 
 ```
