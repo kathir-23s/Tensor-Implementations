@@ -42,7 +42,7 @@ namespace OwnTensor
         std::vector<int64_t> output_dims(max_ndim);  // CORRECT: int64_t matches your Shape
 
         // CHECKING COMPATIBILITY - FIXED INDEXING
-        for (int i = 0; i < max_ndim - 2; ++i) {
+        for (size_t i = 0; i < max_ndim - 2; ++i) {
             size_t a_idx = (a_ndim >= max_ndim - i) ? a_ndim - (max_ndim - i) : 0;
             size_t b_idx = (b_ndim >= max_ndim - i) ? b_ndim - (max_ndim - i) : 0;
             

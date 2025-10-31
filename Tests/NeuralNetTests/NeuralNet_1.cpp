@@ -75,7 +75,8 @@ void test_mlp_forward_pass() {
     std::cout << "\nTest completed successfully!\n\n";
 }
 
-int main() {
+int main() 
+{
     test_mlp_forward_pass();
     return 0;
 }

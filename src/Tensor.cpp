@@ -192,7 +192,7 @@ namespace OwnTensor
 
 
     // Utility
-    size_t Tensor::numel() const 
+    size_t Tensor:: numel() const 
     {
         size_t total = 1;
         for (auto dim : shape_.dims) 

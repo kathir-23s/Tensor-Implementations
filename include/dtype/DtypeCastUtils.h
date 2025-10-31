@@ -24,12 +24,12 @@ inline Tensor convert_half_to_float32(const Tensor& input) {
 
     if (input.dtype() == Dtype::Float16) {
         const float16_t* in_ptr = input.data<float16_t>(); // [file:3]
-        for (int i = 0; i < input.numel(); ++i) { // [file:3]
+        for (size_t i = 0; i < input.numel(); ++i) { // [file:3]
             temp_ptr[i] = static_cast<float>(in_ptr[i]);
         }
     } else { // Bfloat16
         const bfloat16_t* in_ptr = input.data<bfloat16_t>(); // [file:3]
-        for (int i = 0; i < input.numel(); ++i) { // [file:3]
+        for (size_t i = 0; i < input.numel(); ++i) { // [file:3]
             temp_ptr[i] = static_cast<float>(in_ptr[i]);
         }
     }
@@ -42,12 +42,12 @@ inline void convert_float32_to_half(const Tensor& float_tensor, Tensor& output) 
 
     if (output.dtype() == Dtype::Float16) {
         float16_t* out_ptr = output.data<float16_t>(); // [file:3]
-        for (int i = 0; i < output.numel(); ++i) { // [file:3]
+        for (size_t i = 0; i < output.numel(); ++i) { // [file:3]
             out_ptr[i] = float16_t(float_ptr[i]);
         }
     } else { // Bfloat16
         bfloat16_t* out_ptr = output.data<bfloat16_t>(); // [file:3]
-        for (int i = 0; i < output.numel(); ++i) { // [file:3]
+        for (size_t i = 0; i < output.numel(); ++i) { // [file:3]
             out_ptr[i] = bfloat16_t(float_ptr[i]);
         }
     }

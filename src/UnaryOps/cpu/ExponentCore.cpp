@@ -91,7 +91,7 @@ template<float(*FloatFunc)(float), double(*DoubleFunc)(double)>
 void generic_unary_in_cpu(Tensor& input_tensor) {
     // Handle bf16/f16 by promoting to float32
     if (input_tensor.dtype() == Dtype::Bfloat16 || input_tensor.dtype() == Dtype::Float16) {
-        Dtype original_dtype = input_tensor.dtype();
+        [[maybe_unused]] Dtype original_dtype = input_tensor.dtype();
         Tensor temp_input = convert_half_to_float32(input_tensor);
         Tensor temp_output(input_tensor.shape(), Dtype::Float32, input_tensor.device(), input_tensor.requires_grad());
         
@@ -172,121 +172,5 @@ Tensor log10_out_cpu_wrap(const Tensor& input) {
 void log10_in_cpu_wrap(Tensor& input) {
     generic_unary_in_cpu<log10f_fn, log10_fn>(input);
 }
-
-// ============================================================================
-// High-Level API - Out-of-Place Operations
-// ============================================================================
-// Tensor exp(const Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         return exp_out_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         return exp_out_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for exp");
-//     }
-// }
-
-// Tensor exp2(const Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         return exp2_out_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         return exp2_out_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for exp2");
-//     }
-// }
-
-// Tensor log(const Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         return log_out_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         return log_out_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log");
-//     }
-// }
-
-// Tensor log2(const Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         return log2_out_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         return log2_out_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log2");
-//     }
-// }
-
-// Tensor log10(const Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         return log10_out_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         return log10_out_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log10");
-//     }
-// }
-
-// // ============================================================================
-// // High-Level API - In-Place Operations
-// // ============================================================================
-// void exp_(Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         exp_in_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         exp_in_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for exp_");
-//     }
-// }
-
-// void exp2_(Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         exp2_in_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         exp2_in_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for exp2_");
-//     }
-// }
-
-// void log_(Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         log_in_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         log_in_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log_");
-//     }
-// }
-
-// void log2_(Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         log2_in_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         log2_in_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log2_");
-//     }
-// }
-
-// void log10_(Tensor& input) {
-//     const auto& dev = input.device();
-//     if (dev.is_cpu()) {
-//         log10_in_cpu_wrap(input);
-//     } else if (dev.is_cuda()) {
-//         log10_in_gpu_wrap(input);
-//     } else {
-//         throw std::runtime_error("Unsupported device for log10_");
-//     }
-// }
 
 } // namespace OwnTensor

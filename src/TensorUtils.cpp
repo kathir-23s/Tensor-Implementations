@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <stdio.h>
 
 namespace OwnTensor {
 

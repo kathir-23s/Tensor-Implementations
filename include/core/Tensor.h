@@ -194,6 +194,7 @@ namespace OwnTensor
         void display(std::ostream& os, int prec) const;
         Tensor clone() const;
         Tensor& copy_(const Tensor& src);
+        Tensor as_type(Dtype new_dtype) const;
 
 
         private:
@@ -212,9 +213,9 @@ namespace OwnTensor
             bool owns_grad_ = true;
 
             // Size Informations
+            size_t storage_offset_ = 0;
             size_t data_size_ = 0;
 
-            size_t storage_offset_ = 0;
             
             Tensor(std::shared_ptr<uint8_t[]> data_ptr,
             Shape shape,

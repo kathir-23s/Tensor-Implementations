@@ -39,7 +39,7 @@ namespace OwnTensor
             size_t a_cols = A.shape().dims[1];
             size_t b_rows = B.shape().dims[0];
             size_t b_cols = B.shape().dims[1];
-            size_t out_rows = output.shape().dims[0];
+            [[maybe_unused]] size_t out_rows = output.shape().dims[0];
             size_t out_cols = output.shape().dims[1];
             
             // ADD VALIDATION HERE
