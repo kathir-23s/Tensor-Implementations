@@ -35,7 +35,7 @@ namespace detail {
 //     float f;
 //     ::std::memcpy(&f, &u, sizeof(f));
 //     return f;
-// }
+
 __device__ __host__ inline float bfloat16_to_float(uint16_t b) {
     uint32_t sign = (b & 0x8000u) << 16;      // Sign bit to float position
     uint32_t exp = (b & 0x7F80u) >> 7;        // Extract exponent (8 bits)
