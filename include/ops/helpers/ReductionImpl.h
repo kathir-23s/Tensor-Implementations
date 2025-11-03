@@ -17,12 +17,35 @@
 #include <numeric>
 #include <omp.h>
 
-#ifdef WITH_CUDA
-#include "ReductionImplGPU.h" 
-#endif
+// #ifdef WITH_CUDA
+// #include "ReductionImplGPU.h" 
+// #endif
+
 
 namespace OwnTensor {
 namespace detail {
+
+
+#ifdef WITH_CUDA
+
+// Forward declarations only (no implementation here!)
+template <typename T, template <typename> class OpType>
+Tensor dispatch_reduction_gpu(const Tensor& input, 
+                               const std::vector<int64_t>& normalized_axes, 
+                               bool keepdim);
+
+template <typename T, template <typename> class OpType>
+Tensor dispatch_index_reduction_gpu(const Tensor& input, 
+                                     const std::vector<int64_t>& normalized_axes, 
+                                     bool keepdim);
+
+template <typename T, template <typename> class SumOpType>
+Tensor dispatch_mean_gpu(const Tensor& input, 
+                         const std::vector<int64_t>& normalized_axes, 
+                         bool keepdim);
+
+#endif // WITH_CUDA
+
 
 // =================================================================
 // HELPER: Check if we should use double accumulation for better precision
@@ -306,16 +329,13 @@ Tensor reduce_kernel(
     return output;
 }
 
-// =================================================================
-// --- DISPATCHER TEMPLATES ---
-// =================================================================
 
 // =================================================================
 // --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
 // =================================================================
 
-template <typename T, template <typename> class OpType>                                                 
-Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
+template <typename T, template <typename> class OpType>
+Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
     
     // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
     constexpr bool is_nan_op = 
@@ -348,11 +368,11 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
                       std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
                       std::is_same_v<OpType<T>, NanArgMinOp<T>>) 
         {
-            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
+            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
         } 
         else 
         {
-            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
+            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
         }
     }
 #endif
@@ -378,7 +398,7 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 // =================================================================
 
 template <typename T, template <typename> class SumOpType>
-Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
+Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
     
     // ✅ CRITICAL: Validate NaN-aware mean operations
     constexpr bool is_nan_sum = std::is_same_v<SumOpType<T>, NanSumOp<T>>;
@@ -388,7 +408,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         std::is_same_v<T, float16_t> ||
         std::is_same_v<T, bfloat16_t>;
     
-    if constexpr (is_nan_sum && !is_float_type) {
+    if constexpr (is_nan_sum && !is_float_type) { 
         throw std::runtime_error(
             "NaN-aware mean is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
              "Got: " + get_dtype_name(input.dtype())
@@ -397,7 +417,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
     
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
-        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim, stream);//✨✨✨
+        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim);
     }
 #endif
 
@@ -430,8 +450,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         }
         
         double* output_data = output.data<double>();
-        
-        [[maybe_unused]] SumOpType<T> op;
+        //SumOpType<T> op;
         
         #pragma omp parallel for
         for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
@@ -471,23 +490,117 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         return output;
         
     } else {
-        // Floating point: use double accumulation for FP16/BF16
-        using AccT = typename std::conditional<
-            should_use_double_accumulation<T>(),
-            double,  
-            T        
-        >::type;
+    // Floating point: use double accumulation for FP16/BF16
+    using AccT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,  
+        T        
+    >::type;
+    
+    Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
+    
+    using SumT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,  
+        T        
+    >::type;
+    
+    T* sum_data = sum_result.data<T>();
+    
+    // ✅ FIX: For NaN-aware mean, count only non-NaN values
+    SumT divisor;
+    if constexpr (is_nan_sum) {
+        // Count non-NaN values in the input tensor
+        const T* input_data = input.data<T>();
+        const std::vector<int64_t>& input_dims = input.shape().dims;
+        const std::vector<int64_t>& input_strides = input.stride().strides;
         
-        Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
+        std::vector<int64_t> reduced_dims;
+        for(size_t dim = 0; dim < input_dims.size(); ++dim) {
+            bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+            if (is_reduced) {
+                reduced_dims.push_back(input_dims[dim]);
+            }
+        }
         
-        using SumT = typename std::conditional<
-            should_use_double_accumulation<T>(),
-            double,  
-            T        
-        >::type;
+        const bool rank_preserved = input_dims.size() == output_shape.dims.size();
+        const int64_t num_slices = sum_result.numel();
         
-        T* sum_data = sum_result.data<T>();
-        const SumT divisor = static_cast<SumT>(reduced_count);
+        // Create a tensor to store valid counts for each output position
+        std::vector<int64_t> valid_counts(num_slices, 0);
+        
+        #pragma omp parallel for
+        for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
+            int64_t valid_count = 0;
+            std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
+            
+            for (int64_t i = 0; i < reduced_count; ++i) {
+                std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
+                std::vector<int64_t> full_input_coords(input_dims.size());
+                int out_coord_idx = 0;
+                int slice_coord_idx = 0;
+                
+                for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                    bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+                    if (is_reduced) {
+                        full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                    } else {
+                        if (rank_preserved) {
+                            full_input_coords[dim] = out_coords[dim];
+                        } else {
+                            full_input_coords[dim] = out_coords[out_coord_idx];
+                        }
+                        out_coord_idx++;
+                    }
+                }
+                
+                int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+                T input_value = input_data[input_lin_idx];
+                
+                // Check if value is not NaN
+                if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
+                    if (!std::isnan(static_cast<float>(input_value))) {
+                        valid_count++;
+                    }
+                } else {
+                    if (!std::isnan(input_value)) {
+                        valid_count++;
+                    }
+                }
+            }
+            
+            valid_counts[output_index] = valid_count;
+        }
+        
+        // Now divide each sum by its corresponding valid count
+        #pragma omp parallel for
+        for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+            if (valid_counts[i] > 0) {
+                SumT val = static_cast<SumT>(sum_data[i]);
+                val /= static_cast<SumT>(valid_counts[i]);  // Divide by non-NaN count
+                
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    sum_data[i] = static_cast<T>(static_cast<float>(val));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    sum_data[i] = static_cast<T>(static_cast<float>(val));
+                } else {
+                    sum_data[i] = val;
+                }
+            } else {
+                // All values were NaN - result is NaN
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    sum_data[i] = static_cast<T>(std::nanf(""));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    sum_data[i] = static_cast<T>(std::nanf(""));
+                } else {
+                    sum_data[i] = std::numeric_limits<T>::quiet_NaN();
+                }
+            }
+        }
+        
+    } else {
+        // Regular mean: divide by total reduced count
+        divisor = static_cast<SumT>(reduced_count);
         
         #pragma omp parallel for
         for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
@@ -502,7 +615,11 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
                 sum_data[i] = val;
             }
         }
-        return sum_result;
+    }
+    
+    return sum_result;
+
+
         // Final result must be cast back to the original Tensor type (T) if AccT was double.
         // The reduce_kernel returns a Tensor<T> or Tensor<double>, but the output Dtype is T.
         // The previous code had a bug here.
@@ -532,8 +649,6 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 } // namespace detail
 } // namespace OwnTensor
 #endif // OWNTENSOR_REDUCTIONS_IMPL_H
-
-
 
 
 /* OPTIMIZED SINGLE-PASS NaN-AWARE MEAN (KEPT FOR REFERENCE)
