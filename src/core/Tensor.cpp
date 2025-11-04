@@ -2,9 +2,11 @@
 #include "dtype/Types.h"
 #include "device/AllocatorRegistry.h"
 #include "device/StreamAwareAllocator.h"
+#include "device/StreamAwareAllocator.h"
 #include "device/DeviceTransfer.h"
 #include "device/Device.h"
 #include "core/Views/ViewUtils.h"
+#include  "core/Views/contiguous_kernel.h"
 #include "ops/helpers/ConditionalOps.h"
 #include  "core/Views/contiguous_kernel.h"
 #include <iostream>
