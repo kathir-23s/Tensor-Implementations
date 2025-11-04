@@ -2,7 +2,8 @@
 #include "device/AllocatorRegistry.h"
 #include <stdexcept>
 #include <iostream>
-
+#include <driver_types.h>
+#include "device/DeviceCore.h"//✨✨✨
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>
 #endif
@@ -21,7 +22,7 @@ namespace OwnTensor
             // CPU to CPU
             if (dst_device == Device::CPU && src_device == Device::CPU) {
                 Allocator* alloc = AllocatorRegistry::get_cpu_allocator();
-                alloc->memcpy(dst, src, bytes);
+                alloc->memcpy(dst, src, bytes, cudaMemcpyHostToDevice);//✨✨✨
                 return;
             }
             
@@ -29,12 +30,13 @@ namespace OwnTensor
             // GPU to GPU
             if (dst_device == Device::CUDA && src_device == Device::CUDA) {
                 Allocator* alloc = AllocatorRegistry::get_cuda_allocator();
-                alloc->memcpy(dst, src, bytes);
+                alloc->memcpy(dst, src, bytes, cudaMemcpyDeviceToDevice);//✨✨✨
                 return;
             }
             // CPU to GPU
             if (dst_device == Device::CUDA && src_device == Device::CPU) {
-                cudaError_t result = cudaMemcpy(dst, src, bytes, cudaMemcpyHostToDevice);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); // Get stream//✨✨✨
+                cudaError_t result = cudaMemcpyAsync(dst, src, bytes, cudaMemcpyHostToDevice, stream);//✨✨✨
                 if (result != cudaSuccess) {
                     throw std::runtime_error(std::string("CPU->GPU transfer failed: ") + 
                                            cudaGetErrorString(result));
@@ -43,7 +45,8 @@ namespace OwnTensor
             }
             // GPU to CPU  
             if (dst_device == Device::CPU && src_device == Device::CUDA) {
-                cudaError_t result = cudaMemcpy(dst, src, bytes, cudaMemcpyDeviceToHost);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); // Get stream//✨✨✨
+                cudaError_t result = cudaMemcpyAsync(dst, src, bytes, cudaMemcpyDeviceToHost, stream);//✨✨✨
                 if (result != cudaSuccess) {
                     throw std::runtime_error(std::string("GPU->CPU transfer failed: ") + 
                                            cudaGetErrorString(result));

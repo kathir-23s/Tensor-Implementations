@@ -4,7 +4,8 @@
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
-
+#include <driver_types.h>//✨✨✨
+#include "device/DeviceCore.h"//✨✨✨
 #ifdef WITH_CUDA
 #include "ops/Matmul.cuh"
 #endif
@@ -67,7 +68,8 @@ namespace OwnTensor
         if (A.device().is_cuda() && B.device().is_cuda())
         {
             #ifdef WITH_CUDA
-                cuda_matmul(A, B, output);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
+                cuda_matmul(A, B, output, stream);//✨✨✨
             #else
                 throw std::runtime_error("Matmul: CUDA support not compiled");
             #endif

@@ -314,8 +314,8 @@ Tensor reduce_kernel(
 // --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
 // =================================================================
 
-template <typename T, template <typename> class OpType>
-Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+template <typename T, template <typename> class OpType>                                                 
+Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
     
     // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
     constexpr bool is_nan_op = 
@@ -348,11 +348,11 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
                       std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
                       std::is_same_v<OpType<T>, NanArgMinOp<T>>) 
         {
-            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
         } 
         else 
         {
-            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
         }
     }
 #endif
@@ -378,7 +378,7 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 // =================================================================
 
 template <typename T, template <typename> class SumOpType>
-Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
     
     // ✅ CRITICAL: Validate NaN-aware mean operations
     constexpr bool is_nan_sum = std::is_same_v<SumOpType<T>, NanSumOp<T>>;
@@ -397,7 +397,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
     
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
-        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim);
+        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim, stream);//✨✨✨
     }
 #endif
 

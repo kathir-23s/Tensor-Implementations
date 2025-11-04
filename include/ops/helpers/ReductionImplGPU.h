@@ -9,7 +9,10 @@
 #include "ReductionOps.h"
 #include <vector>
 #include <cstdint>
-
+#include <driver_types.h>//✨✨✨
+#ifdef WITH_CUDA
+#include <cuda_runtime.h> // <-- CORRECT: Outside namespace
+#endif//✨✨✨
 namespace OwnTensor {
 namespace detail {
 
@@ -19,17 +22,17 @@ namespace detail {
 template <typename T, template <typename> class OpType>
 Tensor dispatch_reduction_gpu(const Tensor& input, 
                                const std::vector<int64_t>& normalized_axes, 
-                               bool keepdim);
+                               bool keepdim, cudaStream_t stream);//✨✨✨
 
 template <typename T, template <typename> class OpType>
 Tensor dispatch_index_reduction_gpu(const Tensor& input, 
                                      const std::vector<int64_t>& normalized_axes, 
-                                     bool keepdim);
+                                     bool keepdim, cudaStream_t stream);//✨✨✨
 
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_gpu(const Tensor& input, 
                          const std::vector<int64_t>& normalized_axes, 
-                         bool keepdim);
+                         bool keepdim, cudaStream_t stream);//✨✨✨
 
 #endif // WITH_CUDA
 

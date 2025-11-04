@@ -42,7 +42,7 @@ namespace OwnTensor
     void CUDAAllocator::deallocate(void* ptr) {
     #ifdef WITH_CUDA
         if (ptr) {
-            cudaDeviceSynchronize();
+            // cudaDeviceSynchronize();//✨✨✨
             cudaError_t err = cudaFree(ptr);
             if (err != cudaSuccess) {
                 std::string error_msg = std::string("CUDA free failed: ") + cudaGetErrorString(err);
@@ -55,24 +55,35 @@ namespace OwnTensor
     #endif
     }
 
+    #ifdef WITH_CUDA//✨✨✨
+    void CUDAAllocator::memsetAsync(void* ptr, int value, size_t bytes, cudaStream_t stream) {    
+        cudaError_t err = cudaMemsetAsync(ptr, value, bytes, stream);
+        if (err != cudaSuccess) {
+            throw std::runtime_error(std::string("cudaMemsetAsync failed: ") + cudaGetErrorString(err));
+        }
+
+    }
+
+    void CUDAAllocator::memcpyAsync(void* dst, const void* src, size_t bytes, cudaMemcpyKind kind, cudaStream_t stream) {
+        cudaError_t err = cudaMemcpyAsync(dst, src, bytes, kind, stream);
+        if (err != cudaSuccess) {
+            throw std::runtime_error(std::string("cudaMemcpyAsync failed: ") + cudaGetErrorString(err));
+        }
+
+    }
+    #endif//✨✨✨
+
     void CUDAAllocator::memset(void* ptr, int value, size_t bytes) {
     #ifdef WITH_CUDA
-        // cudaMemset(ptr, value, bytes);
-        cudaError_t err = cudaMemset(ptr, value, bytes);
-        if (err != cudaSuccess)
-        {
-            throw std::runtime_error(std::string("cudaMemset failed: ") + cudaGetErrorString(err));
-        }
+        memsetAsync(ptr, value, bytes, 0);//✨✨✨
+        cudaStreamSynchronize(0);
     #endif
     }
 
-    void CUDAAllocator::memcpy(void* dst, const void* src, size_t bytes) {
+    void CUDAAllocator::memcpy(void* dst, const void* src, size_t bytes, cudaMemcpyKind kind) {
     #ifdef WITH_CUDA
-        // cudaMemcpy(dst, src, bytes, cudaMemcpyDefault);
-        cudaError_t err = cudaMemcpy(dst, src, bytes, cudaMemcpyDefault);
-        if (err != cudaSuccess) {
-            throw std::runtime_error(std::string("cudaMemcpy failed: ") + cudaGetErrorString(err));
-        }
+        memcpyAsync(dst, src, bytes, kind, 0);//✨✨✨
+        cudaStreamSynchronize(0);
     #endif
     }
 }

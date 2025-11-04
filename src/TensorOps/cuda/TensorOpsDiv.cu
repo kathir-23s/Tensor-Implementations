@@ -72,7 +72,7 @@ __global__ void div_kernel<int16_t>(const int16_t* a, const int16_t* b, int16_t*
 
 
 
-void cuda_div_tensor(const Tensor& A, const Tensor& B, Tensor& output)
+void cuda_div_tensor(const Tensor& A, const Tensor& B, Tensor& output, cudaStream_t stream) //✨✨✨
 {
     size_t total_elems = A.numel();
     size_t block_size = 256;
@@ -86,17 +86,17 @@ void cuda_div_tensor(const Tensor& A, const Tensor& B, Tensor& output)
         const T* b_ptr = B.data<T>();
         T* output_ptr = output.data<T>();
 
-        div_kernel<<<grid_size, block_size>>>(a_ptr, b_ptr, output_ptr, total_elems);
+        div_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, output_ptr, total_elems); //✨✨✨
+        //✨✨✨
+        // cudaError_t err = cudaGetLastError();
+        // if (err != cudaSuccess) {
+        //     throw std::runtime_error("Division CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
+        // }
 
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-            throw std::runtime_error("Division CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
-        }
-
-        err = cudaDeviceSynchronize();
-        if (err != cudaSuccess) {
-            throw std::runtime_error("Division CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
-        }
+        // err = cudaDeviceSynchronize();
+        // if (err != cudaSuccess) {
+        //     throw std::runtime_error("Division CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
+        // } //✨✨✨
     });
 
 }
@@ -135,7 +135,7 @@ template <typename T>
         }
     }
 
-    void cuda_div_tensor_inplace(Tensor& A, const Tensor& B)
+    void cuda_div_tensor_inplace(Tensor& A, const Tensor& B, cudaStream_t stream)//✨✨✨
         {
             size_t total_elems = A.numel();
             size_t block_size = 256;
@@ -149,17 +149,18 @@ template <typename T>
                 T* a_ptr = A.data<T>();
                 const T* b_ptr = B.data<T>();
                  
-                div_inplace_kernel<<<grid_size, block_size>>>(a_ptr, b_ptr, total_elems);
+                div_inplace_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, total_elems);//✨✨✨
                 
-                cudaError_t err = cudaGetLastError();
-                if (err != cudaSuccess) {
-                    throw std::runtime_error("Addition CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
-                }
+                //✨✨✨
+                // cudaError_t err = cudaGetLastError();
+                // if (err != cudaSuccess) {
+                //     throw std::runtime_error("Addition CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
+                // }
                 
-                err = cudaDeviceSynchronize();
-                if (err != cudaSuccess) {
-                    throw std::runtime_error("Addition CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
-                }
+                // err = cudaDeviceSynchronize();
+                // if (err != cudaSuccess) {
+                //     throw std::runtime_error("Addition CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
+                // }//✨✨✨
             });
         }
 

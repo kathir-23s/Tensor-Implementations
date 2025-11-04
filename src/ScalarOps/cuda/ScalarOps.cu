@@ -128,67 +128,67 @@ __global__ void k_div_copy_scalar_tensor(const T* a, T* o, float s, size_t n, in
 
 // ---- launch helpers ----
 template <typename T, typename Kernel>
-inline void launch_copy(const Tensor& a, Tensor& out, double s, Kernel k) {
+inline void launch_copy(const Tensor& a, Tensor& out, double s, Kernel k, cudaStream_t stream) { //✨✨✨
     const size_t n = a.numel();
     const dim3 block = dim3(256), grid = pick_grid(n, block);
     const int fmt = half_fmt(a.dtype());
-    k<<<grid, block>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt);
+    k<<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt); //✨✨✨
     ckerr("scalar copy");
 }
 
 template <typename T, typename Kernel>
-inline void launch_inplace(Tensor& t, double s, Kernel k) {
+inline void launch_inplace(Tensor& t, double s, Kernel k, cudaStream_t stream) { //✨✨✨
     const size_t n = t.numel();
     const dim3 block = dim3(256), grid = pick_grid(n, block);
     const int fmt = half_fmt(t.dtype());
-    k<<<grid, block>>>(t.data<T>(), (float)s, n, fmt);
+    k<<<grid, block, 0, stream>>>(t.data<T>(), (float)s, n, fmt); //✨✨✨
     ckerr("scalar inplace");
 }
 
 } // anon namespace
 
 // --------- public CUDA backend ---------
-void cuda_add_inplace(Tensor& t, double s) {
-    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_add_inplace<T>); });
+void cuda_add_inplace(Tensor& t, double s, cudaStream_t stream) { //✨✨✨
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_add_inplace<T>, stream); }); //✨✨✨
 }
-void cuda_sub_inplace(Tensor& t, double s) {
-    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_sub_inplace<T>); });
+void cuda_sub_inplace(Tensor& t, double s, cudaStream_t stream) { //✨✨✨
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_sub_inplace<T>, stream); }); //✨✨✨
 }
-void cuda_mul_inplace(Tensor& t, double s) {
-    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_mul_inplace<T>); });
+void cuda_mul_inplace(Tensor& t, double s, cudaStream_t stream) { //✨✨✨
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_mul_inplace<T>, stream); }); //✨✨✨
 }
-void cuda_div_inplace(Tensor& t, double s) {
-    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_div_inplace<T>); });
-}
-
-Tensor cuda_add_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_add_copy<T>); });
-    return out;
-}
-Tensor cuda_sub_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy<T>); });
-    return out;
-}
-Tensor cuda_mul_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_mul_copy<T>); });
-    return out;
-}
-Tensor cuda_div_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_div_copy<T>); });
-    return out;
+void cuda_div_inplace(Tensor& t, double s, cudaStream_t stream) { //✨✨✨
+    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_div_inplace<T>, stream); }); //✨✨✨
 }
 
-Tensor cuda_sub_copy_scalar_tensor(double s, const Tensor& a) {
+Tensor cuda_add_copy(const Tensor& a, double s, cudaStream_t stream) { //✨✨✨
     Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy_scalar_tensor<T>); });
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_add_copy<T>, stream); }); //✨✨✨
+    return out;
+}
+Tensor cuda_sub_copy(const Tensor& a, double s, cudaStream_t stream) { //✨✨✨
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy<T>, stream); }); //✨✨✨
+    return out;
+}
+Tensor cuda_mul_copy(const Tensor& a, double s, cudaStream_t stream) { //✨✨✨
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_mul_copy<T>, stream); }); //✨✨✨
+    return out;
+}
+Tensor cuda_div_copy(const Tensor& a, double s, cudaStream_t stream) { //✨✨✨
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_div_copy<T>, stream); }); //✨✨✨
     return out;
 }
 
-Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a) {
+Tensor cuda_sub_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t stream) { //✨✨✨
+    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy_scalar_tensor<T>, stream); }); //✨✨✨
+    return out;
+}
+
+Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t stream) { //✨✨✨
     Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
     dispatch_by_dtype(a.dtype(), [&](auto d){
         using T = decltype(d);
@@ -199,12 +199,12 @@ Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a) {
         int host_flag = 0;
         int* dev_flag = nullptr;
         cudaMalloc(&dev_flag, sizeof(int));
-        cudaMemset(dev_flag, 0, sizeof(int));
+        cudaMemsetAsync(dev_flag, 0, sizeof(int), stream); //✨✨✨
 
-        k_div_copy_scalar_tensor<T><<<grid, block>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag);
+        k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag); //✨✨✨
         ckerr("k_div_copy_scalar_tensor");
 
-        cudaMemcpy(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpyAsync(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost, stream); //✨✨✨
         cudaFree(dev_flag);
 
         if (host_flag) throw std::runtime_error("Division by zero in scalar / integer tensor");
@@ -213,4 +213,4 @@ Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a) {
 }
 
 } // namespace OwnTensor
-#endif // WITH_CUDA
+#endif // WITH_CUDA //✨✨✨

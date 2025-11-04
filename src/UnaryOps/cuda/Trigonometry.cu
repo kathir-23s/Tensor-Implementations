@@ -128,7 +128,7 @@ static inline Tensor      make_like(const Tensor& x){ return Tensor(Shape{x.shap
 // In-place via dispatch_by_dtype
 // ===================================================================
 template <Trig K>
-static inline void cuda_unary_inplace(Tensor& x) {
+static inline void cuda_unary_inplace(Tensor& x, cudaStream_t stream) {//✨✨✨
     if (!x.is_contiguous()) throw std::runtime_error("Non-contiguous tensors not supported yet.");
     if (is_int_dtype(x.dtype()))
         throw std::runtime_error("In-place trig ops not supported for integer tensors on GPU. Use out-of-place.");
@@ -145,23 +145,23 @@ static inline void cuda_unary_inplace(Tensor& x) {
 
         if constexpr (std::is_same_v<Tag, float>) {
             auto* p = reinterpret_cast<float*>(data_mut(x));
-            unary_kernel_fp<float,K><<<grid, block>>>(p, p, n);
+            unary_kernel_fp<float,K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
         }
         else if constexpr (std::is_same_v<Tag, double>) {
             auto* p = reinterpret_cast<double*>(data_mut(x));
-            unary_kernel_fp<double,K><<<grid, block>>>(p, p, n);
+            unary_kernel_fp<double,K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
         }
         else if constexpr (std::is_same_v<Tag, __half>) {
             auto* p = reinterpret_cast<__half*>(data_mut(x));
-            unary_kernel_f16<K><<<grid, block>>>(p, p, n);
+            unary_kernel_f16<K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
         }
 #if __CUDACC_VER_MAJOR__ >= 11
         else if constexpr (std::is_same_v<Tag, __nv_bfloat16>) {
             auto* p = reinterpret_cast<__nv_bfloat16*>(data_mut(x));
-            unary_kernel_bf16<K><<<grid, block>>>(p, p, n);
+            unary_kernel_bf16<K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
         }
 #endif
@@ -182,7 +182,7 @@ static inline void cuda_unary_inplace(Tensor& x) {
 // Out-of-place via dispatch_by_dtype
 // ===================================================================
 template <Trig K>
-static inline Tensor cuda_unary_out(const Tensor& x) {
+static inline Tensor cuda_unary_out(const Tensor& x, cudaStream_t stream) {//✨✨✨
     if (!x.is_contiguous()) throw std::runtime_error("Non-contiguous tensors not supported yet.");
     const size_t n = x.numel();
     dim3 block = default_block();
@@ -196,7 +196,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y = make_like(x);
             auto* in  = reinterpret_cast<const float*>(data_const(x));
             auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_fp<float,K><<<grid, block>>>(in, out, n);
+            unary_kernel_fp<float,K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -204,7 +204,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y = make_like(x);
             auto* in  = reinterpret_cast<const double*>(data_const(x));
             auto* out = reinterpret_cast<double*>(data_mut(y));
-            unary_kernel_fp<double,K><<<grid, block>>>(in, out, n);
+            unary_kernel_fp<double,K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -212,7 +212,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float16, x.device(), x.requires_grad()});
             auto* in  = reinterpret_cast<const __half*>(data_const(x));
             auto* out = reinterpret_cast<__half*>(data_mut(y));
-            unary_kernel_f16<K><<<grid, block>>>(in, out, n);
+            unary_kernel_f16<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -221,7 +221,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Bfloat16, x.device(), x.requires_grad()});
             auto* in  = reinterpret_cast<const __nv_bfloat16*>(data_const(x));
             auto* out = reinterpret_cast<__nv_bfloat16*>(data_mut(y));
-            unary_kernel_bf16<K><<<grid, block>>>(in, out, n);
+            unary_kernel_bf16<K><<<grid, block, 0, stream>>>(in, out, n);
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -230,7 +230,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float32, x.device(), x.requires_grad()});
             auto* in  = reinterpret_cast<const int16_t*>(data_const(x));
             auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_i16_to_f32<K><<<grid, block>>>(in, out, n);
+            unary_kernel_i16_to_f32<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -238,7 +238,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float32, x.device(), x.requires_grad()});
             auto* in  = reinterpret_cast<const int32_t*>(data_const(x));
             auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_i32_to_f32<K><<<grid, block>>>(in, out, n);
+            unary_kernel_i32_to_f32<K><<<grid, block, 0, stream>>>(in, out, n);
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -246,7 +246,7 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
             Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float64, x.device(), x.requires_grad()});
             auto* in  = reinterpret_cast<const int64_t*>(data_const(x));
             auto* out = reinterpret_cast<double*>(data_mut(y));
-            unary_kernel_i64_to_f64<K><<<grid, block>>>(in, out, n);
+            unary_kernel_i64_to_f64<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
             st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
             return y;
         }
@@ -259,17 +259,17 @@ static inline Tensor cuda_unary_out(const Tensor& x) {
 // ===================================================================
 // Public API (GPU) — mirrors CPU names
 // ===================================================================
-Tensor sin_cuda  (const Tensor& x){ return cuda_unary_out<Trig::Sin>(x); }   void sin__cuda  (Tensor& x){ cuda_unary_inplace<Trig::Sin>(x); }
-Tensor cos_cuda  (const Tensor& x){ return cuda_unary_out<Trig::Cos>(x); }   void cos__cuda  (Tensor& x){ cuda_unary_inplace<Trig::Cos>(x); }
-Tensor tan_cuda  (const Tensor& x){ return cuda_unary_out<Trig::Tan>(x); }   void tan__cuda  (Tensor& x){ cuda_unary_inplace<Trig::Tan>(x); }
-Tensor asin_cuda (const Tensor& x){ return cuda_unary_out<Trig::Asin>(x);}   void asin__cuda (Tensor& x){ cuda_unary_inplace<Trig::Asin>(x);} 
-Tensor acos_cuda (const Tensor& x){ return cuda_unary_out<Trig::Acos>(x);}   void acos__cuda (Tensor& x){ cuda_unary_inplace<Trig::Acos>(x);} 
-Tensor atan_cuda (const Tensor& x){ return cuda_unary_out<Trig::Atan>(x);}   void atan__cuda (Tensor& x){ cuda_unary_inplace<Trig::Atan>(x);} 
-Tensor sinh_cuda (const Tensor& x){ return cuda_unary_out<Trig::Sinh>(x);}   void sinh__cuda (Tensor& x){ cuda_unary_inplace<Trig::Sinh>(x);} 
-Tensor cosh_cuda (const Tensor& x){ return cuda_unary_out<Trig::Cosh>(x);}   void cosh__cuda (Tensor& x){ cuda_unary_inplace<Trig::Cosh>(x);} 
-Tensor tanh_cuda (const Tensor& x){ return cuda_unary_out<Trig::Tanh>(x);}   void tanh__cuda (Tensor& x){ cuda_unary_inplace<Trig::Tanh>(x);} 
-Tensor asinh_cuda(const Tensor& x){ return cuda_unary_out<Trig::Asinh>(x);}  void asinh__cuda(Tensor& x){ cuda_unary_inplace<Trig::Asinh>(x);} 
-Tensor acosh_cuda(const Tensor& x){ return cuda_unary_out<Trig::Acosh>(x);}  void acosh__cuda(Tensor& x){ cuda_unary_inplace<Trig::Acosh>(x);} 
-Tensor atanh_cuda(const Tensor& x){ return cuda_unary_out<Trig::Atanh>(x);}  void atanh__cuda(Tensor& x){ cuda_unary_inplace<Trig::Atanh>(x);} 
+Tensor sin_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Sin>(x, stream); }   void sin__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Sin>(x, stream); }//✨✨✨
+Tensor cos_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Cos>(x, stream); }   void cos__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Cos>(x, stream); }//✨✨✨//✨✨✨
+Tensor tan_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Tan>(x, stream); }   void tan__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Tan>(x, stream); }//✨✨✨//✨✨✨
+Tensor asin_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Asin>(x, stream);}   void asin__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Asin>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor acos_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Acos>(x, stream);}   void acos__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Acos>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor atan_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Atan>(x, stream);}   void atan__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Atan>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor sinh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Sinh>(x, stream);}   void sinh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Sinh>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor cosh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Cosh>(x, stream);}   void cosh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Cosh>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor tanh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Tanh>(x, stream);}   void tanh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Tanh>(x, stream);}//✨✨✨//✨✨✨ 
+Tensor asinh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Asinh>(x, stream);}  void asinh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Asinh>(x, stream);} //✨✨✨
+Tensor acosh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Acosh>(x, stream);}  void acosh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Acosh>(x, stream);} //✨✨✨
+Tensor atanh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Atanh>(x, stream);}  void atanh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Atanh>(x, stream);} //✨✨✨
 
 } // namespace OwnTensor
