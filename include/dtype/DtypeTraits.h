@@ -207,27 +207,19 @@ namespace OwnTensor {
         }
     }
 
-    //For  type promotion in binary ops
-    inline Dtype promote_dtypes_bool(Dtype a, Dtype b) {
-    // If both are same, return either
-    if (a == b) return a;
-    
-    // Type hierarchy: Float > Int > Bool
-    // If either is float, result is float (promote to higher precision)
-    if (a == Dtype::Float64 || b == Dtype::Float64) return Dtype::Float64;
-    if (a == Dtype::Float32 || b == Dtype::Float32) return Dtype::Float32;
-    if (a == Dtype::Float16 || b == Dtype::Float16) return Dtype::Float16;
-    if (a == Dtype::Bfloat16 || b == Dtype::Bfloat16) return Dtype::Bfloat16;
-    
-    // If either is int, result is int (promote to larger size)
-    if (a == Dtype::Int64 || b == Dtype::Int64) return Dtype::Int64;
-    if (a == Dtype::Int32 || b == Dtype::Int32) return Dtype::Int32;
-    if (a == Dtype::Int16 || b == Dtype::Int16) return Dtype::Int16;
-    
-    // Both are bool
-    return Dtype::Bool;
-}
-
+     // Determine element size based on data type
+    inline size_t Tensor::dtype_size(Dtype d) {
+        switch(d) {
+            case Dtype::Int16: return dtype_traits<Dtype::Int16>::size;
+            case Dtype::Int32: return dtype_traits<Dtype::Int32>::size;
+            case Dtype::Int64: return dtype_traits<Dtype::Int64>::size;
+            case Dtype::Bfloat16: return dtype_traits<Dtype::Bfloat16>::size;
+            case Dtype::Float16: return dtype_traits<Dtype::Float16>::size;
+            case Dtype::Float32: return dtype_traits<Dtype::Float32>::size;
+            case Dtype::Float64: return dtype_traits<Dtype::Float64>::size;
+            default: throw std::runtime_error("Unsupported data type");
+        }
+    }
 
 } // namespace OwnTensor
 

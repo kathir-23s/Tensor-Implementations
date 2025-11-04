@@ -15,7 +15,7 @@ namespace OwnTensor {
         if (lhs.shape().dims != rhs.shape().dims) {
             output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
         }
-    
+        
         Tensor output(output_shape, lhs.dtype(), lhs.device(), lhs.requires_grad());
 
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
