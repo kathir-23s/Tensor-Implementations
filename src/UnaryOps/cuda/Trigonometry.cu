@@ -1,275 +1,354 @@
-// src/UnaryOps/Trigonometry.cu
-#include <cuda_runtime.h>
-#include <cuda_fp16.h>
-#if __CUDACC_VER_MAJOR__ >= 11
-  #include <cuda_bf16.h>
-#endif
-
-#include <cstdint>
+#include <iostream>
 #include <stdexcept>
-#include <type_traits>
-
+#include <cmath>
+#include "../include/ops/helpers/Trigonometry.hpp"
 #include "core/Tensor.h"
 #include "dtype/Types.h"
-#include "core/TensorDispatch.h"
+
+// For f16 and bf16
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
 
 namespace OwnTensor {
 
-// ===================================================================
-// Trig selector
-// ===================================================================
-enum class Trig {
-    Sin, Cos, Tan, Asin, Acos, Atan,
-    Sinh, Cosh, Tanh, Asinh, Acosh, Atanh
-};
+// ============================================================================
+// Device Function Pointers for GPU Trigonometric Operations
+// ============================================================================
+static inline __device__ float sinf_fn(float x) { return sinf(x); }
+static inline __device__ double sin_fn(double x) { return sin(x); }
+static inline __device__ float cosf_fn(float x) { return cosf(x); }
+static inline __device__ double cos_fn(double x) { return cos(x); }
+static inline __device__ float tanf_fn(float x) { return tanf(x); }
+static inline __device__ double tan_fn(double x) { return tan(x); }
 
-static inline bool is_int_dtype(Dtype dt) {
-    return dt == Dtype::Int16 || dt == Dtype::Int32 || dt == Dtype::Int64;
-}
+static inline __device__ float asinf_fn(float x) { return asinf(x); }
+static inline __device__ double asin_fn(double x) { return asin(x); }
+static inline __device__ float acosf_fn(float x) { return acosf(x); }
+static inline __device__ double acos_fn(double x) { return acos(x); }
+static inline __device__ float atanf_fn(float x) { return atanf(x); }
+static inline __device__ double atan_fn(double x) { return atan(x); }
 
-// helper that "returns" a T but always throws (fixes return type deduction)
-template <typename T>
-static inline T raise_unsupported(const char* msg) {
-    throw std::runtime_error(msg);
-}
+static inline __device__ float sinhf_fn(float x) { return sinhf(x); }
+static inline __device__ double sinh_fn(double x) { return sinh(x); }
+static inline __device__ float coshf_fn(float x) { return coshf(x); }
+static inline __device__ double cosh_fn(double x) { return cosh(x); }
+static inline __device__ float tanhf_fn(float x) { return tanhf(x); }
+static inline __device__ double tanh_fn(double x) { return tanh(x); }
 
-// ===================================================================
-// Device math
-// ===================================================================
-template <Trig K> __device__ inline float  dev_apply(float  x) {
-    if constexpr (K==Trig::Sin  ) return sinf (x);
-    if constexpr (K==Trig::Cos  ) return cosf (x);
-    if constexpr (K==Trig::Tan  ) return tanf (x);
-    if constexpr (K==Trig::Asin ) return asinf(x);
-    if constexpr (K==Trig::Acos ) return acosf(x);
-    if constexpr (K==Trig::Atan ) return atanf(x);
-    if constexpr (K==Trig::Sinh ) return sinhf(x);
-    if constexpr (K==Trig::Cosh ) return coshf(x);
-    if constexpr (K==Trig::Tanh ) return tanhf(x);
-    if constexpr (K==Trig::Asinh) return asinhf(x);
-    if constexpr (K==Trig::Acosh) return acoshf(x);
-    if constexpr (K==Trig::Atanh) return atanhf(x);
-    return 0.0f;
-}
-template <Trig K> __device__ inline double dev_apply(double x) {
-    if constexpr (K==Trig::Sin  ) return sin  (x);
-    if constexpr (K==Trig::Cos  ) return cos  (x);
-    if constexpr (K==Trig::Tan  ) return tan  (x);
-    if constexpr (K==Trig::Asin ) return asin (x);
-    if constexpr (K==Trig::Acos ) return acos (x);
-    if constexpr (K==Trig::Atan ) return atan (x);
-    if constexpr (K==Trig::Sinh ) return sinh (x);
-    if constexpr (K==Trig::Cosh ) return cosh (x);
-    if constexpr (K==Trig::Tanh ) return tanh (x);
-    if constexpr (K==Trig::Asinh) return asinh(x);
-    if constexpr (K==Trig::Acosh) return acosh(x);
-    if constexpr (K==Trig::Atanh) return atanh(x);
-    return 0.0;
-}
+static inline __device__ float asinhf_fn(float x) { return asinhf(x); }
+static inline __device__ double asinh_fn(double x) { return asinh(x); }
+static inline __device__ float acoshf_fn(float x) { return acoshf(x); }
+static inline __device__ double acosh_fn(double x) { return acosh(x); }
+static inline __device__ float atanhf_fn(float x) { return atanhf(x); }
+static inline __device__ double atanh_fn(double x) { return atanh(x); }
 
-// ===================================================================
-// Kernels
-// ===================================================================
-template <typename T, Trig K>
-__global__ void unary_kernel_fp(const T* __restrict__ in, T* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = dev_apply<K>(in[i]);
-}
-
-template <Trig K>
-__global__ void unary_kernel_f16(const __half* __restrict__ in, __half* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) {
-        float x = __half2float(in[i]);
-        float y = dev_apply<K>(x);
-        out[i]  = __float2half(y);
+// ============================================================================
+// Generic CUDA Unary Kernel (for standard types) - REUSE FROM EXPONENTS
+// ============================================================================
+template<typename T_In, typename T_Out, T_Out(*Func)(T_Out)>
+__global__ void unary_kernel_gpu(const T_In* in, T_Out* out, size_t size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        T_Out temp_val = static_cast<T_Out>(in[idx]);
+        out[idx] = Func(temp_val);
     }
 }
 
-#if __CUDACC_VER_MAJOR__ >= 11
-template <Trig K>
-__global__ void unary_kernel_bf16(const __nv_bfloat16* __restrict__ in, __nv_bfloat16* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) {
-        float x = __bfloat162float(in[i]);
-        float y = dev_apply<K>(x);
-        out[i]  = __float2bfloat16(y);
+// ============================================================================
+// Specialized CUDA Kernel for Float16 (half precision) - REUSE FROM EXPONENTS
+// ============================================================================
+template<float(*Func)(float)>
+__global__ void unary_half_kernel_gpu(const half* in, half* out, size_t size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        float f32_val = __half2float(in[idx]);
+        f32_val = Func(f32_val);
+        out[idx] = __float2half(f32_val);
     }
 }
-#endif
 
-template <Trig K>
-__global__ void unary_kernel_i16_to_f32(const int16_t* __restrict__ in, float* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = dev_apply<K>(static_cast<float>(in[i]));
-}
-template <Trig K>
-__global__ void unary_kernel_i32_to_f32(const int32_t* __restrict__ in, float* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = dev_apply<K>(static_cast<float>(in[i]));
-}
-template <Trig K>
-__global__ void unary_kernel_i64_to_f64(const int64_t* __restrict__ in, double* __restrict__ out, size_t n) {
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = dev_apply<K>(static_cast<double>(in[i]));
+// ============================================================================
+// Specialized CUDA Kernel for Bfloat16 - REUSE FROM EXPONENTS
+// ============================================================================
+template<float(*Func)(float)>
+__global__ void unary_bfloat16_kernel_gpu(const __nv_bfloat16* in, __nv_bfloat16* out, size_t size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        float f32_val = __bfloat162float(in[idx]);
+        f32_val = Func(f32_val);
+        out[idx] = __float2bfloat16(f32_val);
+    }
 }
 
-// ===================================================================
-// Launch helpers
-// ===================================================================
-static inline dim3 default_block() { return dim3(256); }
-static inline dim3 default_grid(size_t n) { return dim3(static_cast<unsigned>((n + 255) / 256)); }
+// ============================================================================
+// Helper: Determine output dtype for integer promotion - REUSE FROM EXPONENTS
+// ============================================================================
+inline Dtype get_promoted_dtype_trig(Dtype input_dtype) {
+    switch(input_dtype) {
+        case Dtype::Int16:
+        case Dtype::Int32:
+            return Dtype::Float32;
+        case Dtype::Int64:
+            return Dtype::Float64;
+        default:
+            return input_dtype;
+    }
+}
 
-static inline void*       data_mut(Tensor& t){ return t.data(); }
-static inline const void* data_const(const Tensor& t){ return t.data(); }
-static inline Tensor      make_like(const Tensor& x){ return Tensor(Shape{x.shape()}, x.dtype(), x.device(), x.requires_grad()); }
+// ============================================================================
+// GPU-specific dispatch that ONLY handles int/float/double (no bf16/f16)
+// ============================================================================
+template<typename Func>
+static auto dispatch_gpu_dtype_trig(Dtype dtype, Func&& f) {
+    switch(dtype) {
+        // Integer types
+        case Dtype::Int16: return f(int16_t{});
+        case Dtype::Int32: return f(int32_t{});
+        case Dtype::Int64: return f(int64_t{});
+        // Floating point types
+        case Dtype::Float32: return f(float{});
+        case Dtype::Float64: return f(double{});
+        // Explicitly exclude bf16/f16 - they should be handled separately
+        case Dtype::Float16:
+        case Dtype::Bfloat16:
+            throw std::runtime_error("Float16/Bfloat16 should be handled before dispatch!");
+        default:
+            throw std::runtime_error("Unsupported dtype in dispatch_gpu_dtype_trig");
+    }
+}
 
-// ===================================================================
-// In-place via dispatch_by_dtype
-// ===================================================================
-template <Trig K>
-static inline void cuda_unary_inplace(Tensor& x, cudaStream_t stream) {//✨✨✨
-    if (!x.is_contiguous()) throw std::runtime_error("Non-contiguous tensors not supported yet.");
-    if (is_int_dtype(x.dtype()))
-        throw std::runtime_error("In-place trig ops not supported for integer tensors on GPU. Use out-of-place.");
+// ============================================================================
+// Generic Out-of-Place GPU Wrapper for Trigonometric Functions
+// ============================================================================
+template<float(*FloatFunc)(float), double(*DoubleFunc)(double)>
+Tensor generic_trigonometric_out_gpu(const Tensor& input_tensor, cudaStream_t stream) {//✨✨✨
+    Dtype in_dtype = input_tensor.dtype();
+    size_t size = input_tensor.numel();
+    
+    // Launch parameters
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    
+    // Handle Float16 - uses CUDA native half type
+    if (in_dtype == Dtype::Float16) {
+        Tensor output_tensor(input_tensor.shape(), in_dtype, 
+                           input_tensor.device(), input_tensor.requires_grad());
+        const half* in = input_tensor.data<half>();
+        half* out = output_tensor.data<half>();
+        
+        unary_half_kernel_gpu<FloatFunc><<<blocks, threads, 0, stream>>>(in, out, size);//✨✨✨
+        // cudaDeviceSynchronize();//✨✨✨
+        return output_tensor;
+    }
+    
+    // Handle Bfloat16 - uses CUDA native bfloat16 type
+    if (in_dtype == Dtype::Bfloat16) {
+        Tensor output_tensor(input_tensor.shape(), in_dtype, 
+                           input_tensor.device(), input_tensor.requires_grad());
+        const __nv_bfloat16* in = input_tensor.data<__nv_bfloat16>();
+        __nv_bfloat16* out = output_tensor.data<__nv_bfloat16>();
+        
+        unary_bfloat16_kernel_gpu<FloatFunc><<<blocks, threads, 0, stream>>>(in, out, size);//✨✨✨
+        // cudaDeviceSynchronize();//✨✨✨
+        return output_tensor;
+    }
+    
+    // Now dispatch only handles int/float/double types
+    Dtype output_dtype = get_promoted_dtype_trig(in_dtype);
+    Tensor output_tensor(input_tensor.shape(), output_dtype, 
+                        input_tensor.device(), input_tensor.requires_grad());
+    
+    // Use GPU-specific dispatch for input type
+    dispatch_gpu_dtype_trig(in_dtype, [&](auto in_type_instance) {
+        using InputType = decltype(in_type_instance);
+        
+        // Use GPU-specific dispatch for output type
+        dispatch_gpu_dtype_trig(output_dtype, [&](auto out_type_instance) {
+            using OutputType = decltype(out_type_instance);
+            
+            const InputType* in_ptr = input_tensor.data<InputType>();
+            OutputType* out_ptr = output_tensor.data<OutputType>();
+            
+            // Select appropriate function based on output type
+            if constexpr (std::is_same_v<OutputType, float>) {
+                unary_kernel_gpu<InputType, OutputType, FloatFunc><<<blocks, threads, 0, stream>>>(
+                    in_ptr, out_ptr, size
+                );//✨✨✨
+            } else if constexpr (std::is_same_v<OutputType, double>) {
+                unary_kernel_gpu<InputType, OutputType, DoubleFunc><<<blocks, threads, 0, stream>>>(
+                    in_ptr, out_ptr, size
+                );//✨✨✨
+            }
+        });
+    });
+    
+    // cudaDeviceSynchronize();//✨✨✨
+    return output_tensor;
+}
 
-    const size_t n = x.numel();
-    if (n == 0) return;
-
-    dim3 block = default_block();
-    dim3 grid  = default_grid(n);
-
-    dispatch_by_dtype(x.dtype(), [&](auto tag){
-        using Tag = std::decay_t<decltype(tag)>;
-        cudaError_t st;
-
-        if constexpr (std::is_same_v<Tag, float>) {
-            auto* p = reinterpret_cast<float*>(data_mut(x));
-            unary_kernel_fp<float,K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-        }
-        else if constexpr (std::is_same_v<Tag, double>) {
-            auto* p = reinterpret_cast<double*>(data_mut(x));
-            unary_kernel_fp<double,K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-        }
-        else if constexpr (std::is_same_v<Tag, __half>) {
-            auto* p = reinterpret_cast<__half*>(data_mut(x));
-            unary_kernel_f16<K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-        }
-#if __CUDACC_VER_MAJOR__ >= 11
-        else if constexpr (std::is_same_v<Tag, __nv_bfloat16>) {
-            auto* p = reinterpret_cast<__nv_bfloat16*>(data_mut(x));
-            unary_kernel_bf16<K><<<grid, block, 0, stream>>>(p, p, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-        }
-#endif
-        else if constexpr (std::is_same_v<Tag, int16_t> ||
-                           std::is_same_v<Tag, int32_t> ||
-                           std::is_same_v<Tag, int64_t>) {
-            (void)grid; (void)block;
-            throw std::runtime_error("In-place trig ops not supported for integer tensors on GPU. Use out-of-place.");
-        }
-        else {
-            (void)grid; (void)block;
-            throw std::runtime_error("Unsupported dtype in cuda_unary_inplace");
+// ============================================================================
+// Generic In-Place GPU Wrapper for Trigonometric Functions
+// ============================================================================
+template<float(*FloatFunc)(float), double(*DoubleFunc)(double)>
+void generic_trigonometric_in_gpu(Tensor& input_tensor, cudaStream_t stream) {//✨✨✨
+    Dtype dtype = input_tensor.dtype();
+    size_t size = input_tensor.numel();
+    
+    // Reject integer types for in-place operations
+    if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
+        throw std::runtime_error("Error: cannot do inplace operations for Int data types!");
+    }
+    
+    // Launch parameters
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    
+    // Handle Float16
+    if (dtype == Dtype::Float16) {
+        half* data_ptr = input_tensor.data<half>();
+        unary_half_kernel_gpu<FloatFunc><<<blocks, threads, 0, stream>>>(data_ptr, data_ptr, size);//✨✨✨
+        // cudaDeviceSynchronize();//✨✨✨
+        return;
+    }
+    
+    // Handle Bfloat16
+    if (dtype == Dtype::Bfloat16) {
+        __nv_bfloat16* data_ptr = input_tensor.data<__nv_bfloat16>();
+        unary_bfloat16_kernel_gpu<FloatFunc><<<blocks, threads, 0, stream>>>(data_ptr, data_ptr, size);//✨✨✨
+        // cudaDeviceSynchronize();//✨✨✨
+        return;
+    }
+    
+    // Now dispatch only handles float/double types
+    dispatch_gpu_dtype_trig(dtype, [&](auto type_instance) {
+        using DataType = decltype(type_instance);
+        
+        DataType* data_ptr = input_tensor.data<DataType>();
+        
+        if constexpr (std::is_same_v<DataType, float>) {
+            unary_kernel_gpu<DataType, DataType, FloatFunc><<<blocks, threads, 0, stream>>>(
+                data_ptr, data_ptr, size
+            );//✨✨✨
+        } else if constexpr (std::is_same_v<DataType, double>) {
+            unary_kernel_gpu<DataType, DataType, DoubleFunc><<<blocks, threads, 0, stream>>>(
+                data_ptr, data_ptr, size
+            );//✨✨✨
         }
     });
+    
+    ////✨✨✨
+     // Wait for GPU to finish
+    // cudaError_t err = cudaDeviceSynchronize();
+    // if (err != cudaSuccess) {
+    //     throw std::runtime_error(std::string("CUDA Error: ") + cudaGetErrorString(err));
+    // }
+    //✨✨✨
 }
 
-// ===================================================================
-// Out-of-place via dispatch_by_dtype
-// ===================================================================
-template <Trig K>
-static inline Tensor cuda_unary_out(const Tensor& x, cudaStream_t stream) {//✨✨✨
-    if (!x.is_contiguous()) throw std::runtime_error("Non-contiguous tensors not supported yet.");
-    const size_t n = x.numel();
-    dim3 block = default_block();
-    dim3 grid  = default_grid(n);
+// ============================================================================
+// GPU Wrapper Functions - Trigonometric Operations
+// ============================================================================
 
-    return dispatch_by_dtype(x.dtype(), [&](auto tag){
-        using Tag = std::decay_t<decltype(tag)>;
-        cudaError_t st;
-
-        if constexpr (std::is_same_v<Tag, float>) {
-            Tensor y = make_like(x);
-            auto* in  = reinterpret_cast<const float*>(data_const(x));
-            auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_fp<float,K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-        else if constexpr (std::is_same_v<Tag, double>) {
-            Tensor y = make_like(x);
-            auto* in  = reinterpret_cast<const double*>(data_const(x));
-            auto* out = reinterpret_cast<double*>(data_mut(y));
-            unary_kernel_fp<double,K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-        else if constexpr (std::is_same_v<Tag, __half>) {
-            Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float16, x.device(), x.requires_grad()});
-            auto* in  = reinterpret_cast<const __half*>(data_const(x));
-            auto* out = reinterpret_cast<__half*>(data_mut(y));
-            unary_kernel_f16<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-#if __CUDACC_VER_MAJOR__ >= 11
-        else if constexpr (std::is_same_v<Tag, __nv_bfloat16>) {
-            Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Bfloat16, x.device(), x.requires_grad()});
-            auto* in  = reinterpret_cast<const __nv_bfloat16*>(data_const(x));
-            auto* out = reinterpret_cast<__nv_bfloat16*>(data_mut(y));
-            unary_kernel_bf16<K><<<grid, block, 0, stream>>>(in, out, n);
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-#endif
-        else if constexpr (std::is_same_v<Tag, int16_t>) {
-            Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float32, x.device(), x.requires_grad()});
-            auto* in  = reinterpret_cast<const int16_t*>(data_const(x));
-            auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_i16_to_f32<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-        else if constexpr (std::is_same_v<Tag, int32_t>) {
-            Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float32, x.device(), x.requires_grad()});
-            auto* in  = reinterpret_cast<const int32_t*>(data_const(x));
-            auto* out = reinterpret_cast<float*>(data_mut(y));
-            unary_kernel_i32_to_f32<K><<<grid, block, 0, stream>>>(in, out, n);
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-        else if constexpr (std::is_same_v<Tag, int64_t>) {
-            Tensor y(Shape{x.shape()}, TensorOptions{Dtype::Float64, x.device(), x.requires_grad()});
-            auto* in  = reinterpret_cast<const int64_t*>(data_const(x));
-            auto* out = reinterpret_cast<double*>(data_mut(y));
-            unary_kernel_i64_to_f64<K><<<grid, block, 0, stream>>>(in, out, n);//✨✨✨
-            st = cudaGetLastError(); if (st != cudaSuccess) throw std::runtime_error(cudaGetErrorString(st));
-            return y;
-        }
-        else {
-            return raise_unsupported<Tensor>("Unsupported dtype in cuda_unary_out");
-        }
-    });
+//✨✨✨
+// Basic trigonometric functions
+Tensor sin_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<sinf_fn, sin_fn>(input, stream);
 }
 
-// ===================================================================
-// Public API (GPU) — mirrors CPU names
-// ===================================================================
-Tensor sin_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Sin>(x, stream); }   void sin__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Sin>(x, stream); }//✨✨✨
-Tensor cos_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Cos>(x, stream); }   void cos__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Cos>(x, stream); }//✨✨✨//✨✨✨
-Tensor tan_cuda  (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Tan>(x, stream); }   void tan__cuda  (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Tan>(x, stream); }//✨✨✨//✨✨✨
-Tensor asin_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Asin>(x, stream);}   void asin__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Asin>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor acos_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Acos>(x, stream);}   void acos__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Acos>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor atan_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Atan>(x, stream);}   void atan__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Atan>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor sinh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Sinh>(x, stream);}   void sinh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Sinh>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor cosh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Cosh>(x, stream);}   void cosh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Cosh>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor tanh_cuda (const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Tanh>(x, stream);}   void tanh__cuda (Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Tanh>(x, stream);}//✨✨✨//✨✨✨ 
-Tensor asinh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Asinh>(x, stream);}  void asinh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Asinh>(x, stream);} //✨✨✨
-Tensor acosh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Acosh>(x, stream);}  void acosh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Acosh>(x, stream);} //✨✨✨
-Tensor atanh_cuda(const Tensor& x, cudaStream_t stream){ return cuda_unary_out<Trig::Atanh>(x, stream);}  void atanh__cuda(Tensor& x, cudaStream_t stream){ cuda_unary_inplace<Trig::Atanh>(x, stream);} //✨✨✨
+void sin_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<sinf_fn, sin_fn>(input, stream);
+}
+
+Tensor cos_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<cosf_fn, cos_fn>(input, stream);
+}
+
+void cos_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<cosf_fn, cos_fn>(input, stream);
+}
+
+Tensor tan_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<tanf_fn, tan_fn>(input, stream);
+}
+
+void tan_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<tanf_fn, tan_fn>(input, stream);
+}
+
+// Inverse trigonometric functions
+Tensor asin_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<asinf_fn, asin_fn>(input, stream);
+}
+
+void asin_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<asinf_fn, asin_fn>(input, stream);
+}
+
+Tensor acos_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<acosf_fn, acos_fn>(input, stream);
+}
+
+void acos_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<acosf_fn, acos_fn>(input, stream);
+}
+
+Tensor atan_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<atanf_fn, atan_fn>(input, stream);
+}
+
+void atan_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<atanf_fn, atan_fn>(input, stream);
+}
+
+// Hyperbolic functions
+Tensor sinh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<sinhf_fn, sinh_fn>(input, stream);
+}
+
+void sinh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<sinhf_fn, sinh_fn>(input, stream);
+}
+
+Tensor cosh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<coshf_fn, cosh_fn>(input, stream);
+}
+
+void cosh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<coshf_fn, cosh_fn>(input, stream);
+}
+
+Tensor tanh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<tanhf_fn, tanh_fn>(input, stream);
+}
+
+void tanh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<tanhf_fn, tanh_fn>(input, stream);
+}
+
+// Inverse hyperbolic functions
+Tensor asinh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<asinhf_fn, asinh_fn>(input, stream);
+}
+
+void asinh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<asinhf_fn, asinh_fn>(input, stream);
+}
+
+Tensor acosh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<acoshf_fn, acosh_fn>(input, stream);
+}
+
+void acosh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<acoshf_fn, acosh_fn>(input, stream);
+}
+
+Tensor atanh_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
+    return generic_trigonometric_out_gpu<atanhf_fn, atanh_fn>(input, stream);
+}
+
+void atanh_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
+    generic_trigonometric_in_gpu<atanhf_fn, atanh_fn>(input, stream);
+}
+//✨✨✨
 
 } // namespace OwnTensor
