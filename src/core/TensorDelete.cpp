@@ -22,12 +22,33 @@ namespace OwnTensor
 
     void Tensor::release()
     {
+
+        if(!is_valid())
+        {
+            return;
+        }
+
+        // This is the core of the new logic
+        // Check the number of shared_ptr that co-own's the data
+        if (data_ptr_.use_count() > 1)
+        {
+            throw std::runtime_error("Buffer is used by other Tensors or views and cannot be released at the moment");
+        }
+
         this->data_ptr_.reset();
+
+
 
         if (this->grad_ptr_)
         {
-            this->grad_ptr_.reset();
-        }
+            // If the count is grater than 1, it means another tensor (a view or a copy)
+            // is still using this memory. Throwing an exception to prevent corruption
+            if (grad_ptr_.use_count())
+            {
+                throw std::runtime_error("Gradient Buffer is used by other tensors or views and cannot be released at the moment");
+            }
+        this->grad_ptr_.reset();
+        }  
     }
 
 }
