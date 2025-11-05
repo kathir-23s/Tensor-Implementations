@@ -1,7 +1,7 @@
 //DeviceCore.cpp
 #include "device/Device.h"
 #include "device/DeviceCore.h"
-
+#include <driver_types.h>//✨✨✨
 #ifdef WITH_CUDA
 // #include "/usr/include/cuda_runtime.h"
 #include <cuda_runtime.h>
@@ -43,5 +43,16 @@ namespace OwnTensor{
             #endif
         }
 
+    }
+}
+//✨✨✨
+namespace OwnTensor::cuda {
+    static thread_local cudaStream_t g_current_stream = 0; // Default is stream 0
+
+    void setCurrentStream(cudaStream_t stream) {
+        g_current_stream = stream;
+    }
+    cudaStream_t getCurrentStream() {
+        return g_current_stream;
     }
 }
