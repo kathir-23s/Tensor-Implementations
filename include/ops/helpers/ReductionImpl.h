@@ -17,35 +17,27 @@
 #include <numeric>
 #include <omp.h>
 
-// #ifdef WITH_CUDA
-// #include "ReductionImplGPU.h" 
-// #endif
+#ifdef WITH_CUDA
 
+#endif
 
 namespace OwnTensor {
 namespace detail {
-
-
-#ifdef WITH_CUDA
-
 // Forward declarations only (no implementation here!)
 template <typename T, template <typename> class OpType>
 Tensor dispatch_reduction_gpu(const Tensor& input, 
                                const std::vector<int64_t>& normalized_axes, 
-                               bool keepdim);
+                               bool keepdim, cudaStream_t stream);//✨✨✨
 
 template <typename T, template <typename> class OpType>
 Tensor dispatch_index_reduction_gpu(const Tensor& input, 
                                      const std::vector<int64_t>& normalized_axes, 
-                                     bool keepdim);
+                                     bool keepdim, cudaStream_t stream);//✨✨✨
 
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_gpu(const Tensor& input, 
                          const std::vector<int64_t>& normalized_axes, 
-                         bool keepdim);
-
-#endif // WITH_CUDA
-
+                         bool keepdim, cudaStream_t stream);//✨✨✨
 
 // =================================================================
 // HELPER: Check if we should use double accumulation for better precision
@@ -78,7 +70,7 @@ Tensor reduce_kernel(
         output_dtype = Dtype::Int64;
     } 
     
-    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_req_grad(false));
+    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_device(input.device()).with_req_grad(input.requires_grad()));
 
     // 2. Setup
     const T* input_data = input.data<T>();
@@ -330,12 +322,13 @@ Tensor reduce_kernel(
 }
 
 
+
 // =================================================================
 // --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
 // =================================================================
 
-template <typename T, template <typename> class OpType>
-Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+template <typename T, template <typename> class OpType>                                                 
+Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
     
     // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
     constexpr bool is_nan_op = 
@@ -368,11 +361,11 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
                       std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
                       std::is_same_v<OpType<T>, NanArgMinOp<T>>) 
         {
-            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+            return dispatch_index_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
         } 
         else 
         {
-            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim);
+            return dispatch_reduction_gpu<T, OpType>(input, normalized_axes, keepdim, stream);//✨✨✨
         }
     }
 #endif
@@ -398,7 +391,7 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 // =================================================================
 
 template <typename T, template <typename> class SumOpType>
-Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim) {
+Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
     
     // ✅ CRITICAL: Validate NaN-aware mean operations
     constexpr bool is_nan_sum = std::is_same_v<SumOpType<T>, NanSumOp<T>>;
@@ -408,7 +401,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         std::is_same_v<T, float16_t> ||
         std::is_same_v<T, bfloat16_t>;
     
-    if constexpr (is_nan_sum && !is_float_type) { 
+    if constexpr (is_nan_sum && !is_float_type) {
         throw std::runtime_error(
             "NaN-aware mean is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
              "Got: " + get_dtype_name(input.dtype())
@@ -417,7 +410,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
     
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
-        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim);
+        return dispatch_mean_gpu<T, SumOpType>(input, normalized_axes, keepdim, stream);//✨✨✨
     }
 #endif
 
@@ -432,7 +425,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 
     if constexpr (std::is_integral_v<T>) {
         // Integers output Float64
-        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_req_grad(false));
+        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_device(input.device()).with_req_grad(input.requires_grad()));
         
         const T* input_data = input.data<T>();
         const std::vector<int64_t>& input_dims = input.shape().dims;
@@ -450,7 +443,8 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         }
         
         double* output_data = output.data<double>();
-        //SumOpType<T> op;
+        
+        [[maybe_unused]] SumOpType<T> op;
         
         #pragma omp parallel for
         for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
@@ -489,7 +483,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         
         return output;
         
-    } else {
+        } else {
     // Floating point: use double accumulation for FP16/BF16
     using AccT = typename std::conditional<
         should_use_double_accumulation<T>(),

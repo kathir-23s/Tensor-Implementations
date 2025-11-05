@@ -25,18 +25,18 @@ template<> struct ToCudaNative<bfloat16_t> { using type = __nv_bfloat16; };
 template<typename T>
 using CudaNativeType = typename ToCudaNative<T>::type;
 
-// ═══════════════════════════════════════════════════════════
+// =================================================================
 // GPU DEVICE MEMORY HELPER
-// ═══════════════════════════════════════════════════════════
+// =================================================================
 
 class DeviceArray {
 public:
     int64_t* ptr;
     
-    DeviceArray(const std::vector<int64_t>& host_data) {
+    DeviceArray(const std::vector<int64_t>& host_data, cudaStream_t stream) {//✨✨✨
         size_t bytes = host_data.size() * sizeof(int64_t);
         cudaMalloc(&ptr, bytes);
-        cudaMemcpy(ptr, host_data.data(), bytes, cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(ptr, host_data.data(), bytes, cudaMemcpyHostToDevice, stream);//✨✨✨
     }
     
     ~DeviceArray() {
@@ -54,7 +54,7 @@ public:
 template <typename T, template <typename> class OpType>
 Tensor dispatch_reduction_gpu(const Tensor& input, 
                                const std::vector<int64_t>& normalized_axes, 
-                               bool keepdim) 
+                               bool keepdim,cudaStream_t stream) //✨✨✨
 {
     // Calculate output shape
     Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
@@ -71,7 +71,7 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(false));
+        .with_req_grad(input.requires_grad()));
     
     // Setup metadata
     const std::vector<int64_t>& input_dims = input.shape().dims;
@@ -95,11 +95,11 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     }
     
     // Transfer metadata to device
-    DeviceArray d_input_dims(input_dims);
-    DeviceArray d_input_strides(input_strides);
-    DeviceArray d_output_dims(output_shape.dims);
-    DeviceArray d_normalized_axes(normalized_axes);
-    DeviceArray d_reduced_dims(reduced_dims);
+    DeviceArray d_input_dims(input_dims,stream);//✨✨✨
+    DeviceArray d_input_strides(input_strides,stream);//✨✨✨
+    DeviceArray d_output_dims(output_shape.dims,stream);//✨✨✨
+    DeviceArray d_normalized_axes(normalized_axes,stream);//✨✨✨
+    DeviceArray d_reduced_dims(reduced_dims,stream);//✨✨✨
     
     // Kernel configuration
     int threads_per_block = 256;
@@ -132,7 +132,7 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     OutputCudaT* output_data = reinterpret_cast<OutputCudaT*>(output.data<OutputCppT>());
     
     // ✅ Launch kernel with NATIVE CUDA types
-    cuda::reduce_kernel<CudaT, OutputCudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size>>>(
+    cuda::reduce_kernel<CudaT, OutputCudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size,stream>>>(
         input_data,
         output_data,
         d_input_dims.ptr,
@@ -167,14 +167,14 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
 template <typename T, template <typename> class OpType>
 Tensor dispatch_index_reduction_gpu(const Tensor& input, 
                                      const std::vector<int64_t>& normalized_axes, 
-                                     bool keepdim) 
+                                     bool keepdim,cudaStream_t stream) //✨✨✨
 {
     Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
     
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(Dtype::Int64)
         .with_device(input.device())
-        .with_req_grad(false));
+        .with_req_grad(input.requires_grad()));
     
     const std::vector<int64_t>& input_dims = input.shape().dims;
     const std::vector<int64_t>& input_strides = input.stride().strides;
@@ -195,12 +195,12 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
         }
     }
     
-    DeviceArray d_input_dims(input_dims);
-    DeviceArray d_input_strides(input_strides);
-    DeviceArray d_output_dims(output_shape.dims);
-    DeviceArray d_normalized_axes(normalized_axes);
-    DeviceArray d_reduced_dims(reduced_dims);
-    
+    DeviceArray d_input_dims(input_dims,stream); //✨✨✨
+    DeviceArray d_input_strides(input_strides,stream);//✨✨✨
+    DeviceArray d_output_dims(output_shape.dims,stream);//✨✨✨
+    DeviceArray d_normalized_axes(normalized_axes,stream);//✨✨✨
+    DeviceArray d_reduced_dims(reduced_dims,stream);//✨✨✨
+
     int threads_per_block = 256;
     int num_blocks = num_slices;
     
@@ -212,7 +212,7 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
     const CudaT* input_data = reinterpret_cast<const CudaT*>(input.data<T>());
     int64_t* output_data = output.data<int64_t>();
     
-    cuda::reduce_index_kernel<CudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size>>>(
+    cuda::reduce_index_kernel<CudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size,stream>>>(
         input_data,
         output_data,
         d_input_dims.ptr,
@@ -234,7 +234,7 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
                                cudaGetErrorString(err));
     }
     
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     
     return output;
 }
@@ -246,7 +246,7 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_gpu(const Tensor& input, 
                          const std::vector<int64_t>& normalized_axes, 
-                         bool keepdim) 
+                         bool keepdim, cudaStream_t stream) //✨✨✨ 
 {
     Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
     
@@ -266,7 +266,7 @@ Tensor dispatch_mean_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(false));
+        .with_req_grad(input.requires_grad()));
     
     const std::vector<int64_t>& input_dims = input.shape().dims;
     const std::vector<int64_t>& input_strides = input.stride().strides;
@@ -282,12 +282,12 @@ Tensor dispatch_mean_gpu(const Tensor& input,
         }
     }
     
-    DeviceArray d_input_dims(input_dims);
-    DeviceArray d_input_strides(input_strides);
-    DeviceArray d_output_dims(output_shape.dims);
-    DeviceArray d_normalized_axes(normalized_axes);
-    DeviceArray d_reduced_dims(reduced_dims);
-    
+    DeviceArray d_input_dims(input_dims,stream); //✨✨✨
+    DeviceArray d_input_strides(input_strides,stream);//✨✨✨
+    DeviceArray d_output_dims(output_shape.dims,stream);//✨✨✨
+    DeviceArray d_normalized_axes(normalized_axes,stream);//✨✨✨
+    DeviceArray d_reduced_dims(reduced_dims,stream);//✨✨✨
+
     int threads_per_block = 256;
     int num_blocks = num_slices;
     
@@ -309,7 +309,7 @@ Tensor dispatch_mean_gpu(const Tensor& input,
     const CudaT* input_data = reinterpret_cast<const CudaT*>(input.data<T>());
     OutputCudaT* output_data = reinterpret_cast<OutputCudaT*>(output.data<OutputCppT>());
     
-    cuda::reduce_mean_kernel<CudaT, OutputCudaT, SumOpType><<<num_blocks, threads_per_block, shared_mem_size>>>(
+    cuda::reduce_mean_kernel<CudaT, OutputCudaT, SumOpType><<<num_blocks, threads_per_block, shared_mem_size,stream>>>(
         input_data,
         output_data,
         d_input_dims.ptr,
@@ -331,101 +331,113 @@ Tensor dispatch_mean_gpu(const Tensor& input,
                                cudaGetErrorString(err));
     }
     
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     
     return output;
 }
 
-// ═══════════════════════════════════════════════════════════
-// ✅ EXPLICIT TEMPLATE INSTANTIATIONS (Custom Struct Types)
-// ═══════════════════════════════════════════════════════════
+// =================================================================
+// ✅ EXPLICIT TEMPLATE INSTANTIATIONS - Using Custom Structs
+// =================================================================
 
-// INTEGER TYPES
-template Tensor dispatch_reduction_gpu<int16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<int16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// ===========================================================
+// INTEGER TYPES - BASIC OPERATIONS ONLY (NO NaN)
+// ===========================================================
 
-template Tensor dispatch_reduction_gpu<int32_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int32_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int32_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int32_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int32_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int32_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<int32_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// int16_t (short) - Basic operations only
+template Tensor dispatch_reduction_gpu<int16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<int16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 
-template Tensor dispatch_reduction_gpu<int64_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int64_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int64_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<int64_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int64_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<int64_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<int64_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// int32_t (int) - Basic operations only
+template Tensor dispatch_reduction_gpu<int32_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int32_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int32_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int32_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int32_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int32_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<int32_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 
-// ✅ CUSTOM STRUCT TYPES (These will be converted to native CUDA types internally)
-template Tensor dispatch_reduction_gpu<float16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float16_t, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float16_t, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float16_t, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<float16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<float16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// int64_t (long) - Basic operations only
+template Tensor dispatch_reduction_gpu<int64_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int64_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int64_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<int64_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int64_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<int64_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<int64_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 
-template Tensor dispatch_reduction_gpu<bfloat16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<bfloat16_t, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<bfloat16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<bfloat16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<bfloat16_t, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<bfloat16_t, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<bfloat16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<bfloat16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// ===========================================================
+// ✅ FLOATING POINT - Using CUSTOM STRUCTS (NOT __half/__nv_bfloat16)
+// ===========================================================
 
-// STANDARD FLOATING POINT
-template Tensor dispatch_reduction_gpu<float, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<float, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<float, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<float, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<float, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// float16_t (custom struct)
+template Tensor dispatch_reduction_gpu<float16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float16_t, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float16_t, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float16_t, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<float16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<float16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 
-template Tensor dispatch_reduction_gpu<double, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, MinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_reduction_gpu<double, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<double, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<double, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<double, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_index_reduction_gpu<double, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<double, SumOp>(const Tensor&, const std::vector<int64_t>&, bool);
-template Tensor dispatch_mean_gpu<double, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool);
+// bfloat16_t (custom struct)
+template Tensor dispatch_reduction_gpu<bfloat16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<bfloat16_t, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<bfloat16_t, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<bfloat16_t, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<bfloat16_t, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<bfloat16_t, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<bfloat16_t, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<bfloat16_t, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+
+// float - All operations
+template Tensor dispatch_reduction_gpu<float, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_reduction_gpu<float, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_index_reduction_gpu<float, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<float, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+template Tensor dispatch_mean_gpu<float, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
+
+// double - All operations
+template Tensor dispatch_reduction_gpu<double, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, NanProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, NanMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_reduction_gpu<double, NanMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_index_reduction_gpu<double, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_index_reduction_gpu<double, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_index_reduction_gpu<double, NanArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_index_reduction_gpu<double, NanArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_mean_gpu<double, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
+template Tensor dispatch_mean_gpu<double, NanSumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨//✨✨✨
 
 #endif // WITH_CUDA
 

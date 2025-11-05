@@ -78,18 +78,18 @@ template<typename T> __device__ inline bool gpu_isnan(T val) { return isnan(val)
 template<> __device__ inline bool gpu_isnan(__half val) { return __hisnan(val); }
 template<> __device__ inline bool gpu_isnan(__nv_bfloat16 val) { return __hisnan(val); }
 
-#else
-// ✅ CPU host code - use regular operations
-template<typename T> inline T gpu_add(T a, T b) { return a + b; }
-template<typename T> inline T gpu_mul(T a, T b) { return a * b; }
-template<typename T> inline bool gpu_lt(T a, T b) { return a < b; }
-template<typename T> inline bool gpu_gt(T a, T b) { return a > b; }
-template<typename T> inline bool gpu_isnan(T val) { 
-    if constexpr (std::is_floating_point_v<T>) {
-        return std::isnan(val);
-    }
-    return false;
-}
+// #else
+// // ✅ CPU host code - use regular operations
+// template<typename T> inline T gpu_add(T a, T b) { return a + b; }
+// template<typename T> inline T gpu_mul(T a, T b) { return a * b; }
+// template<typename T> inline bool gpu_lt(T a, T b) { return a < b; }
+// template<typename T> inline bool gpu_gt(T a, T b) { return a > b; }
+// template<typename T> inline bool gpu_isnan(T val) { 
+//     if constexpr (std::is_floating_point_v<T>) {
+//         return std::isnan(val);
+//     }
+//     return false;
+// }
 #endif
 
 // ═══════════════════════════════════════════════════════════
@@ -262,6 +262,10 @@ struct SumOp {
         return gpu_add(a, b);
         #else
         // CPU: Regular addition
+         if constexpr (is_any_float_v<AccT>) {
+            if (is_nan_check(a)) return a;
+            if (is_nan_check(b)) return b;
+        }
         return a + b;
         #endif
     }
