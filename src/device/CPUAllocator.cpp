@@ -23,7 +23,7 @@ namespace OwnTensor
         std::memset(ptr, value, bytes);
     }
 
-    void CPUAllocator::memcpyAsync(void* dst, const void* src, size_t bytes, cudaMemcpyKind /*kind*/, cudaStream_t /*stream*/) //✨✨✨
+    void CPUAllocator::memcpyAsync(void* dst, const void* src, size_t bytes, [[maybe_unused]]cudaMemcpyKind /*kind*/, [[maybe_unused]] cudaStream_t /*stream*/) //✨✨✨
     {
         std::memcpy(dst, src, bytes);
     }
@@ -34,7 +34,7 @@ namespace OwnTensor
         std::memset(ptr, value, bytes);
     }
 
-    void CPUAllocator::memcpy(void* dst, const void* src, size_t bytes, cudaMemcpyKind kind) //✨✨✨
+    void CPUAllocator::memcpy(void* dst, const void* src, size_t bytes, [[maybe_unused]] cudaMemcpyKind kind) //✨✨✨
     {
         std::memcpy(dst, src, bytes);
     }
