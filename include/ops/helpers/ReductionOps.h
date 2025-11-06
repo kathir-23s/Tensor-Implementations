@@ -259,10 +259,14 @@ struct SumOp {
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
         #ifdef __CUDA_ARCH__
         // ✅ GPU: Use intrinsics for half types
+         if constexpr (is_any_float_v<AccT>) {
+            if (gpu_isnan(a)) return a;
+            if (gpu_isnan(b)) return b;
+        }
         return gpu_add(a, b);
         #else
         // CPU: Regular addition
-         if constexpr (is_any_float_v<AccT>) {
+          if constexpr (is_any_float_v<AccT>) {
             if (is_nan_check(a)) return a;
             if (is_nan_check(b)) return b;
         }
@@ -375,7 +379,41 @@ struct MaxOp {
         #endif
     }
 };
+// ═══════════════════════════════════════════════════════════
+// VARIANCE OPERATION (Two-pass algorithm for numerical stability)
+// ═══════════════════════════════════════════════════════════
 
+template <typename T>
+struct VarianceOp {
+    using AccT = AccumulatorType<T>;
+    int64_t correction;  // Bessel's correction
+    AccT mean_value;     // Pre-computed mean
+    
+    DEVICE_HOST explicit VarianceOp(int64_t corr = 1, AccT mean = AccT(0)) 
+        : correction(corr), mean_value(mean) {}
+    
+    DEVICE_HOST AccT identity() const { return AccT(0); }
+    
+    DEVICE_HOST AccT reduce(const AccT& acc, const AccT& val) const {
+        #ifdef __CUDA_ARCH__
+        // ✅ GPU: Propagate NaN immediately
+        if constexpr (is_any_float_v<AccT>) {
+            if (gpu_isnan(acc)) return acc;  // Already NaN, propagate it
+            if (gpu_isnan(val)) return val;  // New NaN, propagate it
+        }
+        AccT diff = val - mean_value;
+        return gpu_add(acc, gpu_mul(diff, diff));
+        #else
+        // ✅ CPU: Propagate NaN immediately
+        if constexpr (is_any_float_v<AccT>) {
+            if (is_nan_check(acc)) return acc;  // Already NaN, propagate it
+            if (is_nan_check(val)) return val;  // New NaN, propagate it
+        }
+        AccT diff = val - mean_value;
+        return acc + diff * diff;
+        #endif
+    }
+};
 // ═══════════════════════════════════════════════════════════
 // NaN-AWARE OPERATIONS (ALSO USE GPU INTRINSICS)
 // ═══════════════════════════════════════════════════════════
@@ -498,8 +536,35 @@ struct NanMaxOp {
         return (a > b) ? a : b;
         #endif
     }
-};
+};// ═══════════════════════════════════════════════════════════
+// NaN-aware variance (IGNORES NaNs, doesn't propagate them)
+// ═══════════════════════════════════════════════════════════
 
+template <typename T>
+struct NanVarianceOp {
+    using AccT = AccumulatorType<T>;
+    int64_t correction;
+    AccT mean_value;
+    
+    DEVICE_HOST explicit NanVarianceOp(int64_t corr = 1, AccT mean = AccT(0)) 
+        : correction(corr), mean_value(mean) {}
+    
+    DEVICE_HOST AccT identity() const { return AccT(0); }
+    
+    DEVICE_HOST AccT reduce(const AccT& acc, const AccT& val) const {
+        #ifdef __CUDA_ARCH__
+        // ✅ GPU: Skip NaN values (don't propagate them)
+        if (gpu_isnan(val)) return acc;  // Ignore NaN, return accumulator unchanged
+        AccT diff = val - mean_value;
+        return gpu_add(acc, gpu_mul(diff, diff));
+        #else
+        // ✅ CPU: Skip NaN values (don't propagate them)
+        if (is_nan_check(val)) return acc;  // Ignore NaN, return accumulator unchanged
+        AccT diff = val - mean_value;
+        return acc + diff * diff;
+        #endif
+    }
+};
 // ═══════════════════════════════════════════════════════════
 // INDEX REDUCTIONS (ArgMin/ArgMax) - ALSO USE GPU INTRINSICS
 // ═══════════════════════════════════════════════════════════

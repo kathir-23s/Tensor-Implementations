@@ -525,6 +525,216 @@ __global__ void reduce_mean_kernel(
     }
 }
 
+// ═══════════════════════════════════════════════════════════
+// VARIANCE REDUCTION KERNEL (Two-pass)
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// VARIANCE REDUCTION KERNEL (Two-pass with NaN-awareness)
+// ═══════════════════════════════════════════════════════════
+
+template<typename T, typename OutputT, template<typename> class VarianceOpType>
+__global__ void reduce_variance_kernel(
+    const T* __restrict__ input_data,
+    const T* __restrict__ mean_data,  // Pre-computed mean
+    OutputT* __restrict__ output_data,
+    const int64_t* __restrict__ input_dims,
+    const int64_t* __restrict__ input_strides,
+    const int64_t* __restrict__ output_dims,
+    const int64_t* __restrict__ normalized_axes,
+    const int64_t* __restrict__ reduced_dims,
+    int64_t num_slices,
+    int64_t reduced_count,
+    int64_t correction,  // Bessel's correction parameter
+    int ndim,
+    int num_axes,
+    int num_reduced_dims,
+    bool rank_preserved)
+{
+    // ✅ Determine if this is NaN-aware variance
+    constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, detail::NanVarianceOp<T>>;
+    
+    using AccT = typename std::conditional<
+        std::is_same_v<T, __half> || std::is_same_v<T, __nv_bfloat16>,
+        float,
+        typename std::conditional<
+            std::is_integral_v<T>,
+            double,
+            T
+        >::type
+    >::type;
+    
+    extern __shared__ char shared_mem[];
+    AccT* shared_acc = reinterpret_cast<AccT*>(shared_mem);
+    int64_t* shared_count = reinterpret_cast<int64_t*>(shared_acc + blockDim.x / 32);
+    
+    for (int64_t output_index = blockIdx.x; output_index < num_slices; output_index += gridDim.x) {
+        
+        // Get pre-computed mean for this output slice
+        AccT mean_val;
+        if constexpr (std::is_same_v<T, __half> || std::is_same_v<T, __nv_bfloat16>) {
+            mean_val = to_float(mean_data[output_index]);
+        } else {
+            mean_val = static_cast<AccT>(mean_data[output_index]);
+        }
+        
+        AccT accumulator = 0;
+        int64_t valid_count = 0;  // ✅ Track non-NaN values
+        
+        // Calculate output coordinates
+        int64_t out_coords[10];
+        int64_t temp = output_index;
+        for (int d = num_reduced_dims - 1; d >= 0; --d) {
+            out_coords[d] = temp % output_dims[d];
+            temp /= output_dims[d];
+        }
+        
+        // STEP 1: Accumulate squared deviations
+        for (int64_t i = threadIdx.x; i < reduced_count; i += blockDim.x) {
+            // Calculate input coordinates
+            int64_t slice_coords[10];
+            int64_t tmp = i;
+            for (int d = num_reduced_dims - 1; d >= 0; --d) {
+                slice_coords[d] = tmp % reduced_dims[d];
+                tmp /= reduced_dims[d];
+            }
+            
+            int64_t full_input_coords[10];
+            int out_coord_idx = 0;
+            int slice_coord_idx = 0;
+            
+            for (int dim = 0; dim < ndim; ++dim) {
+                bool is_reduced = false;
+                for (int ax = 0; ax < num_axes; ++ax) {
+                    if (normalized_axes[ax] == dim) {
+                        is_reduced = true;
+                        break;
+                    }
+                }
+                
+                if (is_reduced) {
+                    full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                } else {
+                    full_input_coords[dim] = rank_preserved ? out_coords[dim] : out_coords[out_coord_idx];
+                    if (!rank_preserved) out_coord_idx++;
+                }
+            }
+            
+            int64_t input_lin_idx = 0;
+            for (int d = 0; d < ndim; ++d) {
+                input_lin_idx += full_input_coords[d] * input_strides[d];
+            }
+            
+            T input_value = input_data[input_lin_idx];
+            
+            // Convert to accumulator type
+            AccT val;
+            if constexpr (std::is_same_v<T, __half> || std::is_same_v<T, __nv_bfloat16>) {
+                val = to_float(input_value);
+            } else {
+                val = static_cast<AccT>(input_value);
+            }
+            
+            // ✅ NaN-aware logic
+            if constexpr (is_nan_aware) {
+                // Skip NaN values
+                if (!isnan(val)) {
+                    AccT diff = val - mean_val;
+                    accumulator += diff * diff;
+                    valid_count++;
+                }
+            } else {
+                // Regular variance - propagate NaN
+                if (isnan(val) || isnan(mean_val)) {
+                    accumulator = nanf("");
+                } else {
+                    AccT diff = val - mean_val;
+                    accumulator += diff * diff;
+                }
+            }
+        }
+        
+        // STEP 2: Block reduction
+        int lane = threadIdx.x % 32;
+        int wid = threadIdx.x / 32;
+        
+        // Warp reduction
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset /= 2) {
+            AccT other_acc = shfl_down(accumulator, offset);
+            accumulator += other_acc;
+            
+            if constexpr (is_nan_aware) {
+                int64_t other_count = shfl_down(valid_count, offset);
+                valid_count += other_count;
+            }
+        }
+        
+        if (lane == 0) {
+            shared_acc[wid] = accumulator;
+            if constexpr (is_nan_aware) shared_count[wid] = valid_count;
+        }
+        __syncthreads();
+        
+        if (wid == 0) {
+            accumulator = (threadIdx.x < blockDim.x / 32) ? shared_acc[lane] : AccT(0);
+            if constexpr (is_nan_aware) {
+                valid_count = (threadIdx.x < blockDim.x / 32) ? shared_count[lane] : 0;
+            }
+            
+            #pragma unroll
+            for (int offset = 16; offset > 0; offset /= 2) {
+                AccT other_acc = shfl_down(accumulator, offset);
+                accumulator += other_acc;
+                
+                if constexpr (is_nan_aware) {
+                    int64_t other_count = shfl_down(valid_count, offset);
+                    valid_count += other_count;
+                }
+            }
+        }
+        
+        // STEP 3: Final division and validation
+        if (threadIdx.x == 0) {
+            int64_t divisor;
+            if constexpr (is_nan_aware) {
+                divisor = valid_count - correction;  // Use valid count
+            } else {
+                divisor = reduced_count - correction;  // Use total count
+            }
+            
+            // ✅ Check if result is NaN or insufficient data
+            if (isnan(accumulator)) {
+                // NaN propagated from regular variance
+                if constexpr (std::is_same_v<OutputT, __half>) {
+                    output_data[output_index] = __float2half(nanf(""));
+                } else if constexpr (std::is_same_v<OutputT, __nv_bfloat16>) {
+                    output_data[output_index] = __float2bfloat16(nanf(""));
+                } else {
+                    output_data[output_index] = static_cast<OutputT>(nanf(""));
+                }
+            } else if (divisor <= 0) {
+                // Insufficient data - return NaN
+                if constexpr (std::is_same_v<OutputT, __half>) {
+                    output_data[output_index] = __float2half(nanf(""));
+                } else if constexpr (std::is_same_v<OutputT, __nv_bfloat16>) {
+                    output_data[output_index] = __float2bfloat16(nanf(""));
+                } else {
+                    output_data[output_index] = static_cast<OutputT>(nanf(""));
+                }
+            } else {
+                // Valid variance computation
+                AccT variance = accumulator / static_cast<AccT>(divisor);
+                
+                if constexpr (std::is_same_v<OutputT, __half> || std::is_same_v<OutputT, __nv_bfloat16>) {
+                    output_data[output_index] = from_float<OutputT>(static_cast<float>(variance));
+                } else {
+                    output_data[output_index] = static_cast<OutputT>(variance);
+                }
+            }
+        }
+    }
+}
 } // namespace cuda
 } // namespace OwnTensor
 
