@@ -1,3 +1,4 @@
+// File: TrigonometryCore.cpp (complete)
 #include <cmath>
 #include "core/Tensor.h"
 #include "dtype/Types.h"
@@ -5,41 +6,42 @@
 #include "ops/helpers/Trigonometry.hpp"
 #include "dtype/DtypeCastUtils.h"
 #include "dtype/DtypeTraits.h"
+#include "ops/helpers/SleefWrapper.h"
 
 namespace OwnTensor {
 // ============================================================================
-// Function Pointers for CPU Trigonometric Operations
+// Function Pointers for CPU Trigonometric Operations (using SLEEF)
 // ============================================================================
-static inline float sinf_fn(float x) { return std::sin(x); }
-static inline double sin_fn(double x) { return std::sin(x); }
-static inline float cosf_fn(float x) { return std::cos(x); }
-static inline double cos_fn(double x) { return std::cos(x); }
-static inline float tanf_fn(float x) { return std::tan(x); }
-static inline double tan_fn(double x) { return std::tan(x); }
+static inline float sinf_fn(float x) { return SleefSin<float>::func(x); }
+static inline double sin_fn(double x) { return SleefSin<double>::func(x); }
+static inline float cosf_fn(float x) { return SleefCos<float>::func(x); }
+static inline double cos_fn(double x) { return SleefCos<double>::func(x); }
+static inline float tanf_fn(float x) { return SleefTan<float>::func(x); }
+static inline double tan_fn(double x) { return SleefTan<double>::func(x); }
 
-static inline float asinf_fn(float x) { return std::asin(x); }
-static inline double asin_fn(double x) { return std::asin(x); }
-static inline float acosf_fn(float x) { return std::acos(x); }
-static inline double acos_fn(double x) { return std::acos(x); }
-static inline float atanf_fn(float x) { return std::atan(x); }
-static inline double atan_fn(double x) { return std::atan(x); }
+static inline float asinf_fn(float x) { return SleefAsin<float>::func(x); }
+static inline double asin_fn(double x) { return SleefAsin<double>::func(x); }
+static inline float acosf_fn(float x) { return SleefAcos<float>::func(x); }
+static inline double acos_fn(double x) { return SleefAcos<double>::func(x); }
+static inline float atanf_fn(float x) { return SleefAtan<float>::func(x); }
+static inline double atan_fn(double x) { return SleefAtan<double>::func(x); }
 
-static inline float sinhf_fn(float x) { return std::sinh(x); }
-static inline double sinh_fn(double x) { return std::sinh(x); }
-static inline float coshf_fn(float x) { return std::cosh(x); }
-static inline double cosh_fn(double x) { return std::cosh(x); }
-static inline float tanhf_fn(float x) { return std::tanh(x); }
-static inline double tanh_fn(double x) { return std::tanh(x); }
+static inline float sinhf_fn(float x) { return SleefSinh<float>::func(x); }
+static inline double sinh_fn(double x) { return SleefSinh<double>::func(x); }
+static inline float coshf_fn(float x) { return SleefCosh<float>::func(x); }
+static inline double cosh_fn(double x) { return SleefCosh<double>::func(x); }
+static inline float tanhf_fn(float x) { return SleefTanh<float>::func(x); }
+static inline double tanh_fn(double x) { return SleefTanh<double>::func(x); }
 
-static inline float asinhf_fn(float x) { return std::asinh(x); }
-static inline double asinh_fn(double x) { return std::asinh(x); }
-static inline float acoshf_fn(float x) { return std::acosh(x); }
-static inline double acosh_fn(double x) { return std::acosh(x); }
-static inline float atanhf_fn(float x) { return std::atanh(x); }
-static inline double atanh_fn(double x) { return std::atanh(x); }
+static inline float asinhf_fn(float x) { return SleefAsinh<float>::func(x); }
+static inline double asinh_fn(double x) { return SleefAsinh<double>::func(x); }
+static inline float acoshf_fn(float x) { return SleefAcosh<float>::func(x); }
+static inline double acosh_fn(double x) { return SleefAcosh<double>::func(x); }
+static inline float atanhf_fn(float x) { return SleefAtanh<float>::func(x); }
+static inline double atanh_fn(double x) { return SleefAtanh<double>::func(x); }
 
 // ============================================================================
-// Generic Unary Kernel for CPU - REUSE FROM EXPONENTS
+// Generic Unary Kernel for CPU
 // ============================================================================
 template<typename T_In, typename T_Out, T_Out(*Func)(T_Out)>
 void unary_kernel_cpu(const T_In* in, T_Out* out, size_t size) {

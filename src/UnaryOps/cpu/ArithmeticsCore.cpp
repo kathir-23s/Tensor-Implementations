@@ -1,16 +1,17 @@
+// File: ArithmeticsCore.cpp (complete)
 #include <cmath>
 #include "core/Tensor.h"
 #include "dtype/Types.h"
 #include "core/TensorDispatch.h"
 #include "ops/helpers/arith.hpp"
 #include "dtype/DtypeCastUtils.h"
+#include "ops/helpers/SleefWrapper.h"
 
 namespace OwnTensor {
 
 // ============================================================================
 // Generic CPU Kernel
 // ============================================================================
-
 template<typename T_In, typename T_Out, typename Func>
 void unary_kernel_cpu(const T_In* in, T_Out* out, size_t size, Func op) {
     #pragma omp parallel for
@@ -22,7 +23,6 @@ void unary_kernel_cpu(const T_In* in, T_Out* out, size_t size, Func op) {
 // ============================================================================
 // Generic Out-of-Place CPU Implementation
 // ============================================================================
-
 template<typename FloatFunc, typename DoubleFunc>
 Tensor generic_unary_out_cpu(const Tensor& input_tensor, Dtype output_dtype, 
                              FloatFunc float_op, DoubleFunc double_op) {
@@ -59,7 +59,6 @@ Tensor generic_unary_out_cpu(const Tensor& input_tensor, Dtype output_dtype,
 // ============================================================================
 // Generic In-Place CPU Implementation
 // ============================================================================
-
 template<typename FloatFunc, typename DoubleFunc>
 void generic_unary_in_cpu(Tensor& input_tensor, FloatFunc float_op, DoubleFunc double_op) {
     // Handle bf16/f16 by promoting to float32
@@ -92,7 +91,6 @@ void generic_unary_in_cpu(Tensor& input_tensor, FloatFunc float_op, DoubleFunc d
 // ============================================================================
 // SQUARE
 // ============================================================================
-
 Tensor square_out_cpu_wrap(const Tensor& input_tensor) {
     auto float_fn = [](float x) { return x * x; };
     auto double_fn = [](double x) { return x * x; };
@@ -106,12 +104,11 @@ void square_in_cpu_wrap(Tensor& input_tensor) {
 }
 
 // ============================================================================
-// SQUARE ROOT
+// SQUARE ROOT (using SLEEF)
 // ============================================================================
-
 Tensor square_root_out_cpu_wrap(const Tensor& input_tensor) {
-    auto float_fn = [](float x) { return sqrtf(x); };
-    auto double_fn = [](double x) { return std::sqrt(x); };
+    auto float_fn = [](float x) { return SleefSqrt<float>::func(x); };
+    auto double_fn = [](double x) { return SleefSqrt<double>::func(x); };
     return generic_unary_out_cpu(input_tensor, get_promoted_dtype(input_tensor.dtype()), float_fn, double_fn);
 }
 
@@ -119,15 +116,14 @@ void square_root_in_cpu_wrap(Tensor& input_tensor) {
     if (input_tensor.dtype() == Dtype::Int16 || input_tensor.dtype() == Dtype::Int32 || input_tensor.dtype() == Dtype::Int64) {
         throw std::invalid_argument("In-place square root requires floating point tensor");
     }
-    auto float_fn = [](float x) { return sqrtf(x); };
-    auto double_fn = [](double x) { return std::sqrt(x); };
+    auto float_fn = [](float x) { return SleefSqrt<float>::func(x); };
+    auto double_fn = [](double x) { return SleefSqrt<double>::func(x); };
     generic_unary_in_cpu(input_tensor, float_fn, double_fn);
 }
 
 // ============================================================================
 // RECIPROCAL
 // ============================================================================
-
 Tensor reciprocal_out_cpu_wrap(const Tensor& input_tensor) {
     auto float_fn = [](float x) { return 1.0f / x; };
     auto double_fn = [](double x) { return 1.0 / x; };
@@ -146,7 +142,6 @@ void reciprocal_in_cpu_wrap(Tensor& input_tensor) {
 // ============================================================================
 // NEGATION
 // ============================================================================
-
 Tensor negator_out_cpu_wrap(const Tensor& input_tensor) {
     auto float_fn = [](float x) { return -x; };
     auto double_fn = [](double x) { return -x; };
@@ -162,15 +157,14 @@ void negator_in_cpu_wrap(Tensor& input_tensor) {
 // ============================================================================
 // ABSOLUTE
 // ============================================================================
-
 Tensor absolute_out_cpu_wrap(const Tensor& input_tensor) {
-    auto float_fn = [](float x) { return fabsf(x); };
+    auto float_fn = [](float x) { return std::fabs(x); };
     auto double_fn = [](double x) { return std::fabs(x); };
     return generic_unary_out_cpu(input_tensor, input_tensor.dtype(), float_fn, double_fn);
 }
 
 void absolute_in_cpu_wrap(Tensor& input_tensor) {
-    auto float_fn = [](float x) { return fabsf(x); };
+    auto float_fn = [](float x) { return std::fabs(x); };
     auto double_fn = [](double x) { return std::fabs(x); };
     generic_unary_in_cpu(input_tensor, float_fn, double_fn);
 }
@@ -178,7 +172,6 @@ void absolute_in_cpu_wrap(Tensor& input_tensor) {
 // ============================================================================
 // SIGN
 // ============================================================================
-
 Tensor sign_out_cpu_wrap(const Tensor& input_tensor) {
     auto float_fn = [](float x) { return (x > 0.0f) ? 1.0f : ((x < 0.0f) ? -1.0f : 0.0f); };
     auto double_fn = [](double x) { return (x > 0.0) ? 1.0 : ((x < 0.0) ? -1.0 : 0.0); };
@@ -194,7 +187,6 @@ void sign_in_cpu_wrap(Tensor& input_tensor) {
 // ============================================================================
 // POWER
 // ============================================================================
-
 // Integer exponent version
 Tensor power_out_cpu_wrap(const Tensor& input_tensor, int exponent) {
     auto float_fn = [exponent](float x) { 

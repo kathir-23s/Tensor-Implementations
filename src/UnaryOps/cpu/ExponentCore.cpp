@@ -1,25 +1,28 @@
+// File: ExponentCore.cpp (complete)
 #include <cmath>
 #include "core/Tensor.h"
 #include "dtype/Types.h"
 #include "core/TensorDispatch.h"
 #include "ops/helpers/exp_log.hpp"
 #include "dtype/DtypeCastUtils.h"
-#include "dtype/DtypeTraits.h"  // ← ADD THIS for is_int()
+#include "dtype/DtypeTraits.h"
+#include "ops/helpers/SleefWrapper.h"
 
 namespace OwnTensor {
 // ============================================================================
-// Function Pointers for CPU Math Operations
+// Function Pointers for CPU Math Operations (using SLEEF)
 // ============================================================================
-static inline float expf_fn(float x) { return expf(x); }
-static inline double exp_fn(double x) { return std::exp(x); }
-static inline float exp2f_fn(float x) { return exp2f(x); }
-static inline double exp2_fn(double x) { return std::exp2(x); }
-static inline float logf_fn(float x) { return logf(x); }
-static inline double log_fn(double x) { return std::log(x); }
-static inline float log2f_fn(float x) { return log2f(x); }
-static inline double log2_fn(double x) { return std::log2(x); }
-static inline float log10f_fn(float x) { return log10f(x); }
-static inline double log10_fn(double x) { return std::log10(x); }
+static inline float expf_fn(float x) { return SleefExp<float>::func(x); }
+static inline double exp_fn(double x) { return SleefExp<double>::func(x); }
+static inline float exp2f_fn(float x) { return SleefExp2<float>::func(x); }
+static inline double exp2_fn(double x) { return SleefExp2<double>::func(x); }
+static inline float logf_fn(float x) { return SleefLog<float>::func(x); }
+static inline double log_fn(double x) { return SleefLog<double>::func(x); }
+static inline float log2f_fn(float x) { return SleefLog2<float>::func(x); }
+static inline double log2_fn(double x) { return SleefLog2<double>::func(x); }
+static inline float log10f_fn(float x) { return SleefLog10<float>::func(x); }
+static inline double log10_fn(double x) { return SleefLog10<double>::func(x); }
+
 // ============================================================================
 // Generic Unary Kernel for CPU
 // ============================================================================
@@ -31,8 +34,9 @@ void unary_kernel_cpu(const T_In* in, T_Out* out, size_t size) {
         out[i] = Func(temp_val);
     }
 }
+
 // ============================================================================
-// Generic Out-of-Place CPU Wrapper Using dispatch_by_dtype - FIXED VERSION
+// Generic Out-of-Place CPU Wrapper Using dispatch_by_dtype
 // ============================================================================
 template<float(*FloatFunc)(float), double(*DoubleFunc)(double)>
 Tensor generic_unary_out_cpu(const Tensor& input_tensor) {
@@ -58,7 +62,6 @@ Tensor generic_unary_out_cpu(const Tensor& input_tensor) {
     Tensor output(input_tensor.shape(), output_dtype, input_tensor.device(), input_tensor.requires_grad());
     
     // Use dispatch_by_dtype to handle input dtype
-    // IMPORTANT: dispatch_by_dtype passes the ACTUAL TYPE instance
     dispatch_by_dtype(input_tensor.dtype(), [&](auto in_type_instance) {
         using InputType = decltype(in_type_instance);
         
@@ -84,8 +87,9 @@ Tensor generic_unary_out_cpu(const Tensor& input_tensor) {
     });
     return output;
 }
+
 // ============================================================================
-// Generic In-Place CPU Wrapper Using dispatch_by_dtype - FIXED VERSION
+// Generic In-Place CPU Wrapper Using dispatch_by_dtype
 // ============================================================================
 template<float(*FloatFunc)(float), double(*DoubleFunc)(double)>
 void generic_unary_in_cpu(Tensor& input_tensor) {
@@ -109,10 +113,7 @@ void generic_unary_in_cpu(Tensor& input_tensor) {
         throw std::runtime_error("Error: cannot do inplace operations for integer data types!");
     }
     // Use dispatch_by_dtype for float types
-    // IMPORTANT: dispatch_by_dtype passes the ACTUAL TYPE, not a type_tag!
     dispatch_by_dtype(input_tensor.dtype(), [&](auto type_instance) {
-        // type_instance is already float16_t/bfloat16_t/float/double/int16_t/etc.
-        // NOT a type tag! So we use decltype to get its type
         using DataType = decltype(type_instance);
         
         if constexpr (std::is_same_v<DataType, float>) {
@@ -130,8 +131,9 @@ void generic_unary_in_cpu(Tensor& input_tensor) {
         }
     });
 }
+
 // ============================================================================
-// CPU Wrapper Functions - REMOVE TRY-CATCH BLOCKS
+// CPU Wrapper Functions
 // ============================================================================
 Tensor exp_out_cpu_wrap(const Tensor& input) {
     return generic_unary_out_cpu<expf_fn, exp_fn>(input);
