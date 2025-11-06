@@ -9,7 +9,7 @@
 namespace OwnTensor
 {
     // ########################################################################
-    // Custom Type Definitions
+    //          Custom Type Definitions
     // ########################################################################
 
     // Shape and stride
@@ -118,7 +118,18 @@ namespace OwnTensor
             storage_offset_ = 0;
         }
 
+        // template <typename T>
+        // T* data()
+        // {
+        // return reinterpret_cast<T*>(data_ptr_.get());
+        // }
 
+        // template <typename T>
+        // const T* data() const
+        // {
+        //     return reinterpret_cast<const T*>(data_ptr_.get());
+        // }
+        // In core/Tensor.h:
         template<typename T>
         T* data()
         {
