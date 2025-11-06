@@ -30,6 +30,9 @@ template<> struct DtypeToType<Dtype::Int64>  { using type = int64_t; };
 template<> struct DtypeToType<Dtype::Float32> { using type = float; };
 template<> struct DtypeToType<Dtype::Float64> { using type = double; };
 
+//Boolean type
+template<> struct DtypeToType<Dtype::Bool> { using type = bool;};
+
 // ✅ Half precision types - resolve based on compilation context
 #ifdef __CUDACC__
     // GPU compilation - use native CUDA types
@@ -55,6 +58,7 @@ static auto dispatch_by_dtype(Dtype dtype, Func&& f) {
         case Dtype::Float64:  return f(typename DtypeToType<Dtype::Float64>::type{});
         case Dtype::Bfloat16: return f(typename DtypeToType<Dtype::Bfloat16>::type{});
         case Dtype::Float16:  return f(typename DtypeToType<Dtype::Float16>::type{});
+        case Dtype::Bool:   return f(typename DtypeToType<Dtype::Bool>::type{});
         default:
             throw std::runtime_error("Unsupported Dtype");
     }

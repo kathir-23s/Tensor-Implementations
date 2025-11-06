@@ -86,6 +86,13 @@ namespace OwnTensor {
         static constexpr bool is_integral = false;
     };
 
+    // Add bool specialization
+    template<> struct dtype_traits<Dtype::Bool> {
+        static constexpr Dtype dtype = Dtype::Bool;
+        static constexpr size_t size = sizeof(bool);  // Usually 1 byte
+        using type = bool;
+        using storage_type = uint8_t;
+    };
     // Helper function
     template<typename T>
     bool is_same_type(Dtype dtype) {
@@ -103,6 +110,9 @@ namespace OwnTensor {
             return dtype == Dtype::Float16; 
         } else if constexpr (std::is_same_v<T, bfloat16_t>) {
             return dtype == Dtype::Bfloat16;
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return dtype == Dtype::Bool;
         }
         return false;
     }
@@ -137,6 +147,9 @@ namespace OwnTensor {
         else if constexpr (std::is_same_v<T, double>) {
             return Dtype::Float64;
         }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return Dtype::Bool;
+        }
         else {
             static_assert(!std::is_same_v<T, T>, "Unsupported type");
         }
@@ -170,7 +183,10 @@ namespace OwnTensor {
             return false;
         }
     }
-
+    constexpr bool is_bool(Dtype dt) {
+        return dt == Dtype::Bool;
+    }
+    
     // ═══════════════════════════════════════════════════════════
     // DTYPE NAME HELPER (MERGED - Returns std::string like teammate's)
     // ═══════════════════════════════════════════════════════════
@@ -186,6 +202,7 @@ namespace OwnTensor {
             case Dtype::Bfloat16: return "bfloat16"; // Teammate uses "bfloat16", you used "bf16"
             case Dtype::Float32:  return "float32";
             case Dtype::Float64:  return "float64";
+            case Dtype::Bool:     return "bool";
             default:              return "Unknown";  // Teammate uses "Unknown", you used "unknown"
         }
     }

@@ -171,6 +171,26 @@ void print_1d_half(std::ostream& os, const HalfT* ptr, size_t count, int precisi
 void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t count,
                        int precision, const PrintOptions& opts) {
     switch (dt) {
+        case Dtype::Bool:{
+            const uint8_t* ptr = static_cast<const uint8_t*>(data);
+            const bool summarize = (count > static_cast<size_t>(opts.edgeitems * 2 + 1));
+            const size_t head = summarize ? static_cast<size_t>(opts.edgeitems) : count;
+            const size_t tail = summarize ? static_cast<size_t>(opts.edgeitems) : 0;
+            
+            for (size_t i = 0; i < head; ++i) {
+                if (i) os << ", ";
+                os << (ptr[i] ? "true" : "false");
+            }
+            
+            if (summarize) {
+                os << ", ..., ";
+                for (size_t i = count - tail; i < count; ++i) {
+                    if (i != count - tail) os << ", ";
+                    os << (ptr[i] ? "true" : "false");
+                }
+            }
+            return;
+        }
         case Dtype::Int16:   return print_1d(os, static_cast<const int16_t*>(data),  count, precision, opts, /*force_float=*/false);
         case Dtype::Int32:   return print_1d(os, static_cast<const int32_t*>(data),  count, precision, opts, /*force_float=*/false);
         case Dtype::Int64:   return print_1d(os, static_cast<const int64_t*>(data),  count, precision, opts, /*force_float=*/false);

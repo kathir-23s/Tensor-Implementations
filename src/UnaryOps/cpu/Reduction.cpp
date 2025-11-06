@@ -83,10 +83,17 @@ namespace {
 // =================================================================
 Tensor reduce_sum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim, cudaStream_t stream) {//✨✨✨
     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
-    
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, SumOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::SumOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction_gpu<T, detail::SumOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
     });
 }
 
@@ -95,7 +102,15 @@ Tensor reduce_product(const Tensor& input, const std::vector<int64_t>& axes, boo
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, ProductOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::ProductOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction_gpu<T, detail::ProductOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
     });
 }
 Tensor reduce_min(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim, cudaStream_t stream) {//✨✨✨
@@ -103,7 +118,16 @@ Tensor reduce_min(const Tensor& input, const std::vector<int64_t>& axes, bool ke
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, MinOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::MinOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction_gpu<T, detail::MinOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
+        //return detail::dispatch_reduction<T, MinOp>(input, normalized_axes, keepdim, stream);//✨✨✨
     });
 }
 Tensor reduce_max(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim, cudaStream_t stream) {//✨✨✨
@@ -111,7 +135,16 @@ Tensor reduce_max(const Tensor& input, const std::vector<int64_t>& axes, bool ke
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, MaxOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::MaxOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction_gpu<T, detail::MaxOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
+        //return detail::dispatch_reduction<T, MaxOp>(input, normalized_axes, keepdim, stream);//✨✨✨
     });
 }
 
@@ -120,7 +153,16 @@ Tensor reduce_mean(const Tensor& input, const std::vector<int64_t>& axes, bool k
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_mean_kernel<T, SumOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_mean_kernel<T, detail::SumOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_mean_kernel<T, detail::SumOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
+        //return detail::dispatch_mean_kernel<T, SumOp>(input, normalized_axes, keepdim, stream);//✨✨✨
     });
 }
 
@@ -180,7 +222,16 @@ Tensor reduce_argmin(const Tensor& input, const std::vector<int64_t>& axes, bool
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, ArgMinOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        //return detail::dispatch_reduction<T, ArgMinOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::ArgMinOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction<T, detail::ArgMinOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
     });
 }
 
@@ -189,7 +240,16 @@ Tensor reduce_argmax(const Tensor& input, const std::vector<int64_t>& axes, bool
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_reduction<T, ArgMaxOp>(input, normalized_axes, keepdim, stream);//✨✨✨
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            if (input.device().is_cpu()) {
+                return detail::dispatch_reduction<T, detail::ArgMaxOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            } else {
+                return detail::dispatch_reduction<T, detail::ArgMaxOp>(input, normalized_axes, keepdim, stream); //✨✨✨
+            }
+        }
+        //return detail::dispatch_reduction<T, ArgMaxOp>(input, normalized_axes, keepdim, stream);//✨✨✨
     });
 }
 

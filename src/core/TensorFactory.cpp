@@ -73,9 +73,18 @@ Tensor Tensor::ones(Shape shape, TensorOptions opts) {
     
     if (opts.device.is_cpu()) {
         // CPU implementation - handles all 7 types automatically
+        // dispatch_by_dtype(opts.dtype, [&](auto dummy) {
+        //     using T = decltype(dummy);
+        //     tensor.fill(T(1));
+        // });
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
-            tensor.fill(T(1));
+            if constexpr (std::is_same_v<T, bool>) {
+                // Special handling for bool: ones = true
+                tensor.fill(true);
+            } else {
+                tensor.fill(T(1));
+            }
         });
     } else {
         // GPU implementation - handles all 7 types automatically
@@ -83,9 +92,14 @@ Tensor Tensor::ones(Shape shape, TensorOptions opts) {
         cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
-            std::vector<T> ones_data(tensor.numel(), T(1));
-            cudaMemcpyAsync(tensor.data(), ones_data.data(), 
-                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice, stream);//✨✨✨
+            if constexpr (std::is_same_v<T, bool>) {
+                // For bool on GPU, use memset with 1
+                cudaMemset(tensor.data(), 1, tensor.numel());
+            } else {
+                std::vector<T> ones_data(tensor.numel(), T(1));
+                cudaMemcpy(tensor.data(), ones_data.data(),
+                          tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+            }
         });
 #else
         throw std::runtime_error("CUDA not available");
@@ -98,25 +112,34 @@ Tensor Tensor::full(Shape shape, TensorOptions opts, float value) {
     Tensor tensor(shape, opts);
     
     if (opts.device.is_cpu()) {
-        // CPU implementation - handles all 7 types automatically
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
-            tensor.fill(static_cast<T>(value));
+            if constexpr (std::is_same_v<T, bool>) {
+                // For bool: any nonzero value = true
+                tensor.fill(value != 0.0f);
+            } else {
+                tensor.fill(static_cast<T>(value));
+            }
         });
     } else {
-        // GPU implementation - handles all 7 types automatically
 #ifdef WITH_CUDA
         cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
-            std::vector<T> fill_data(tensor.numel(), static_cast<T>(value));
-            cudaMemcpyAsync(tensor.data(), fill_data.data(),
-                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice, stream);//✨✨✨
+            if constexpr (std::is_same_v<T, bool>) {
+                uint8_t bool_val = (value != 0.0f) ? 1 : 0;
+                cudaMemset(tensor.data(), bool_val, tensor.numel());
+            } else {
+                std::vector<T> fill_data(tensor.numel(), static_cast<T>(value));
+                cudaMemcpy(tensor.data(), fill_data.data(),
+                          tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+            }
         });
 #else
         throw std::runtime_error("CUDA not available");
 #endif
     }
+    
     return tensor;
 }
 
