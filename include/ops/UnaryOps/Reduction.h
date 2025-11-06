@@ -47,7 +47,59 @@ Tensor reduce_argmax(const Tensor& input, const std::vector<int64_t>& axes = {},
 // =================================================================
 Tensor reduce_nanargmin(const Tensor& input, const std::vector<int64_t>& axes = {}, bool keepdim = false, cudaStream_t stream = 0);//✨✨✨
 Tensor reduce_nanargmax(const Tensor& input, const std::vector<int64_t>& axes = {}, bool keepdim = false, cudaStream_t stream = 0);//✨✨✨
+// =================================================================
+// VARIANCE & STANDARD DEVIATION OPERATIONS
+// =================================================================
 
+/** Compute variance over specified axes
+ * @param correction Bessel's correction (default=1 for sample variance, 0 for population)
+ * Formula: var = sum((x - mean)Â²) / (N - correction)
+ */
+Tensor reduce_var(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                      bool keepdim = false, int64_t correction = 1, cudaStream_t stream = 0);//✨✨✨
+
+Tensor reduce_nanvar(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                          bool keepdim = false, int64_t correction = 1, cudaStream_t stream = 0);//✨✨✨
+
+/** Compute standard deviation over specified axes
+ * @param correction Bessel's correction (default=1 for sample std, 0 for population)
+ * Formula: std = sqrt(var)
+ */
+Tensor reduce_std(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                  bool keepdim = false, int64_t correction = 1, cudaStream_t stream = 0);//✨✨✨   
+
+Tensor reduce_nanstd(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                     bool keepdim = false, int64_t correction = 1, cudaStream_t stream = 0);//✨✨✨
+
+//============================================================================================
+// COMBINED STATISTICS (Efficient single-pass computation)
+//============================================================================================
+
+/** Returns tuple: (variance, mean) - More efficient than separate calls */
+std::pair<Tensor, Tensor> reduce_var_mean(const Tensor& input, 
+                                          const std::vector<int64_t>& axes = {}, 
+                                          bool keepdim = false, 
+                                          int64_t correction = 1, cudaStream_t stream = 0   );//✨✨✨
+
+/** Returns tuple: (std, mean) - More efficient than separate calls */
+std::pair<Tensor, Tensor> reduce_std_mean(const Tensor& input, 
+                                          const std::vector<int64_t>& axes = {}, 
+                                          bool keepdim = false, 
+                                          int64_t correction = 1, cudaStream_t stream = 0   );//✨✨✨
+
+//============================================================================================
+// ORDER STATISTICS (Requires sorting - computationally expensive)
+//============================================================================================
+
+/** Compute median (50th percentile) along axes */
+Tensor reduce_median(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                     bool keepdim = false, cudaStream_t stream = 0  );//✨✨✨
+
+Tensor reduce_nanmedian(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                        bool keepdim = false, cudaStream_t stream = 0  );//✨✨✨
+
+// Note: Mode requires histogram-based approach - deferred to Phase 2
 } // namespace OwnTensor
+
 
 #endif // OWNTENSOR_REDUCTIONS_H

@@ -10,7 +10,7 @@
 #include <vector>
 #include <numeric>
 #include <type_traits>
-
+#include "ops/UnaryOps/Arithmetics.h" // For sqrt()
 namespace OwnTensor {
 using namespace detail;
 namespace {
@@ -273,5 +273,195 @@ Tensor reduce_nanargmax(const Tensor& input, const std::vector<int64_t>& axes, b
         return detail::dispatch_reduction<T, NanArgMaxOp>(input, normalized_axes, keepdim, stream);//✨✨✨
     });
 }
+//==================================================
+// VARIANCE OPERATIONS
+//==================================================
+
+Tensor reduce_var(const Tensor& input, 
+                       const std::vector<int64_t>& axes, 
+                       bool keepdim, 
+                       int64_t correction, cudaStream_t stream) {//✨✨✨   
+    // âœ… VALIDATION 1: Parameter bounds check (happens once per API call)
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_variance: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+    
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_variance_kernel<T, VarianceOp>(
+            input, normalized_axes, keepdim, correction, stream//✨✨✨
+        );
+    });
+}
+
+Tensor reduce_nanvar(const Tensor& input, 
+                          const std::vector<int64_t>& axes, 
+                          bool keepdim, 
+                          int64_t correction, cudaStream_t stream) {//✨✨✨
+    // âœ… VALIDATION 1: Parameter bounds check
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_nanvariance: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+    
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_variance_kernel<T, NanVarianceOp>(
+            input, normalized_axes, keepdim, correction, stream
+        ); //✨✨✨
+    });
+}
+
+Tensor reduce_std(const Tensor& input, 
+                  const std::vector<int64_t>& axes, 
+                  bool keepdim, 
+                  int64_t correction, cudaStream_t stream) {//✨✨✨
+    // âœ… VALIDATION 1: Parameter bounds check
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_std: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+    
+    // Compute variance first (validation already done above)
+    Tensor var = reduce_var(input, axes, keepdim, correction, stream);
+    
+    // Apply element-wise sqrt (TODO: implement sqrt unary op)
+    return sqrt(var,stream);//✨✨✨
+}
+
+Tensor reduce_nanstd(const Tensor& input, 
+                     const std::vector<int64_t>& axes, 
+                     bool keepdim, 
+                     int64_t correction, cudaStream_t stream) {//✨✨✨ 
+    // âœ… VALIDATION 1: Parameter bounds check
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_nanstd: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+
+    Tensor var = reduce_nanvar(input, axes, keepdim, correction, stream );
+    return sqrt(var,stream);//✨✨✨
+}
+
+//==================================================
+// COMBINED STATISTICS
+//==================================================
+//==================================================
+// COMBINED STATISTICS (Efficient single-pass computation)
+//==================================================
+
+std::pair<Tensor, Tensor> reduce_var_mean(const Tensor& input, 
+                                          const std::vector<int64_t>& axes, 
+                                          bool keepdim, 
+                                          int64_t correction, cudaStream_t stream) {//✨✨✨
+    // âœ… VALIDATION 1: Parameter bounds check
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_var_mean: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+    
+    std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+    // Compute mean first (always with keepdim=true for variance computation)
+    Tensor mean_for_variance = reduce_mean(input, axes, true, stream);
+    
+    // Compute variance using the mean
+    Tensor var = dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+        using T = decltype(T_val);
+        return detail::dispatch_variance_kernel<T, VarianceOp>(
+            input, normalized_axes, keepdim, correction, stream//✨✨✨
+        );
+    });
+    
+    // Compute mean again with correct keepdim setting for output
+    // (Small performance cost, but avoids needing squeeze() function)
+    Tensor mean = reduce_mean(input, axes, keepdim, stream);
+    
+    return std::make_pair(var, mean);
+}
+
+std::pair<Tensor, Tensor> reduce_std_mean(const Tensor& input, 
+                                          const std::vector<int64_t>& axes, 
+                                          bool keepdim, 
+                                          int64_t correction, cudaStream_t stream) {//✨✨✨    
+    // âœ… VALIDATION 1: Parameter bounds check
+    if (correction < 0) {
+        throw std::runtime_error(
+            "reduce_std_mean: correction must be non-negative, got " + 
+            std::to_string(correction)
+        );
+    }
+    
+    // Reuse var_mean, then take sqrt of variance
+    auto [var, mean] = reduce_var_mean(input, axes, keepdim, correction, stream);
+    Tensor std = sqrt(var, stream);  // Element-wise sqrt
+    
+    return std::make_pair(std, mean);
+}
+// std::pair<Tensor, Tensor> reduce_var_mean(const Tensor& input, 
+//                                           const std::vector<int64_t>& axes, 
+//                                           bool keepdim, 
+//                                           int64_t correction) {
+//     // âœ… VALIDATION 1: Parameter bounds check
+//     if (correction < 0) {
+//         throw std::runtime_error(
+//             "reduce_var_mean: correction must be non-negative, got " + 
+//             std::to_string(correction)
+//         );
+//     }
+    
+//     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
+    
+//     // Compute mean first (always with keepdim=true for variance computation)
+//     Tensor mean = reduce_mean(input, axes, true);
+    
+//     // Compute variance using the mean
+//     Tensor var = dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
+//         using T = decltype(T_val);
+//         return detail::dispatch_variance_kernel<T, VarianceOp>(
+//             input, normalized_axes, keepdim, correction
+//         );
+//     });
+    
+//     // Adjust mean dimensions if keepdim=false
+//     if (!keepdim) {
+//         mean = mean.squeeze(axes);
+//     }
+    
+//     return std::make_pair(var, mean);
+// }
+
+// std::pair<Tensor, Tensor> reduce_std_mean(const Tensor& input, 
+//                                           const std::vector<int64_t>& axes, 
+//                                           bool keepdim, 
+//                                           int64_t correction) {
+//     // âœ… VALIDATION 1: Parameter bounds check
+//     if (correction < 0) {
+//         throw std::runtime_error(
+//             "reduce_std_mean: correction must be non-negative, got " + 
+//             std::to_string(correction)
+//         );
+//     }
+    
+//     auto [var, mean] = reduce_var_mean(input, axes, keepdim, correction);
+//     Tensor std = sqrt(var);
+    
+//     return std::make_pair(std, mean);
+// }
 
 } // namespace OwnTensor

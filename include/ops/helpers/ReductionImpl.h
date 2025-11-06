@@ -18,12 +18,32 @@
 #include <omp.h>
 
 #ifdef WITH_CUDA
-#include "ReductionImplGPU.h" 
+
 #endif
 
 namespace OwnTensor {
 namespace detail {
+// Forward declarations only (no implementation here!)
+template <typename T, template <typename> class OpType>
+Tensor dispatch_reduction_gpu(const Tensor& input, 
+                               const std::vector<int64_t>& normalized_axes, 
+                               bool keepdim, cudaStream_t stream);//✨✨✨
 
+template <typename T, template <typename> class OpType>
+Tensor dispatch_index_reduction_gpu(const Tensor& input, 
+                                     const std::vector<int64_t>& normalized_axes, 
+                                     bool keepdim, cudaStream_t stream);//✨✨✨
+
+template <typename T, template <typename> class SumOpType>
+Tensor dispatch_mean_gpu(const Tensor& input, 
+                         const std::vector<int64_t>& normalized_axes, 
+                         bool keepdim, cudaStream_t stream);//✨✨✨
+ template <typename T, template <typename> class VarianceOpType>
+Tensor dispatch_variance_gpu(const Tensor& input, 
+                             const std::vector<int64_t>& normalized_axes, 
+                             bool keepdim,
+                             int64_t correction,
+                             cudaStream_t stream);//✨✨✨                        
 // =================================================================
 // HELPER: Check if we should use double accumulation for better precision
 // =================================================================
@@ -55,7 +75,7 @@ Tensor reduce_kernel(
         output_dtype = Dtype::Int64;
     } 
     
-    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_req_grad(false));
+    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_device(input.device()).with_req_grad(input.requires_grad()));
 
     // 2. Setup
     const T* input_data = input.data<T>();
@@ -306,9 +326,7 @@ Tensor reduce_kernel(
     return output;
 }
 
-// =================================================================
-// --- DISPATCHER TEMPLATES ---
-// =================================================================
+
 
 // =================================================================
 // --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
@@ -412,7 +430,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 
     if constexpr (std::is_integral_v<T>) {
         // Integers output Float64
-        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_req_grad(false));
+        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_device(input.device()).with_req_grad(input.requires_grad()));
         
         const T* input_data = input.data<T>();
         const std::vector<int64_t>& input_dims = input.shape().dims;
@@ -470,24 +488,118 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         
         return output;
         
+        } else {
+    // Floating point: use double accumulation for FP16/BF16
+    using AccT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,  
+        T        
+    >::type;
+    
+    Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
+    
+    using SumT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,  
+        T        
+    >::type;
+    
+    T* sum_data = sum_result.data<T>();
+    
+    // ✅ FIX: For NaN-aware mean, count only non-NaN values
+    SumT divisor;
+    if constexpr (is_nan_sum) {
+        // Count non-NaN values in the input tensor
+        const T* input_data = input.data<T>();
+        const std::vector<int64_t>& input_dims = input.shape().dims;
+        const std::vector<int64_t>& input_strides = input.stride().strides;
+        
+        std::vector<int64_t> reduced_dims;
+        for(size_t dim = 0; dim < input_dims.size(); ++dim) {
+            bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+            if (is_reduced) {
+                reduced_dims.push_back(input_dims[dim]);
+            }
+        }
+        
+        const bool rank_preserved = input_dims.size() == output_shape.dims.size();
+        const int64_t num_slices = sum_result.numel();
+        
+        // Create a tensor to store valid counts for each output position
+        std::vector<int64_t> valid_counts(num_slices, 0);
+        
+        #pragma omp parallel for
+        for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
+            int64_t valid_count = 0;
+            std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
+            
+            for (int64_t i = 0; i < reduced_count; ++i) {
+                std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
+                std::vector<int64_t> full_input_coords(input_dims.size());
+                int out_coord_idx = 0;
+                int slice_coord_idx = 0;
+                
+                for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                    bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) != normalized_axes.end();
+                    if (is_reduced) {
+                        full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                    } else {
+                        if (rank_preserved) {
+                            full_input_coords[dim] = out_coords[dim];
+                        } else {
+                            full_input_coords[dim] = out_coords[out_coord_idx];
+                        }
+                        out_coord_idx++;
+                    }
+                }
+                
+                int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+                T input_value = input_data[input_lin_idx];
+                
+                // Check if value is not NaN
+                if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
+                    if (!std::isnan(static_cast<float>(input_value))) {
+                        valid_count++;
+                    }
+                } else {
+                    if (!std::isnan(input_value)) {
+                        valid_count++;
+                    }
+                }
+            }
+            
+            valid_counts[output_index] = valid_count;
+        }
+        
+        // Now divide each sum by its corresponding valid count
+        #pragma omp parallel for
+        for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
+            if (valid_counts[i] > 0) {
+                SumT val = static_cast<SumT>(sum_data[i]);
+                val /= static_cast<SumT>(valid_counts[i]);  // Divide by non-NaN count
+                
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    sum_data[i] = static_cast<T>(static_cast<float>(val));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    sum_data[i] = static_cast<T>(static_cast<float>(val));
+                } else {
+                    sum_data[i] = val;
+                }
+            } else {
+                // All values were NaN - result is NaN
+                if constexpr (std::is_same_v<T, float16_t>) {
+                    sum_data[i] = static_cast<T>(std::nanf(""));
+                } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+                    sum_data[i] = static_cast<T>(std::nanf(""));
+                } else {
+                    sum_data[i] = std::numeric_limits<T>::quiet_NaN();
+                }
+            }
+        }
+        
     } else {
-        // Floating point: use double accumulation for FP16/BF16
-        using AccT = typename std::conditional<
-            should_use_double_accumulation<T>(),
-            double,  
-            T        
-        >::type;
-        
-        Tensor sum_result = reduce_kernel<T, SumOpType, AccT>(input, normalized_axes, output_shape);
-        
-        using SumT = typename std::conditional<
-            should_use_double_accumulation<T>(),
-            double,  
-            T        
-        >::type;
-        
-        T* sum_data = sum_result.data<T>();
-        const SumT divisor = static_cast<SumT>(reduced_count);
+        // Regular mean: divide by total reduced count
+        divisor = static_cast<SumT>(reduced_count);
         
         #pragma omp parallel for
         for (int64_t i = 0; i < static_cast<int64_t>(sum_result.numel()); ++i) {
@@ -502,7 +614,11 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
                 sum_data[i] = val;
             }
         }
-        return sum_result;
+    }
+    
+    return sum_result;
+
+
         // Final result must be cast back to the original Tensor type (T) if AccT was double.
         // The reduce_kernel returns a Tensor<T> or Tensor<double>, but the output Dtype is T.
         // The previous code had a bug here.
@@ -529,11 +645,214 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
     }
 }
 
+//----------------------------------------------------------------------
+// VARIANCE REDUCTION DISPATCHER (Two-pass algorithm)
+//----------------------------------------------------------------------
+// Replace dispatch_variance_kernel in ReductionImpl.h with this:
+
+template <typename T, template <typename> class VarianceOpType>
+Tensor dispatch_variance_kernel(const Tensor& input, 
+                                const std::vector<int64_t>& normalized_axes, 
+                                bool keepdim,
+                                int64_t correction, cudaStream_t stream) {//✨✨✨
+    // Determine if this is NaN-aware variance
+    constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
+    
+#ifdef WITH_CUDA
+    if (input.is_cuda()) {
+        return dispatch_variance_gpu<T, VarianceOpType>(
+            input, normalized_axes, keepdim, correction,stream);//✨✨✨
+    
+    }
+#endif
+    
+    // STEP 1: Compute mean first (use appropriate mean function)
+    Tensor mean_tensor= is_nan_aware 
+        ? dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true,stream)
+        : dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true,stream);
+    if constexpr (is_nan_aware) {
+        mean_tensor = dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true, stream);
+    } else {
+        mean_tensor = dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true, stream);
+    }
+    
+    // STEP 2: Calculate output shape and metadata
+    Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
+    int64_t reduced_count = calculate_reduced_count(input.shape().dims, normalized_axes);
+    
+    // Determine output dtype
+    Dtype output_dtype;
+    if constexpr (std::is_integral_v<T>) {
+        output_dtype = Dtype::Float64;
+    } else {
+        output_dtype = input.dtype();
+    }
+    
+    Tensor output({output_shape}, TensorOptions()
+        .with_dtype(output_dtype)
+        .with_device(input.device())
+        .with_req_grad(input.requires_grad()));
+    
+    // STEP 3: Prepare data pointers
+    const T* input_data = input.data<T>();
+    const T* mean_data = mean_tensor.data<T>();
+    
+    using AccT = typename std::conditional<
+        should_use_double_accumulation<T>(),
+        double,
+        typename std::conditional<
+            std::is_integral_v<T>,
+            double,
+            T
+        >::type
+    >::type;
+    
+    using OutputT = typename std::conditional<
+        std::is_integral_v<T>,
+        double,
+        T
+    >::type;
+    
+    OutputT* output_data = output.data<OutputT>();
+    
+    const std::vector<int64_t>& input_dims = input.shape().dims;
+    const std::vector<int64_t>& input_strides = input.stride().strides;
+    const int64_t num_slices = output.numel();
+    const bool rank_preserved = input_dims.size() == output_shape.dims.size();
+    
+    // Calculate reduced_dims
+    std::vector<int64_t> reduced_dims;
+    for(size_t dim = 0; dim < input_dims.size(); ++dim) {
+        bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) 
+                         != normalized_axes.end();
+        if (is_reduced) {
+            reduced_dims.push_back(input_dims[dim]);
+        }
+    }
+    
+    // STEP 4: Compute sum of squared deviations in parallel
+    #pragma omp parallel for
+    for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
+        AccT accumulator = 0;
+        int64_t valid_count = 0;  // âœ… Track non-NaN values
+        
+        // Get pre-computed mean for this output slice
+        AccT mean_val = static_cast<AccT>(mean_data[output_index]);
+        
+        // âœ… Check if mean is NaN (all values were NaN in non-NaN-aware case)
+        bool mean_is_nan = false;
+        if constexpr (std::is_floating_point_v<T> || 
+                      std::is_same_v<T, float16_t> || 
+                      std::is_same_v<T, bfloat16_t>) {
+            if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
+                mean_is_nan = std::isnan(static_cast<float>(mean_data[output_index]));
+            } else {
+                mean_is_nan = std::isnan(mean_data[output_index]);
+            }
+        }
+        
+        // Calculate output coordinates
+        std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
+        
+        // Accumulate squared deviations
+        for (int64_t i = 0; i < reduced_count; ++i) {
+            std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
+            std::vector<int64_t> full_input_coords(input_dims.size());
+            int out_coord_idx = 0;
+            int slice_coord_idx = 0;
+            
+            for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+                bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) 
+                                 != normalized_axes.end();
+                if (is_reduced) {
+                    full_input_coords[dim] = slice_coords[slice_coord_idx++];
+                } else {
+                    if (rank_preserved) {
+                        full_input_coords[dim] = out_coords[dim];
+                    } else {
+                        full_input_coords[dim] = out_coords[out_coord_idx];
+                    }
+                    out_coord_idx++;
+                }
+            }
+            
+            int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
+            T input_value = input_data[input_lin_idx];
+            
+            // âœ… Check if value is NaN
+            bool is_nan = false;
+            if constexpr (std::is_floating_point_v<T> || 
+                          std::is_same_v<T, float16_t> || 
+                          std::is_same_v<T, bfloat16_t>) {
+                if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
+                    is_nan = std::isnan(static_cast<float>(input_value));
+                } else {
+                    is_nan = std::isnan(input_value);
+                }
+            }
+            
+            if constexpr (is_nan_aware) {
+                // âœ… NaN-aware: Skip NaN values
+                if (!is_nan) {
+                    AccT val_acc = static_cast<AccT>(input_value);
+                    AccT diff = val_acc - mean_val;
+                    accumulator += diff * diff;
+                    valid_count++;
+                }
+            } else {
+                // âœ… Regular variance: Propagate NaN
+                if (is_nan || mean_is_nan) {
+                    accumulator = std::numeric_limits<AccT>::quiet_NaN();
+                    break;  // Stop processing, result is NaN
+                }
+                
+                AccT val_acc = static_cast<AccT>(input_value);
+                AccT diff = val_acc - mean_val;
+                accumulator += diff * diff;
+                valid_count++;
+            }
+        }
+        
+        // STEP 5: Compute divisor and variance
+        int64_t divisor;
+        if constexpr (is_nan_aware) {
+            divisor = valid_count - correction;  // Use valid_count for NaN-aware
+        } else {
+            divisor = reduced_count - correction;  // Use total count for regular
+        }
+        
+        // âœ… VALIDATION: Check divisor and accumulator
+        AccT variance;
+        if (std::isnan(accumulator)) {
+            // Accumulator is NaN (from regular variance with NaN input)
+            variance = accumulator;
+        } else if (divisor <= 0) {
+            // Insufficient data for variance with this correction
+            variance = std::numeric_limits<AccT>::quiet_NaN();
+        } else {
+            // Valid variance computation
+            variance = accumulator / static_cast<AccT>(divisor);
+        }
+        
+        // STEP 6: Convert back to output type
+        if constexpr (std::is_same_v<T, float16_t>) {
+            output_data[output_index] = static_cast<OutputT>(
+                static_cast<T>(static_cast<float>(variance))
+            );
+        } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+            output_data[output_index] = static_cast<OutputT>(
+                static_cast<T>(static_cast<float>(variance))
+            );
+        } else {
+            output_data[output_index] = static_cast<OutputT>(variance);
+        }
+    }
+    
+    return output;
+}
 } // namespace detail
 } // namespace OwnTensor
 #endif // OWNTENSOR_REDUCTIONS_IMPL_H
-
-
 
 
 /* OPTIMIZED SINGLE-PASS NaN-AWARE MEAN (KEPT FOR REFERENCE)
