@@ -25,7 +25,6 @@ CU_SOURCES := $(shell find $(SRCDIR) -name '*.cu')
 
 CU_SOURCES_FOR_DLINK := \
 	src/Views/ContiguousKernel.cu \
-	src/UnaryOps/cuda/ReductionKernels.cu \
 	src/UnaryOps/cuda/ReductionImplGPU.cu
 
 CU_SOURCES_REGULAR := $(filter-out $(CU_SOURCES_FOR_DLINK), $(CU_SOURCES))
