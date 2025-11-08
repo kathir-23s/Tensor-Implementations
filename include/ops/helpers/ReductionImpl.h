@@ -649,7 +649,6 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 // VARIANCE REDUCTION DISPATCHER (Two-pass algorithm)
 //----------------------------------------------------------------------
 
-
 template <typename T, template <typename> class VarianceOpType>
 Tensor dispatch_variance_kernel(const Tensor& input, 
                                 const std::vector<int64_t>& normalized_axes, 
@@ -665,12 +664,12 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     }
 #endif
     
-    // ✅ FIX 1: Compute mean with keepdim=true (required for broadcasting in variance calculation)
+    // ✅ STEP 1: Compute mean with keepdim=true (required for broadcasting)
     Tensor mean_tensor = is_nan_aware 
-        ? dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true, stream)  // ← ALWAYS true here
-        : dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true, stream);    // ← ALWAYS true here
+        ? dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true, stream)
+        : dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true, stream);
     
-    // STEP 2: Calculate output shape and metadata
+    // ✅ STEP 2: Calculate output shape and metadata
     Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
     int64_t reduced_count = calculate_reduced_count(input.shape().dims, normalized_axes);
     
@@ -687,9 +686,17 @@ Tensor dispatch_variance_kernel(const Tensor& input,
         .with_device(input.device())
         .with_req_grad(input.requires_grad()));
     
-    // STEP 3: Prepare data pointers
+    // ✅ STEP 3: Prepare data pointers
     const T* input_data = input.data<T>();
-    const T* mean_data = mean_tensor.data<T>();
+    
+    // ✅ CRITICAL FIX: For integers, mean is stored as double
+    using MeanCppT = typename std::conditional<
+        std::is_integral_v<T>,
+        double,
+        T
+    >::type;
+    
+    const MeanCppT* mean_data = mean_tensor.data<MeanCppT>();
     
     using AccT = typename std::conditional<
         should_use_double_accumulation<T>(),
@@ -714,8 +721,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     const int64_t num_slices = output.numel();
     const bool rank_preserved = input_dims.size() == output_shape.dims.size();
     
-    // ✅ FIX 2: Get mean tensor shape for coordinate mapping
-    const std::vector<int64_t>& mean_dims = mean_tensor.shape().dims;
+    // Get mean tensor strides for indexing
     const std::vector<int64_t>& mean_strides = mean_tensor.stride().strides;
     
     // Calculate reduced_dims
@@ -728,16 +734,16 @@ Tensor dispatch_variance_kernel(const Tensor& input,
         }
     }
     
-    // STEP 4: Compute sum of squared deviations in parallel
+    // ✅ STEP 4: Compute sum of squared deviations in parallel
     #pragma omp parallel for
     for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
         AccT accumulator = 0;
-        int64_t valid_count = 0;
+        int64_t valid_count = 0;  // Only used for NaN-aware variance
         
         // Calculate output coordinates
         std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
         
-        // ✅ FIX 3: Map output coordinates to mean tensor coordinates
+        // ✅ Map output coordinates to mean tensor coordinates
         // Since mean was computed with keepdim=true, it has same rank as input
         std::vector<int64_t> mean_coords(input_dims.size());
         int out_coord_idx = 0;
@@ -767,13 +773,13 @@ Tensor dispatch_variance_kernel(const Tensor& input,
                       std::is_same_v<T, float16_t> || 
                       std::is_same_v<T, bfloat16_t>) {
             if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
-                mean_is_nan = std::isnan(static_cast<float>(mean_data[mean_lin_idx]));
+                mean_is_nan = std::isnan(static_cast<float>(mean_val));
             } else {
-                mean_is_nan = std::isnan(mean_data[mean_lin_idx]);
+                mean_is_nan = std::isnan(mean_val);
             }
         }
         
-        // Accumulate squared deviations
+        // ✅ Accumulate squared deviations
         for (int64_t i = 0; i < reduced_count; ++i) {
             std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
             std::vector<int64_t> full_input_coords(input_dims.size());
@@ -811,33 +817,33 @@ Tensor dispatch_variance_kernel(const Tensor& input,
             }
             
             if constexpr (is_nan_aware) {
-                // NaN-aware: Skip NaN values
+                // ✅ NaN-aware: Skip NaN values and count valid ones
                 if (!is_nan) {
                     AccT val_acc = static_cast<AccT>(input_value);
                     AccT diff = val_acc - mean_val;
                     accumulator += diff * diff;
-                    valid_count++;
+                    valid_count++;  // Only increment for valid values
                 }
             } else {
-                // Regular variance: Propagate NaN
+                // ✅ Regular variance: Propagate NaN immediately
                 if (is_nan || mean_is_nan) {
                     accumulator = std::numeric_limits<AccT>::quiet_NaN();
-                    break;
+                    break;  // Early exit on NaN
                 }
                 
                 AccT val_acc = static_cast<AccT>(input_value);
                 AccT diff = val_acc - mean_val;
                 accumulator += diff * diff;
-                valid_count++;
+                // Don't increment valid_count here!
             }
         }
         
-        // STEP 5: Compute divisor and variance
+        // ✅ STEP 5: Compute divisor and variance
         int64_t divisor;
         if constexpr (is_nan_aware) {
-            divisor = valid_count - correction;
+            divisor = valid_count - correction;  // Use counted valid values
         } else {
-            divisor = reduced_count - correction;
+            divisor = reduced_count - correction;  // Use total count
         }
         
         // Compute final variance
@@ -850,7 +856,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
             variance = accumulator / static_cast<AccT>(divisor);
         }
         
-        // STEP 6: Convert back to output type
+        // ✅ STEP 6: Convert back to output type
         if constexpr (std::is_same_v<T, float16_t>) {
             output_data[output_index] = static_cast<OutputT>(
                 static_cast<T>(static_cast<float>(variance))

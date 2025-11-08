@@ -9,22 +9,23 @@ int main()
     opts.device = Device::CPU;
     opts.requires_grad = true;
 
-    Tensor A(Shape{{3,2}}, Dtype::Float32, DeviceIndex(Device::CPU));
-    std::vector<float> dataa= {1,2,3,4,5,6};
-    A.set_data(dataa);
-
+    Tensor A(Shape{{3,3}}, Dtype::Int32, DeviceIndex(Device::CPU));
+    //std::vector<int> dataa= {1,2,3,4,5,6};
+    //A.set_data(dataa);
+    A.fill(12132);
+A.display(std::cout, 5);
     Tensor B = reduce_var(A, {1}, false, 0);
     std::cout << "B:" <<std::endl;
     B.display(std::cout, 5);
-    B = reduce_nanvar(A, {1}, false, 0);
-    std::cout << "B:nanvar" <<std::endl;
-    B.display(std::cout, 5);
+//     B = reduce_nanvar(A, {1}, false, 0);
+//     std::cout << "B:nanvar" <<std::endl;
+//     B.display(std::cout, 5);
     B = reduce_std(A, {1}, false, 0);
     std::cout << "B:" <<std::endl;
     B.display(std::cout, 5);
-     B = reduce_nanstd(A, {1}, false, 0);
-    std::cout << "B:nanstd" <<std::endl;
-    B.display(std::cout, 5);
+//      B = reduce_nanstd(A, {1}, false, 0);
+//     std::cout << "B:nanstd" <<std::endl;
+//     B.display(std::cout, 5);
     std::pair<Tensor, Tensor> C = reduce_var_mean(A, {1}, false, 0);
     std::cout << "C:" <<std::endl;
    for(Tensor t : {C.first, C.second}) 
@@ -47,9 +48,10 @@ int main()
     opts.device = Device::CUDA;
     opts.requires_grad = true;
 
-    Tensor A1(Shape{{3,2}}, Dtype::Float32, DeviceIndex(Device::CUDA));
-    std::vector<float> data = {1,2,3,4,5,6};
-    A1.set_data(data);
+    Tensor A1(Shape{{3,3}}, Dtype::Int32, DeviceIndex(Device::CUDA));
+    //std::vector<int> data = {1,2,3,4,5,6};
+    //A1.set_data(data);
+    A1.fill(12132);
 
     B = reduce_var(A1, {1}, false, 0);
     std::cout << "B:" <<std::endl;
