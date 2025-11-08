@@ -648,33 +648,27 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 //----------------------------------------------------------------------
 // VARIANCE REDUCTION DISPATCHER (Two-pass algorithm)
 //----------------------------------------------------------------------
-// Replace dispatch_variance_kernel in ReductionImpl.h with this:
+
 
 template <typename T, template <typename> class VarianceOpType>
 Tensor dispatch_variance_kernel(const Tensor& input, 
                                 const std::vector<int64_t>& normalized_axes, 
                                 bool keepdim,
-                                int64_t correction, cudaStream_t stream) {//✨✨✨
+                                int64_t correction, cudaStream_t stream) {
     // Determine if this is NaN-aware variance
     constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
     
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         return dispatch_variance_gpu<T, VarianceOpType>(
-            input, normalized_axes, keepdim, correction,stream);//✨✨✨
-    
+            input, normalized_axes, keepdim, correction, stream);
     }
 #endif
     
-    // STEP 1: Compute mean first (use appropriate mean function)
-    Tensor mean_tensor= is_nan_aware 
-        ? dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true,stream)
-        : dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true,stream);
-    if constexpr (is_nan_aware) {
-        mean_tensor = dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true, stream);
-    } else {
-        mean_tensor = dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true, stream);
-    }
+    // ✅ FIX 1: Compute mean with keepdim=true (required for broadcasting in variance calculation)
+    Tensor mean_tensor = is_nan_aware 
+        ? dispatch_mean_kernel<T, NanSumOp>(input, normalized_axes, true, stream)  // ← ALWAYS true here
+        : dispatch_mean_kernel<T, SumOp>(input, normalized_axes, true, stream);    // ← ALWAYS true here
     
     // STEP 2: Calculate output shape and metadata
     Shape output_shape = calculate_output_shape(input.shape().dims, normalized_axes, keepdim);
@@ -720,6 +714,10 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     const int64_t num_slices = output.numel();
     const bool rank_preserved = input_dims.size() == output_shape.dims.size();
     
+    // ✅ FIX 2: Get mean tensor shape for coordinate mapping
+    const std::vector<int64_t>& mean_dims = mean_tensor.shape().dims;
+    const std::vector<int64_t>& mean_strides = mean_tensor.stride().strides;
+    
     // Calculate reduced_dims
     std::vector<int64_t> reduced_dims;
     for(size_t dim = 0; dim < input_dims.size(); ++dim) {
@@ -734,31 +732,52 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     #pragma omp parallel for
     for (int64_t output_index = 0; output_index < num_slices; ++output_index) {
         AccT accumulator = 0;
-        int64_t valid_count = 0;  // âœ… Track non-NaN values
+        int64_t valid_count = 0;
         
-        // Get pre-computed mean for this output slice
-        AccT mean_val = static_cast<AccT>(mean_data[output_index]);
+        // Calculate output coordinates
+        std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
         
-        // âœ… Check if mean is NaN (all values were NaN in non-NaN-aware case)
+        // ✅ FIX 3: Map output coordinates to mean tensor coordinates
+        // Since mean was computed with keepdim=true, it has same rank as input
+        std::vector<int64_t> mean_coords(input_dims.size());
+        int out_coord_idx = 0;
+        
+        for (size_t dim = 0; dim < input_dims.size(); ++dim) {
+            bool is_reduced = std::find(normalized_axes.begin(), normalized_axes.end(), (int64_t)dim) 
+                             != normalized_axes.end();
+            if (is_reduced) {
+                mean_coords[dim] = 0;  // Mean tensor has size 1 in reduced dimensions
+            } else {
+                if (rank_preserved) {
+                    mean_coords[dim] = out_coords[dim];
+                } else {
+                    mean_coords[dim] = out_coords[out_coord_idx];
+                }
+                out_coord_idx++;
+            }
+        }
+        
+        // Get the pre-computed mean value for this slice
+        int64_t mean_lin_idx = ravel_index(mean_coords, mean_strides);
+        AccT mean_val = static_cast<AccT>(mean_data[mean_lin_idx]);
+        
+        // Check if mean is NaN
         bool mean_is_nan = false;
         if constexpr (std::is_floating_point_v<T> || 
                       std::is_same_v<T, float16_t> || 
                       std::is_same_v<T, bfloat16_t>) {
             if constexpr (std::is_same_v<T, float16_t> || std::is_same_v<T, bfloat16_t>) {
-                mean_is_nan = std::isnan(static_cast<float>(mean_data[output_index]));
+                mean_is_nan = std::isnan(static_cast<float>(mean_data[mean_lin_idx]));
             } else {
-                mean_is_nan = std::isnan(mean_data[output_index]);
+                mean_is_nan = std::isnan(mean_data[mean_lin_idx]);
             }
         }
-        
-        // Calculate output coordinates
-        std::vector<int64_t> out_coords = unravel_index(output_index, output_shape.dims);
         
         // Accumulate squared deviations
         for (int64_t i = 0; i < reduced_count; ++i) {
             std::vector<int64_t> slice_coords = detail::unravel_index(i, reduced_dims);
             std::vector<int64_t> full_input_coords(input_dims.size());
-            int out_coord_idx = 0;
+            out_coord_idx = 0;
             int slice_coord_idx = 0;
             
             for (size_t dim = 0; dim < input_dims.size(); ++dim) {
@@ -779,7 +798,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
             int64_t input_lin_idx = ravel_index(full_input_coords, input_strides);
             T input_value = input_data[input_lin_idx];
             
-            // âœ… Check if value is NaN
+            // Check if value is NaN
             bool is_nan = false;
             if constexpr (std::is_floating_point_v<T> || 
                           std::is_same_v<T, float16_t> || 
@@ -792,7 +811,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
             }
             
             if constexpr (is_nan_aware) {
-                // âœ… NaN-aware: Skip NaN values
+                // NaN-aware: Skip NaN values
                 if (!is_nan) {
                     AccT val_acc = static_cast<AccT>(input_value);
                     AccT diff = val_acc - mean_val;
@@ -800,10 +819,10 @@ Tensor dispatch_variance_kernel(const Tensor& input,
                     valid_count++;
                 }
             } else {
-                // âœ… Regular variance: Propagate NaN
+                // Regular variance: Propagate NaN
                 if (is_nan || mean_is_nan) {
                     accumulator = std::numeric_limits<AccT>::quiet_NaN();
-                    break;  // Stop processing, result is NaN
+                    break;
                 }
                 
                 AccT val_acc = static_cast<AccT>(input_value);
@@ -816,21 +835,18 @@ Tensor dispatch_variance_kernel(const Tensor& input,
         // STEP 5: Compute divisor and variance
         int64_t divisor;
         if constexpr (is_nan_aware) {
-            divisor = valid_count - correction;  // Use valid_count for NaN-aware
+            divisor = valid_count - correction;
         } else {
-            divisor = reduced_count - correction;  // Use total count for regular
+            divisor = reduced_count - correction;
         }
         
-        // âœ… VALIDATION: Check divisor and accumulator
+        // Compute final variance
         AccT variance;
         if (std::isnan(accumulator)) {
-            // Accumulator is NaN (from regular variance with NaN input)
             variance = accumulator;
         } else if (divisor <= 0) {
-            // Insufficient data for variance with this correction
             variance = std::numeric_limits<AccT>::quiet_NaN();
         } else {
-            // Valid variance computation
             variance = accumulator / static_cast<AccT>(divisor);
         }
         
