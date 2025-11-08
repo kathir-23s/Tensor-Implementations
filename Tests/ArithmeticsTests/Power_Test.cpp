@@ -297,7 +297,7 @@ void test_pow_integer_exponent(TestReport& report, const DeviceIndex& device,
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    pow_(input, 2);
+                    pow_(input, 2, 0);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -309,7 +309,7 @@ void test_pow_integer_exponent(TestReport& report, const DeviceIndex& device,
                     return;
                 }
             }
-            pow_(input, 2);
+            pow_(input, 2, 0);
             Tensor result = input.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -317,7 +317,7 @@ void test_pow_integer_exponent(TestReport& report, const DeviceIndex& device,
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : msg, time_ms});
         } else {
-            Tensor output = pow(input, 2);
+            Tensor output = pow(input, 2, 0);
             Tensor result = output.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -353,7 +353,7 @@ void test_pow_float_exponent(TestReport& report, const DeviceIndex& device,
         if (inplace) {
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    pow_(input, 0.5f);
+                    pow_(input, 0.5f, 0);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -365,7 +365,7 @@ void test_pow_float_exponent(TestReport& report, const DeviceIndex& device,
                     return;
                 }
             }
-            pow_(input, 0.5f);
+            pow_(input, 0.5f, 0);
             Tensor result = input.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -373,7 +373,7 @@ void test_pow_float_exponent(TestReport& report, const DeviceIndex& device,
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : msg, time_ms});
         } else {
-            Tensor output = pow(input, 0.5f);
+            Tensor output = pow(input, 0.5f, 0);
             Tensor result = output.to(DeviceIndex(Device::CPU));
             std::string msg;
             bool passed = check_tensor(result, expected, tol_for(dtype), msg);
@@ -399,7 +399,7 @@ void test_pow_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {0.0};
         std::vector<double> expected = {1.0};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = pow(a, 0);
+        Tensor y = pow(a, 0, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -413,7 +413,7 @@ void test_pow_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {0.0};
         std::vector<double> expected = {std::numeric_limits<double>::infinity()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = pow(a, -2);
+        Tensor y = pow(a, -2, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -427,7 +427,7 @@ void test_pow_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {-4.0};
         std::vector<double> expected = {std::numeric_limits<double>::quiet_NaN()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = pow(a, 0.5f);
+        Tensor y = pow(a, 0.5f, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -441,7 +441,7 @@ void test_pow_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {10.0};
         std::vector<double> expected = {std::numeric_limits<double>::infinity()};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = pow(a, 1000);
+        Tensor y = pow(a, 1000, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();
@@ -455,7 +455,7 @@ void test_pow_edge_cases(TestReport& report, Dtype dtype) {
         std::vector<double> x = {10.0};
         std::vector<double> expected = {0.0};
         Tensor a = make_tensor_cpu(x, dtype, {1});
-        Tensor y = pow(a, -1000);
+        Tensor y = pow(a, -1000, 0);
         std::string msg;
         bool ok = check_tensor(y, expected, tol_for(dtype), msg);
         auto end = std::chrono::high_resolution_clock::now();

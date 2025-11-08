@@ -140,14 +140,14 @@ void test_square_function(TestReport& report, const DeviceIndex& device,
                                get_dtype_name(dtype) + ")";
         
         if (inplace) {
-            square_(input);
+            square_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, 
                              passed ? "Values match expected" : "Values mismatch", time_ms});
         } else {
-            Tensor output = square(input);
+            Tensor output = square(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -178,7 +178,7 @@ void test_square_root_function(TestReport& report, const DeviceIndex& device,
             // Check for integer dtypes (should throw)
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    sqrt_(input);
+                    sqrt_(input,0);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -191,13 +191,13 @@ void test_square_root_function(TestReport& report, const DeviceIndex& device,
                 }
             }
             
-            sqrt_(input);
+            sqrt_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = sqrt(input);
+            Tensor output = sqrt(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -227,7 +227,7 @@ void test_reciprocal_function(TestReport& report, const DeviceIndex& device,
             // Check for integer dtypes (should throw)
             if (dtype == Dtype::Int16 || dtype == Dtype::Int32 || dtype == Dtype::Int64) {
                 try {
-                    reciprocal_(input);
+                    reciprocal_(input, 0);
                     auto end = std::chrono::high_resolution_clock::now();
                     double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
                     report.add_result({test_name, false, "Expected exception for integer in-place", time_ms});
@@ -240,13 +240,13 @@ void test_reciprocal_function(TestReport& report, const DeviceIndex& device,
                 }
             }
             
-            reciprocal_(input);
+            reciprocal_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = reciprocal(input);
+            Tensor output = reciprocal(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-2);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -273,13 +273,13 @@ void test_negator_function(TestReport& report, const DeviceIndex& device,
                                get_dtype_name(dtype) + ")";
         
         if (inplace) {
-            negator_(input);
+            neg_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = negator(input);
+            Tensor output = neg(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -306,13 +306,13 @@ void test_absolute_function(TestReport& report, const DeviceIndex& device,
                                get_dtype_name(dtype) + ")";
         
         if (inplace) {
-            abs_(input);
+            abs_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = abs(input);
+            Tensor output = abs(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
@@ -339,13 +339,13 @@ void test_sign_function(TestReport& report, const DeviceIndex& device,
                                get_dtype_name(dtype) + ")";
         
         if (inplace) {
-            sign_(input);
+            sign_(input, 0);
             bool passed = verify_tensor_values(input, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             report.add_result({test_name, passed, passed ? "Values match" : "Values mismatch", time_ms});
         } else {
-            Tensor output = sign(input);
+            Tensor output = sign(input, 0);
             bool passed = verify_tensor_values(output, expected, 1e-5);
             auto end = std::chrono::high_resolution_clock::now();
             double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
