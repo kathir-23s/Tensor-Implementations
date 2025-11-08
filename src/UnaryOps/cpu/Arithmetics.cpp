@@ -39,7 +39,7 @@ Tensor sqrt(const Tensor& input, cudaStream_t stream) {//✨✨✨
     }
 }
 
-Tensor negator(const Tensor& input, cudaStream_t stream) {//✨✨✨
+Tensor neg(const Tensor& input, cudaStream_t stream) {//✨✨✨
     if (input.is_cpu()) {
         return negator_out_cpu_wrap(input);
     }
@@ -169,7 +169,7 @@ void sqrt_(Tensor& input, cudaStream_t stream) {//✨✨✨
     }
 }
 
-void negator_(Tensor& input, cudaStream_t stream) {//✨✨✨
+void neg_(Tensor& input, cudaStream_t stream) {//✨✨✨
     if (input.is_cpu()) {
         negator_in_cpu_wrap(input);
     }
