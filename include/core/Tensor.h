@@ -72,7 +72,7 @@ namespace OwnTensor
 
         //✨✨✨
         Tensor(Shape shape, bool requires_grad)
-        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad=false) {}
+        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad) {}
 
         Tensor() = default;
 
@@ -192,7 +192,10 @@ namespace OwnTensor
         // Utilities
         //######################################################
 
-        void display(std::ostream& os, int prec) const;
+        void display(std::ostream& os, int prec = 4) const;
+        void display() const;
+        void display(int prec) const;
+
         Tensor clone() const;
         Tensor& copy_(const Tensor& src);
         Tensor as_type(Dtype new_dtype) const;
