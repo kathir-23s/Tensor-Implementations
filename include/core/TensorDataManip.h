@@ -138,5 +138,83 @@ namespace OwnTensor {
         set_data(source_data.data(), source_data.size());
     }
     
+    template<>
+    inline void Tensor::set_data<bool>(const bool* source_data, size_t count) {
+        if (count != numel()) {
+            throw std::runtime_error("Data size does not match tensor size");
+        }
+        
+        if (!is_same_type<bool>(dtype_)) {
+            throw std::runtime_error("Datatype mismatch: expected Bool dtype");
+        }
+        
+        // Bool is stored as uint8_t (1 byte per bool)
+        uint8_t* dest = reinterpret_cast<uint8_t*>(data_ptr_.get());
+        
+        if (device_.is_cpu()) {
+            // Direct copy for CPU
+            for (size_t i = 0; i < count; ++i) {
+                dest[i] = source_data[i] ? 1 : 0;
+            }
+        } else {
+            // For GPU, copy to temporary buffer then transfer
+            std::vector<uint8_t> temp_data(count);
+            for (size_t i = 0; i < count; ++i) {
+                temp_data[i] = source_data[i] ? 1 : 0;
+            }
+            device::copy_memory(data_ptr_.get(), device_.device,
+                            temp_data.data(), Device::CPU,
+                            count * sizeof(uint8_t));
+        }
+    }
+
+    template<>
+    inline void Tensor::set_data<bool>(const std::vector<bool>& source_data) {
+        if (source_data.size() != numel()) {
+            throw std::runtime_error("Data size does not match tensor size");
+        }
+        
+        if (!is_same_type<bool>(dtype_)) {
+            throw std::runtime_error("Datatype mismatch: expected Bool dtype");
+        }
+        
+        // Convert std::vector<bool> to uint8_t buffer
+        std::vector<uint8_t> temp_buffer(source_data.size());
+        for (size_t i = 0; i < source_data.size(); ++i) {
+            temp_buffer[i] = source_data[i] ? 1 : 0;
+        }
+        
+        // Copy to tensor
+        if (device_.is_cpu()) {
+            uint8_t* dest = reinterpret_cast<uint8_t*>(data_ptr_.get());
+            std::memcpy(dest, temp_buffer.data(), temp_buffer.size());
+        } else {
+            device::copy_memory(data_ptr_.get(), device_.device,
+                            temp_buffer.data(), Device::CPU,
+                            temp_buffer.size() * sizeof(uint8_t));
+        }
+    }
+
+    // Specialization for fill with bool
+    template<>
+    inline void Tensor::fill<bool>(bool value) {
+        if (dtype_ != Dtype::Bool) {
+            throw std::runtime_error("Fill bool: dtype must be Bool");
+        }
+        
+        uint8_t fill_value = value ? 1 : 0;
+        
+        if (device_.is_cpu()) {
+            uint8_t* data = reinterpret_cast<uint8_t*>(data_ptr_.get());
+            std::memset(data, fill_value, numel());
+        } else {
+            // For GPU
+            std::vector<uint8_t> temp_data(numel(), fill_value);
+            device::copy_memory(data_ptr_.get(), device_.device,
+                            temp_data.data(), Device::CPU,
+                            numel() * sizeof(uint8_t));
+        }
+    }
+
 }
 #endif // TENSOR_UTILS_H

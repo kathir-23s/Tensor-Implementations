@@ -228,4 +228,280 @@ namespace OwnTensor {
         }
         return lhs;
     }
+
+    Tensor operator==(const Tensor& lhs, const Tensor& rhs) 
+    {
+        
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape,Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_eq_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a == b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor operator!=(const Tensor& lhs, const Tensor& rhs) 
+    {
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_neq_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a != b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor operator<=(const Tensor& lhs, const Tensor& rhs) 
+    {
+       
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_leq_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a <= b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor operator>=(const Tensor& lhs, const Tensor& rhs) 
+    {
+        
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_geq_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a >= b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor operator>(const Tensor& lhs, const Tensor& rhs) 
+    {
+       
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_gt_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a > b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor operator<(const Tensor& lhs, const Tensor& rhs) 
+    {
+       
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_bool_lt_outplace(lhs, rhs,output, stream); //✨✨✨
+            #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a < b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+    }
+
+    Tensor logical_and(const Tensor& lhs, const Tensor& rhs)
+    {
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_logical_and_outplace(lhs, rhs,output, stream); //✨✨✨
+           #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a && b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+
+    }
+
+    Tensor logical_or(const Tensor& lhs, const Tensor& rhs)
+    {
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_logical_or_outplace(lhs, rhs,output, stream); //✨✨✨
+           #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a || b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+        
+    }
+
+    Tensor logical_xor(const Tensor& lhs, const Tensor& rhs)
+    {
+        Shape output_shape = lhs.shape();
+        if (lhs.shape().dims != rhs.shape().dims) {
+            output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
+        }
+    
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda() && rhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_logical_xor_outplace(lhs, rhs,output, stream); //✨✨✨
+           #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_binary_op_bool(lhs, rhs, output, [](auto a, auto b) {
+            return a != b;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+        
+    }
+
+    Tensor logical_not(const Tensor& lhs)
+    {
+        Shape output_shape = lhs.shape();
+        
+        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+
+        if (lhs.device().is_cuda())
+        {
+            #ifdef WITH_CUDA
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream(); //✨✨✨
+                cuda_logical_not_outplace(lhs,output, stream); //✨✨✨
+           #else
+                throw std::runtime_error("Tensor Ops: CUDA support not compiled");
+            #endif
+        }
+        else 
+        {
+        apply_not_bool(lhs, output, [](auto a) {
+            return !a ;  // This lambda gets passed as 'op'
+        });
+        }
+        return output;
+        
+    }
 }

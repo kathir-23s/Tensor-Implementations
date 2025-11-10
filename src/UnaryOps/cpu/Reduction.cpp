@@ -21,7 +21,6 @@ using namespace detail;
 // =================================================================
 Tensor reduce_sum(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim, cudaStream_t stream) {
     std::vector<int64_t> normalized_axes = detail::normalize_axes(input.shape().dims, axes);
-    
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
         return detail::dispatch_reduction<T, SumOp>(input, normalized_axes, keepdim, stream);
@@ -174,9 +173,17 @@ Tensor reduce_var(const Tensor& input,
     
     return dispatch_by_dtype(input.dtype(), [&](auto T_val) -> Tensor {
         using T = decltype(T_val);
-        return detail::dispatch_variance_kernel<T, VarianceOp>(
-            input, normalized_axes, keepdim, correction, stream//✨✨✨
-        );
+        if constexpr (std::is_same_v<T, bool>) {
+            throw std::runtime_error("Bool reduction not supported");
+        } else {
+            
+                return detail::dispatch_variance_kernel<T, VarianceOp>(input, normalized_axes, keepdim,correction, stream); //✨✨✨
+            
+                
+        }
+        // return detail::dispatch_variance_kernel<T, VarianceOp>(
+        //     input, normalized_axes, keepdim, correction, stream//✨✨✨
+        // );
     });
 }
 

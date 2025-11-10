@@ -86,6 +86,13 @@ namespace OwnTensor {
         static constexpr bool is_integral = false;
     };
 
+    // Add bool specialization
+    template<> struct dtype_traits<Dtype::Bool> {
+        static constexpr Dtype dtype = Dtype::Bool;
+        static constexpr size_t size = sizeof(bool);  // Usually 1 byte
+        using type = bool;
+        using storage_type = uint8_t;
+    };
     // Helper function
     template<typename T>
     bool is_same_type(Dtype dtype) {
@@ -103,6 +110,9 @@ namespace OwnTensor {
             return dtype == Dtype::Float16; 
         } else if constexpr (std::is_same_v<T, bfloat16_t>) {
             return dtype == Dtype::Bfloat16;
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return dtype == Dtype::Bool;
         }
         return false;
     }
@@ -137,6 +147,9 @@ namespace OwnTensor {
         else if constexpr (std::is_same_v<T, double>) {
             return Dtype::Float64;
         }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return Dtype::Bool;
+        }
         else {
             static_assert(!std::is_same_v<T, T>, "Unsupported type");
         }
@@ -170,7 +183,10 @@ namespace OwnTensor {
             return false;
         }
     }
-
+    constexpr bool is_bool(Dtype dt) {
+        return dt == Dtype::Bool;
+    }
+    
     // ═══════════════════════════════════════════════════════════
     // DTYPE NAME HELPER (MERGED - Returns std::string like teammate's)
     // ═══════════════════════════════════════════════════════════
@@ -186,9 +202,32 @@ namespace OwnTensor {
             case Dtype::Bfloat16: return "bfloat16"; // Teammate uses "bfloat16", you used "bf16"
             case Dtype::Float32:  return "float32";
             case Dtype::Float64:  return "float64";
+            case Dtype::Bool:     return "bool";
             default:              return "Unknown";  // Teammate uses "Unknown", you used "unknown"
         }
     }
+
+    //For  type promotion in binary ops
+    inline Dtype promote_dtypes_bool(Dtype a, Dtype b) {
+    // If both are same, return either
+    if (a == b) return a;
+    
+    // Type hierarchy: Float > Int > Bool
+    // If either is float, result is float (promote to higher precision)
+    if (a == Dtype::Float64 || b == Dtype::Float64) return Dtype::Float64;
+    if (a == Dtype::Float32 || b == Dtype::Float32) return Dtype::Float32;
+    if (a == Dtype::Float16 || b == Dtype::Float16) return Dtype::Float16;
+    if (a == Dtype::Bfloat16 || b == Dtype::Bfloat16) return Dtype::Bfloat16;
+    
+    // If either is int, result is int (promote to larger size)
+    if (a == Dtype::Int64 || b == Dtype::Int64) return Dtype::Int64;
+    if (a == Dtype::Int32 || b == Dtype::Int32) return Dtype::Int32;
+    if (a == Dtype::Int16 || b == Dtype::Int16) return Dtype::Int16;
+    
+    // Both are bool
+    return Dtype::Bool;
+}
+
 
 } // namespace OwnTensor
 

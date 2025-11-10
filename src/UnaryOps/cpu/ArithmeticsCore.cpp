@@ -208,6 +208,12 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, int exponent) {
 }
 
 void power_in_cpu_wrap(Tensor& input_tensor, int exponent) {
+    if(exponent < 0) {
+        throw std::runtime_error(
+            "Inplace power operations with negative exponents are not supported. "
+            "Use out-of-place power operation instead."
+        );
+    }
     auto float_fn = [exponent](float x) { 
         return safe_pow(x, static_cast<float>(exponent)); 
     };
@@ -229,14 +235,19 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, float exponent) {
                                   float_fn, double_fn);
 }
 
-void power_in_cpu_wrap(Tensor& input_tensor, float exponent) {
-    auto float_fn = [exponent](float x) { 
-        return safe_pow(x, exponent); 
-    };
-    auto double_fn = [exponent](double x) { 
-        return safe_pow(x, static_cast<double>(exponent)); 
-    };
-    generic_unary_in_cpu(input_tensor, float_fn, double_fn);
+void power_in_cpu_wrap([[maybe_unused]] Tensor& input_tensor,[[maybe_unused]] float exponent) {
+    // auto float_fn = [exponent](float x) { 
+    //     return safe_pow(x, exponent); 
+    // };
+    // auto double_fn = [exponent](double x) { 
+    //     return safe_pow(x, static_cast<double>(exponent)); 
+    // };
+    // generic_unary_in_cpu(input_tensor, float_fn, double_fn);
+    // [[maybe_unused]]
+    throw std::runtime_error(
+            "Inplace power operations is accepted only for int exponent values. "
+            "Use out-of-place power operation instead."
+        );
 }
 
 // Double exponent version
@@ -251,14 +262,18 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, double exponent) {
                                   float_fn, double_fn);
 }
 
-void power_in_cpu_wrap(Tensor& input_tensor, double exponent) {
-    auto float_fn = [exponent](float x) { 
-        return safe_pow(x, static_cast<float>(exponent)); 
-    };
-    auto double_fn = [exponent](double x) { 
-        return safe_pow(x, exponent); 
-    };
-    generic_unary_in_cpu(input_tensor, float_fn, double_fn);
+void power_in_cpu_wrap([[maybe_unused]]Tensor& input_tensor, [[maybe_unused]]double exponent) {
+    // auto float_fn = [exponent](float x) { 
+    //     return safe_pow(x, static_cast<float>(exponent)); 
+    // };
+    // auto double_fn = [exponent](double x) { 
+    //     return safe_pow(x, exponent); 
+    // };
+    // generic_unary_in_cpu(input_tensor, float_fn, double_fn);
+    throw std::runtime_error(
+            "Inplace power operations is accepted only for int exponent values. "
+            "Use out-of-place power operation instead."
+        );
 }
 
-} // namespace OwnTensor
+} // namespace OwnTensora

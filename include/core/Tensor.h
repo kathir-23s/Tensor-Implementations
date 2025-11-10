@@ -16,6 +16,15 @@ namespace OwnTensor
     struct Shape
     {
         std::vector<int64_t> dims;
+         // Define the equality operator for Shape objects
+        bool operator==(const Shape& other) const {
+            return dims == other.dims; // This uses the std::vector::operator==
+        }
+
+        // Optionally, define the inequality operator explicitly (less common, usually implicit)
+        bool operator!=(const Shape& other) const {
+            return !(*this == other);
+        }
     };
 
     struct Stride
@@ -122,6 +131,33 @@ namespace OwnTensor
             return reinterpret_cast<const T*>(data_ptr_.get() + storage_offset_);
         }
 
+        // ######################################################
+        // Static Conditional Operator - Compiler
+        //#######################################################
+        // In the public section or as standalone function
+        template<typename Func1, typename Func2, typename... Args>
+        static Tensor cond(bool pred, Func1 true_fn, Func2 false_fn, Args&&... operands) {
+            if (pred) {
+                return true_fn(std::forward<Args>(operands)...);
+            } else {
+                return false_fn(std::forward<Args>(operands)...);
+            }
+        }
+
+        // Element-wise where operation - must be in header (inline or template)
+        static Tensor where(const Tensor& condition, const Tensor& input, const Tensor& other);
+        
+        // Overload for scalar input
+        static Tensor where(const Tensor& condition, float input_scalar, const Tensor& other);
+        
+        // Overload for scalar other
+        static Tensor where(const Tensor& condition, const Tensor& input, float other_scalar);
+        
+        // Overload for both scalars
+        static Tensor where(const Tensor& condition, float input_scalar, float other_scalar);
+        
+        // Single argument version (returns indices where condition is true)
+        static std::vector<Tensor> where(const Tensor& condition);
 
         // ######################################################
         // Device Metadata

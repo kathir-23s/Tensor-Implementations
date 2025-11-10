@@ -1,0 +1,255 @@
+#ifdef WITH_CUDA
+
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+
+#include "ops/TensorOps.cuh"
+#include "core/Tensor.h"
+
+namespace OwnTensor
+{   
+template<typename T>
+__global__ void bool_geq_kernel(const T* a, const T* b, bool* output, size_t n)//✨✨✨  
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n)
+    {
+        // Placeholder operation: set output to true if a[idx] equals b[idx], else false
+        output[idx] = (a[idx] >= b[idx]);
+    }
+}
+
+template<>
+__global__ void bool_geq_kernel<__half>(const __half* a, const __half* b, bool* output, size_t n)//✨✨✨  
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n)
+    {
+        output[idx] = __hge(a[idx],b[idx]);   
+    }
+}
+
+template<>
+__global__ void bool_geq_kernel<__nv_bfloat16>(const __nv_bfloat16* a, const __nv_bfloat16* b, bool* output, size_t n)//✨✨✨  
+{
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n)
+    {
+        output[idx] = __hge(a[idx],b[idx]);
+    }
+}
+
+template<typename T>
+__global__ void bool_geq_kernel_broadcast(const T* a, const T* b, bool* output,
+                                      const size_t* a_shape, const size_t* b_shape, const size_t* out_shape,
+                                      const size_t* a_strides, const size_t* b_strides, const size_t* out_strides,
+                                      size_t a_ndim, size_t b_ndim, size_t out_ndim,
+                                      size_t total_elems)
+{
+    size_t linear_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (linear_idx >= total_elems) return;
+
+    size_t a_bcast_strides[8];
+    size_t b_bcast_strides[8];
+    
+    for (size_t i = 0; i < out_ndim; ++i) {
+        size_t a_dim_idx = a_ndim - out_ndim + i;
+        size_t b_dim_idx = b_ndim - out_ndim + i;
+        
+        if (a_dim_idx < a_ndim && a_shape[a_dim_idx] > 1) {
+            a_bcast_strides[i] = a_strides[a_dim_idx];
+        }
+        if (b_dim_idx < b_ndim && b_shape[b_dim_idx] > 1) {
+            b_bcast_strides[i] = b_strides[b_dim_idx];
+        }
+    }
+    
+    size_t coords[8];
+    size_t temp_idx = linear_idx;
+    for (int dim = out_ndim - 1; dim >= 0; --dim) {
+        coords[dim] = temp_idx % out_shape[dim];
+        temp_idx /= out_shape[dim];
+    }
+    
+    size_t a_idx = 0;
+    size_t b_idx = 0;
+    for (size_t dim = 0; dim < out_ndim; ++dim) {
+        a_idx += coords[dim] * a_bcast_strides[dim];
+        b_idx += coords[dim] * b_bcast_strides[dim];
+    }
+    
+    output[linear_idx] = a[a_idx] >= b[b_idx];
+}
+
+
+template<>
+__global__ void bool_geq_kernel_broadcast<__half>(const __half *a, const __half *b, bool *output,
+                                                    const size_t *a_shape, const size_t *b_shape, const size_t *out_shape,
+                                                    const size_t *a_strides, const size_t *b_strides, const size_t *out_strides,
+                                                    size_t a_ndim, size_t b_ndim, size_t out_ndim,
+                                                    size_t total_elems)
+    {
+        size_t linear_idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (linear_idx >= total_elems)
+            return;
+
+        size_t a_bcast_strides[8];
+        size_t b_bcast_strides[8];
+
+        for (size_t i = 0; i < out_ndim; ++i)
+        {
+            size_t a_dim_idx = a_ndim - out_ndim + i;
+            size_t b_dim_idx = b_ndim - out_ndim + i;
+
+            if (a_dim_idx < a_ndim && a_shape[a_dim_idx] > 1)
+            {
+                a_bcast_strides[i] = a_strides[a_dim_idx];
+            }
+            if (b_dim_idx < b_ndim && b_shape[b_dim_idx] > 1)
+            {
+                b_bcast_strides[i] = b_strides[b_dim_idx];
+            }
+        }
+
+        size_t coords[8];
+        size_t temp_idx = linear_idx;
+        for (int dim = out_ndim - 1; dim >= 0; --dim)
+        {
+            coords[dim] = temp_idx % out_shape[dim];
+            temp_idx /= out_shape[dim];
+        }
+
+        size_t a_idx = 0;
+        size_t b_idx = 0;
+        for (size_t dim = 0; dim < out_ndim; ++dim)
+        {
+            a_idx += coords[dim] * a_bcast_strides[dim];
+            b_idx += coords[dim] * b_bcast_strides[dim];
+        }
+
+        output[linear_idx] = __hge(a[a_idx], b[b_idx]);
+    }
+
+
+template<>
+__global__ void bool_geq_kernel_broadcast<__nv_bfloat16>(const __nv_bfloat16 *a, const __nv_bfloat16 *b, bool *output,
+                                                           const size_t *a_shape, const size_t *b_shape, const size_t *out_shape,
+                                                           const size_t *a_strides, const size_t *b_strides, const size_t *out_strides,
+                                                           size_t a_ndim, size_t b_ndim, size_t out_ndim,
+                                                           size_t total_elems)
+    {
+        size_t linear_idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (linear_idx >= total_elems)
+            return;
+
+        size_t a_bcast_strides[8];
+        size_t b_bcast_strides[8];
+
+        for (size_t i = 0; i < out_ndim; ++i)
+        {
+            size_t a_dim_idx = a_ndim - out_ndim + i;
+            size_t b_dim_idx = b_ndim - out_ndim + i;
+
+            if (a_dim_idx < a_ndim && a_shape[a_dim_idx] > 1)
+            {
+                a_bcast_strides[i] = a_strides[a_dim_idx];
+            }
+            if (b_dim_idx < b_ndim && b_shape[b_dim_idx] > 1)
+            {
+                b_bcast_strides[i] = b_strides[b_dim_idx];
+            }
+        }
+
+        size_t coords[8];
+        size_t temp_idx = linear_idx;
+        for (int dim = out_ndim - 1; dim >= 0; --dim)
+        {
+            coords[dim] = temp_idx % out_shape[dim];
+            temp_idx /= out_shape[dim];
+        }
+
+        size_t a_idx = 0;
+        size_t b_idx = 0;
+        for (size_t dim = 0; dim < out_ndim; ++dim)
+        {
+            a_idx += coords[dim] * a_bcast_strides[dim];
+            b_idx += coords[dim] * b_bcast_strides[dim];
+        }
+
+        output[linear_idx] = __hge(a[a_idx], b[b_idx]);
+    }
+
+
+//cuda_bool_eq_outplace
+void cuda_bool_geq_outplace(const Tensor &A, const Tensor &B, Tensor &output, cudaStream_t stream)
+    {
+        bool needs_broadcasting = (A.shape().dims != B.shape().dims);
+        size_t total_elems = output.numel();
+        size_t block_size = 256;
+        size_t grid_size = (total_elems + block_size - 1) / block_size;
+
+        dispatch_by_dtype(A.dtype(), [&](auto dummy)
+                          {
+        using T = decltype(dummy);
+        const T* a_ptr = A.data<T>();
+        const T* b_ptr = B.data<T>();
+        bool* output_ptr = output.data<bool>();
+        
+        if (!needs_broadcasting) {
+            bool_geq_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, output_ptr, total_elems);
+        } else {
+            const auto& a_shape = A.shape().dims;
+            const auto& b_shape = B.shape().dims;
+            const auto& out_shape = output.shape().dims;
+            
+            size_t a_ndim = a_shape.size();
+            size_t b_ndim = b_shape.size();
+            size_t out_ndim = out_shape.size();
+            
+            size_t *d_a_shape, *d_b_shape, *d_out_shape;
+            size_t *d_a_strides, *d_b_strides, *d_out_strides;
+            
+            cudaMalloc(&d_a_shape, a_ndim * sizeof(size_t));
+            cudaMalloc(&d_b_shape, b_ndim * sizeof(size_t));
+            cudaMalloc(&d_out_shape, out_ndim * sizeof(size_t));
+            cudaMalloc(&d_a_strides, a_ndim * sizeof(size_t));
+            cudaMalloc(&d_b_strides, b_ndim * sizeof(size_t));
+            cudaMalloc(&d_out_strides, out_ndim * sizeof(size_t));
+            
+            cudaMemcpyAsync(d_a_shape, a_shape.data(), a_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            cudaMemcpyAsync(d_b_shape, b_shape.data(), b_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            cudaMemcpyAsync(d_out_shape, out_shape.data(), out_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            cudaMemcpyAsync(d_a_strides, A.stride().strides.data(), a_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            cudaMemcpyAsync(d_b_strides, B.stride().strides.data(), b_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            cudaMemcpyAsync(d_out_strides, output.stride().strides.data(), out_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
+            
+             bool_geq_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
+                a_ptr, b_ptr, output_ptr,
+                d_a_shape, d_b_shape, d_out_shape,
+                d_a_strides, d_b_strides, d_out_strides,
+                a_ndim, b_ndim, out_ndim, total_elems
+            );
+            
+            cudaFree(d_a_shape);
+            cudaFree(d_b_shape);
+            cudaFree(d_out_shape);
+            cudaFree(d_a_strides);
+            cudaFree(d_b_strides);
+            cudaFree(d_out_strides);
+        } });
+    }
+        //✨✨✨
+        // cudaError_t err = cudaGetLastError();
+        // if (err != cudaSuccess) {
+        //     throw std::runtime_error("Addition CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
+        // }
+        
+        // err = cudaDeviceSynchronize();
+        // if (err != cudaSuccess) {
+        //     throw std::runtime_error("Addition CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
+        // }//✨✨✨
+}
+#endif // WITH_CUDA
+
+
