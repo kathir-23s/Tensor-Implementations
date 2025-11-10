@@ -332,4 +332,14 @@ void Tensor::display(std::ostream& os, int precision) const {
     }
 }
 
+void Tensor::display() const
+{
+    Tensor::display(std::cout, 4);
+}
+
+void Tensor::display(int precision) const
+{
+    Tensor::display(std::cout, precision);
+}
+
 } // namespace OwnTensor
