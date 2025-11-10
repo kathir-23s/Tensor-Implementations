@@ -78,6 +78,7 @@ template<typename T> __device__ inline bool gpu_isnan(T val) { return isnan(val)
 template<> __device__ inline bool gpu_isnan(__half val) { return __hisnan(val); }
 template<> __device__ inline bool gpu_isnan(__nv_bfloat16 val) { return __hisnan(val); }
 
+<<<<<<< Updated upstream
 // #else
 // // ✅ CPU host code - use regular operations
 // template<typename T> inline T gpu_add(T a, T b) { return a + b; }
@@ -90,6 +91,20 @@ template<> __device__ inline bool gpu_isnan(__nv_bfloat16 val) { return __hisnan
 //     }
 //     return false;
 // }
+=======
+#else
+// ✅ CPU host code - use regular operations
+template<typename T> inline T gpu_add(T a, T b) { return a + b; }
+template<typename T> inline T gpu_mul(T a, T b) { return a * b; }
+template<typename T> inline bool gpu_lt(T a, T b) { return a < b; }
+template<typename T> inline bool gpu_gt(T a, T b) { return a > b; }
+template<typename T> inline bool gpu_isnan(T val) { 
+    if constexpr (std::is_floating_point_v<T>) {
+        return std::isnan(val);
+    }
+    return false;
+}
+>>>>>>> Stashed changes
 #endif
 
 // ═══════════════════════════════════════════════════════════
@@ -105,11 +120,19 @@ template <typename T>
 constexpr bool is_native_half_v = std::is_same_v<T, __half> || 
                                   std::is_same_v<T, __nv_bfloat16>;
 #else
+<<<<<<< Updated upstream
 template <typename T>
 constexpr bool is_native_half_v = false;
 #endif
 
 template <typename T>
+=======
+template <typename T>
+constexpr bool is_native_half_v = false;
+#endif
+
+template <typename T>
+>>>>>>> Stashed changes
 constexpr bool is_any_float_v = std::is_floating_point_v<T> || 
                                 is_half_float_v<T> || 
                                 is_native_half_v<T>;
@@ -259,6 +282,7 @@ struct SumOp {
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
         #ifdef __CUDA_ARCH__
         // ✅ GPU: Use intrinsics for half types
+<<<<<<< Updated upstream
          if constexpr (is_any_float_v<AccT>) {
             if (gpu_isnan(a)) return a;
             if (gpu_isnan(b)) return b;
@@ -270,6 +294,11 @@ struct SumOp {
             if (is_nan_check(a)) return a;
             if (is_nan_check(b)) return b;
         }
+=======
+        return gpu_add(a, b);
+        #else
+        // CPU: Regular addition
+>>>>>>> Stashed changes
         return a + b;
         #endif
     }
@@ -626,12 +655,21 @@ struct ArgMaxOp {
             return b;
         } else {
             return (a.index < b.index) ? a : b;
+<<<<<<< Updated upstream
         }
         #else
         if constexpr (is_any_float_v<T>) {
             if (is_nan_check(a.value)) return a;
             if (is_nan_check(b.value)) return b;
         }
+=======
+        }
+        #else
+        if constexpr (is_any_float_v<T>) {
+            if (is_nan_check(a.value)) return a;
+            if (is_nan_check(b.value)) return b;
+        }
+>>>>>>> Stashed changes
         if (a.value > b.value) {
             return a;
         } else if (b.value > a.value) {

@@ -25,9 +25,13 @@ template<> struct ToCudaNative<bfloat16_t> { using type = __nv_bfloat16; };
 template<typename T>
 using CudaNativeType = typename ToCudaNative<T>::type;
 
+<<<<<<< Updated upstream
 // =================================================================
+=======
+// ═══════════════════════════════════════════════════════════
+>>>>>>> Stashed changes
 // GPU DEVICE MEMORY HELPER
-// =================================================================
+// ═══════════════════════════════════════════════════════════
 
 class DeviceArray {
 public:
@@ -131,8 +135,13 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     using OutputCudaT = CudaNativeType<OutputCppT>;
     OutputCudaT* output_data = reinterpret_cast<OutputCudaT*>(output.data<OutputCppT>());
     
+<<<<<<< Updated upstream
     // ✅ Launch kernel with NATIVE CUDA types
     cuda::reduce_kernel<CudaT, OutputCudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size,stream>>>(
+=======
+    // Launch kernel with correct template parameters
+    cuda::reduce_kernel<CudaT, OutputCudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size, stream>>>(//✨✨✨
+>>>>>>> Stashed changes
         input_data,
         output_data,
         d_input_dims.ptr,
@@ -212,7 +221,11 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
     const CudaT* input_data = reinterpret_cast<const CudaT*>(input.data<T>());
     int64_t* output_data = output.data<int64_t>();
     
+<<<<<<< Updated upstream
     cuda::reduce_index_kernel<CudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size,stream>>>(
+=======
+    cuda::reduce_index_kernel<CudaT, OpType><<<num_blocks, threads_per_block, shared_mem_size, stream>>>(//✨✨✨
+>>>>>>> Stashed changes
         input_data,
         output_data,
         d_input_dims.ptr,
@@ -411,7 +424,13 @@ Tensor dispatch_variance_gpu(const Tensor& input,
     
     using MeanCudaT = CudaNativeType<MeanCppT>;
     
+<<<<<<< Updated upstream
     // Output type
+=======
+    // ✅ TYPE CONVERSION
+    using CudaT = CudaNativeType<T>;
+    
+>>>>>>> Stashed changes
     using OutputCppT = typename std::conditional<
         std::is_integral_v<T>,
         double,
@@ -420,6 +439,7 @@ Tensor dispatch_variance_gpu(const Tensor& input,
     
     using OutputCudaT = CudaNativeType<OutputCppT>;
     
+<<<<<<< Updated upstream
     // Calculate shared memory size
     size_t shared_mem_size;
     if constexpr (std::is_integral_v<T>) {
@@ -443,6 +463,14 @@ Tensor dispatch_variance_gpu(const Tensor& input,
         <<<num_blocks, threads_per_block, shared_mem_size, stream>>>(//✨✨✨
         input_data,
         mean_data,           // Pre-computed mean (CORRECT TYPE!)
+=======
+    // ✅ Cast pointers to native CUDA types
+    const CudaT* input_data = reinterpret_cast<const CudaT*>(input.data<T>());
+    OutputCudaT* output_data = reinterpret_cast<OutputCudaT*>(output.data<OutputCppT>());
+    
+    cuda::reduce_mean_kernel<CudaT, OutputCudaT, SumOpType><<<num_blocks, threads_per_block, shared_mem_size, stream>>>(//✨✨✨
+        input_data,
+>>>>>>> Stashed changes
         output_data,
         d_input_dims.ptr,
         d_input_strides.ptr,
