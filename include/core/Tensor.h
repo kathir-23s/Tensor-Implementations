@@ -72,7 +72,9 @@ namespace OwnTensor
 
         //✨✨✨
         Tensor(Shape shape, bool requires_grad)
-        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad) {}
+        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad=false) {}
+
+        Tensor() = default;
 
         //#######################################################
         // Metadata accessors
@@ -107,18 +109,7 @@ namespace OwnTensor
             storage_offset_ = 0;
         }
 
-        // template <typename T>
-        // T* data()
-        // {
-        // return reinterpret_cast<T*>(data_ptr_.get());
-        // }
 
-        // template <typename T>
-        // const T* data() const
-        // {
-        //     return reinterpret_cast<const T*>(data_ptr_.get());
-        // }
-        // In core/Tensor.h:
         template<typename T>
         T* data()
         {
