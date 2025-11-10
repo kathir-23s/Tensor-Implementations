@@ -12,7 +12,7 @@
 
 namespace OwnTensor 
 {
-    Tensor matmul(const Tensor& A, const Tensor& B, cudaStream_t stream)
+    Tensor matmul(const Tensor& A, const Tensor& B, [[maybe_unused]]cudaStream_t stream)
     {
         // Validate Input Datatypes
         if (A.dtype() != B.dtype())
