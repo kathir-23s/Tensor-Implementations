@@ -71,4 +71,36 @@ namespace OwnTensor
         }
     });
 }
+
+    template <typename func>
+    void apply_binary_op_bool(const Tensor& A, const Tensor& B, Tensor& output, func op)
+    {
+        if (A.dtype() != B.dtype() )
+        {
+            throw std::runtime_error("Tensor datatypes are not matching");
+        }
+        
+        bool needs_broadcasting = (A.shape().dims != B.shape().dims);
+        size_t total_elems = output.numel();
+        
+        dispatch_by_dtype(A.dtype(), [&](auto dummy)
+        {
+            using T = decltype(dummy);
+            const T* a_ptr = A.data<T>();
+            const T* b_ptr = B.data<T>();
+            bool* output_ptr = output.data<bool>();
+
+            if (!needs_broadcasting) 
+            {
+                // Same shape - direct element-wise operation
+                for (size_t i = 0; i < total_elems; ++i) {
+                    output_ptr[i] = op(a_ptr[i], b_ptr[i]);
+                }
+            }  
+            else 
+            {
+                throw std::runtime_error("Broadcasting not implemented in apply_binary_op_bool");
+            }
+        });
+    }
 }

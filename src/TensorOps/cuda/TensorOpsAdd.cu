@@ -37,7 +37,11 @@ namespace OwnTensor
     template <>
     __global__ void add_kernel<__nv_bfloat16>(const __nv_bfloat16* a, const __nv_bfloat16* b, __nv_bfloat16* output, size_t n)
     {
-  
+        size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < n)
+        {
+            output[idx] = __hadd(a[idx], b[idx]);
+        }
     }
 
     template<typename T>

@@ -19,5 +19,10 @@ void cuda_sub_tensor_inplace( Tensor& A, const Tensor& B, cudaStream_t stream = 
 void cuda_mul_tensor_inplace( Tensor& A, const Tensor& B, cudaStream_t stream = 0);//✨✨✨
 void cuda_div_tensor_inplace( Tensor& A, const Tensor& B, cudaStream_t stream = 0);//✨✨✨
 
+void cuda_bool_eq_outplace( const Tensor& A, const Tensor& B, Tensor & output, cudaStream_t stream = 0);//✨✨✨
+void cuda_bool_neq_outplace( const Tensor& A, const Tensor& B, Tensor & output, cudaStream_t stream = 0);//✨✨✨
+void cuda_bool_leq_outplace( const Tensor& A, const Tensor& B, Tensor & output, cudaStream_t stream = 0);//✨✨✨
+void cuda_bool_geq_outplace( const Tensor& A, const Tensor& B, Tensor & output, cudaStream_t stream = 0);//✨✨✨
+
 #endif
 }//✨✨✨

@@ -21,4 +21,10 @@ template<typename S> Tensor operator-(S scalar, const Tensor& tensor);
 template<typename S> Tensor operator*(S scalar, const Tensor& tensor);
 template<typename S> Tensor operator/(S scalar, const Tensor& tensor);
 
+//Scalar comparisons
+template<typename S> Tensor operator==(const Tensor& t, S scalar);
+template<typename S> Tensor operator!=(const Tensor& t, S scalar);
+template<typename S> Tensor operator<=(const Tensor& t, S scalar);
+template<typename S> Tensor operator>(const Tensor& t, S scalar);
+template<typename S> Tensor operator>=(const Tensor& t, S scalar);
 } // namespace OwnTensor

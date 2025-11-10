@@ -89,7 +89,7 @@ Tensor Tensor::ones(Shape shape, TensorOptions opts) {
     } else {
         // GPU implementation - handles all 7 types automatically
 #ifdef WITH_CUDA
-        cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
+        [[maybe_unused]] cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             if constexpr (std::is_same_v<T, bool>) {
@@ -123,7 +123,7 @@ Tensor Tensor::full(Shape shape, TensorOptions opts, float value) {
         });
     } else {
 #ifdef WITH_CUDA
-        cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
+        [[maybe_unused]] cudaStream_t stream = OwnTensor::cuda::getCurrentStream();//✨✨✨
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             if constexpr (std::is_same_v<T, bool>) {
