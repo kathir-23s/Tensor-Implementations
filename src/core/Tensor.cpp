@@ -48,7 +48,8 @@ namespace OwnTensor
 
         if (shape.dims.empty())
         {
-            throw std::runtime_error("Shape must have atleast 1 Dimension");
+            // throw std::runtime_error("Shape must have atleast 1 Dimension");
+            return ;
         }
 
         for (size_t i = 0; i < shape_.dims.size(); ++i) 
@@ -64,13 +65,6 @@ namespace OwnTensor
                                         std::to_string(i) + " = 0");
             }
         }
-
-        // Calculate strides from shape dimensions
-        // stride_.strides[shape.dims.size()-1] = 1;
-        // for (int i = shape.dims.size() - 2; i >= 0; --i)
-        // {
-        //     stride_.strides[i] = stride_.strides[i + 1] * shape.dims[i+1];
-        // }
 
         stride_ = ViewUtils::compute_strides(shape);
         storage_offset_ = 0;  // Initialize offset to 0
@@ -123,12 +117,7 @@ namespace OwnTensor
         Allocator* alloc = AllocatorRegistry::get_allocator(device.device);
 
         void* raw_data_ptr = alloc->allocate(total_bytes);
-        // if(!raw_data_ptr)
-        // {
-        //     throw std::runtime_error("Data Memory Allocation Failed");
-        // } 
 
-        // alloc->memset(raw_data_ptr, 0, total_bytes);
         #ifdef WITH_CUDA//✨✨✨
         if (device.is_cuda()) {
             cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
@@ -148,12 +137,7 @@ namespace OwnTensor
 
         if (requires_grad_) {
             void* raw_grad_ptr = alloc->allocate(total_bytes);
-            // if(!raw_grad_ptr) 
-            // {
-            //     throw std::runtime_error("Gradient Memory Allocation Failed");
-            // }
 
-            // alloc->memset(raw_grad_ptr, 0, total_bytes);
             #ifdef WITH_CUDA//✨✨✨
             if (device.is_cuda()) {
                 cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
