@@ -657,6 +657,18 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     // Determine if this is NaN-aware variance
     constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
     
+    // constexpr bool is_float_type = 
+    //     std::is_same_v<T, float> || 
+    //     std::is_same_v<T, double> ||
+    //     std::is_same_v<T, float16_t> ||
+    //     std::is_same_v<T, bfloat16_t>;
+    
+    // if constexpr (is_nan_aware && !is_float_type) {
+    //     throw std::runtime_error(
+    //         "NaN-aware variance is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+    //          "Got: " + get_dtype_name(input.dtype())
+    //     );
+    // }
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         return dispatch_variance_gpu<T, VarianceOpType>(

@@ -10,38 +10,19 @@
 namespace OwnTensor
 {   
 template<typename T>
-__global__ void bool_leq_kernel(const T* a, const T* b, bool* output, size_t n)//✨✨✨  
+__global__ void bool_or_kernel(const T* a, const T* b, bool* output, size_t n)//✨✨✨  
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n)
     {
         // Placeholder operation: set output to true if a[idx] equals b[idx], else false
-        output[idx] = (a[idx] <= b[idx]);
+        output[idx] = (a[idx] || b[idx]);
     }
 }
 
-template<>
-__global__ void bool_leq_kernel<__half>(const __half* a, const __half* b, bool* output, size_t n)//✨✨✨  
-{
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n)
-    {
-        output[idx] = __hle(a[idx],b[idx]);   
-    }
-}
-
-template<>
-__global__ void bool_leq_kernel<__nv_bfloat16>(const __nv_bfloat16* a, const __nv_bfloat16* b, bool* output, size_t n)//✨✨✨  
-{
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n)
-    {
-        output[idx] = __hle(a[idx],b[idx]);
-    }
-}
 
 template<typename T>
-__global__ void bool_leq_kernel_broadcast(const T* a, const T* b, bool* output,
+__global__ void bool_or_kernel_broadcast(const T* a, const T* b, bool* output,
                                       const size_t* a_shape, const size_t* b_shape, const size_t* out_shape,
                                       const size_t* a_strides, const size_t* b_strides, const size_t* out_strides,
                                       size_t a_ndim, size_t b_ndim, size_t out_ndim,
@@ -79,110 +60,14 @@ __global__ void bool_leq_kernel_broadcast(const T* a, const T* b, bool* output,
         b_idx += coords[dim] * b_bcast_strides[dim];
     }
     
-    output[linear_idx] = a[a_idx] <= b[b_idx];
+    output[linear_idx] = a[a_idx] || b[b_idx];
 }
 
 
-template<>
-__global__ void bool_leq_kernel_broadcast<__half>(const __half *a, const __half *b, bool *output,
-                                                    const size_t *a_shape, const size_t *b_shape, const size_t *out_shape,
-                                                    const size_t *a_strides, const size_t *b_strides, const size_t *out_strides,
-                                                    size_t a_ndim, size_t b_ndim, size_t out_ndim,
-                                                    size_t total_elems)
-    {
-        size_t linear_idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (linear_idx >= total_elems)
-            return;
-
-        size_t a_bcast_strides[8];
-        size_t b_bcast_strides[8];
-
-        for (size_t i = 0; i < out_ndim; ++i)
-        {
-            size_t a_dim_idx = a_ndim - out_ndim + i;
-            size_t b_dim_idx = b_ndim - out_ndim + i;
-
-            if (a_dim_idx < a_ndim && a_shape[a_dim_idx] > 1)
-            {
-                a_bcast_strides[i] = a_strides[a_dim_idx];
-            }
-            if (b_dim_idx < b_ndim && b_shape[b_dim_idx] > 1)
-            {
-                b_bcast_strides[i] = b_strides[b_dim_idx];
-            }
-        }
-
-        size_t coords[8];
-        size_t temp_idx = linear_idx;
-        for (int dim = out_ndim - 1; dim >= 0; --dim)
-        {
-            coords[dim] = temp_idx % out_shape[dim];
-            temp_idx /= out_shape[dim];
-        }
-
-        size_t a_idx = 0;
-        size_t b_idx = 0;
-        for (size_t dim = 0; dim < out_ndim; ++dim)
-        {
-            a_idx += coords[dim] * a_bcast_strides[dim];
-            b_idx += coords[dim] * b_bcast_strides[dim];
-        }
-
-        output[linear_idx] = __hle(a[a_idx], b[b_idx]);
-    }
-
-
-template<>
-__global__ void bool_leq_kernel_broadcast<__nv_bfloat16>(const __nv_bfloat16 *a, const __nv_bfloat16 *b, bool *output,
-                                                           const size_t *a_shape, const size_t *b_shape, const size_t *out_shape,
-                                                           const size_t *a_strides, const size_t *b_strides, const size_t *out_strides,
-                                                           size_t a_ndim, size_t b_ndim, size_t out_ndim,
-                                                           size_t total_elems)
-    {
-        size_t linear_idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (linear_idx >= total_elems)
-            return;
-
-        size_t a_bcast_strides[8];
-        size_t b_bcast_strides[8];
-
-        for (size_t i = 0; i < out_ndim; ++i)
-        {
-            size_t a_dim_idx = a_ndim - out_ndim + i;
-            size_t b_dim_idx = b_ndim - out_ndim + i;
-
-            if (a_dim_idx < a_ndim && a_shape[a_dim_idx] > 1)
-            {
-                a_bcast_strides[i] = a_strides[a_dim_idx];
-            }
-            if (b_dim_idx < b_ndim && b_shape[b_dim_idx] > 1)
-            {
-                b_bcast_strides[i] = b_strides[b_dim_idx];
-            }
-        }
-
-        size_t coords[8];
-        size_t temp_idx = linear_idx;
-        for (int dim = out_ndim - 1; dim >= 0; --dim)
-        {
-            coords[dim] = temp_idx % out_shape[dim];
-            temp_idx /= out_shape[dim];
-        }
-
-        size_t a_idx = 0;
-        size_t b_idx = 0;
-        for (size_t dim = 0; dim < out_ndim; ++dim)
-        {
-            a_idx += coords[dim] * a_bcast_strides[dim];
-            b_idx += coords[dim] * b_bcast_strides[dim];
-        }
-
-        output[linear_idx] = __hle(a[a_idx], b[b_idx]);
-    }
 
 
 //cuda_bool_eq_outplace
-void cuda_bool_leq_outplace(const Tensor &A, const Tensor &B, Tensor &output, cudaStream_t stream)
+void cuda_logical_or_outplace(const Tensor &A, const Tensor &B, Tensor &output, cudaStream_t stream)
     {
         bool needs_broadcasting = (A.shape().dims != B.shape().dims);
         size_t total_elems = output.numel();
@@ -197,7 +82,7 @@ void cuda_bool_leq_outplace(const Tensor &A, const Tensor &B, Tensor &output, cu
         bool* output_ptr = output.data<bool>();
         
         if (!needs_broadcasting) {
-            bool_leq_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, output_ptr, total_elems);
+            bool_or_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, output_ptr, total_elems);
         } else {
             const auto& a_shape = A.shape().dims;
             const auto& b_shape = B.shape().dims;
@@ -224,7 +109,7 @@ void cuda_bool_leq_outplace(const Tensor &A, const Tensor &B, Tensor &output, cu
             cudaMemcpyAsync(d_b_strides, B.stride().strides.data(), b_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
             cudaMemcpyAsync(d_out_strides, output.stride().strides.data(), out_ndim * sizeof(size_t), cudaMemcpyHostToDevice, stream);
             
-             bool_leq_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
+             bool_or_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
                 a_ptr, b_ptr, output_ptr,
                 d_a_shape, d_b_shape, d_out_shape,
                 d_a_strides, d_b_strides, d_out_strides,
@@ -251,5 +136,4 @@ void cuda_bool_leq_outplace(const Tensor &A, const Tensor &B, Tensor &output, cu
         // }//✨✨✨
 }
 #endif // WITH_CUDA
-
 
