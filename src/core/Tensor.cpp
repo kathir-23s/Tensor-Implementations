@@ -287,7 +287,7 @@ namespace OwnTensor
 
     size_t Tensor::nbytes() const 
     {
-        return data_size_;
+        return numel() * size_t(dtype_); // data_size_
     }
 
     size_t Tensor::grad_nbytes() const {

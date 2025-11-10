@@ -6,6 +6,7 @@
 #include <sstream>
 #include <cmath>
 #include <limits>
+#include <cuda_runtime.h>
 
 #include "TensorLib.h"
 #include "ops/helpers/testutils.h"
@@ -109,22 +110,22 @@ static std::vector<double> ref_unary(const std::vector<double>& x, const std::st
 }
 
 static Tensor apply_unary(const Tensor& a, const std::string& op) {
-    if (op=="square") return square(a);
-    if (op=="sqrt") return sqrt(a);
-    if (op=="reciprocal") return reciprocal(a);
-    if (op=="negate") return negator(a);
-    if (op=="abs") return abs(a);
-    if (op=="sign") return sign(a);
+    if (op=="square") return square(a,0);
+    if (op=="sqrt") return sqrt(a, 0);
+    if (op=="reciprocal") return reciprocal(a, 0);
+    if (op=="negate") return neg(a, 0);
+    if (op=="abs") return abs(a, 0);
+    if (op=="sign") return sign(a, 0);
     throw std::runtime_error("Unknown op: " + op);
 }
 
 static void apply_unary_inplace(Tensor& a, const std::string& op) {
-    if (op=="square") square_(a);
-    else if (op=="sqrt") sqrt_(a);
-    else if (op=="reciprocal") reciprocal_(a);
-    else if (op=="negate") negator_(a);
-    else if (op=="abs") abs_(a);
-    else if (op=="sign") sign_(a);
+    if (op=="square") square_(a, 0);
+    else if (op=="sqrt") sqrt_(a, 0);
+    else if (op=="reciprocal") reciprocal_(a, 0);
+    else if (op=="negate") neg_(a, 0);
+    else if (op=="abs") abs_(a, 0);
+    else if (op=="sign") sign_(a, 0);
     else throw std::runtime_error("Unknown op: " + op);
 }
 
@@ -232,7 +233,7 @@ int main() {
                 auto ref = ref_unary(x, "sqrt");
                 auto t0 = std::chrono::high_resolution_clock::now();
                 Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-                Tensor y = sqrt(a);
+                Tensor y = sqrt(a, 0);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
                 report.add({ "domain/sqrt_negative(" + get_dtype_name(dt) + ")", ok, msg,
@@ -244,7 +245,7 @@ int main() {
                 auto ref = ref_unary(x, "reciprocal");
                 auto t0 = std::chrono::high_resolution_clock::now();
                 Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-                Tensor y = reciprocal(a);
+                Tensor y = reciprocal(a, 0);
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
                 report.add({ "domain/reciprocal_zero(" + get_dtype_name(dt) + ")", ok, msg,
@@ -264,7 +265,7 @@ int main() {
             auto ref = ref_unary(x, "square");
             auto t0 = std::chrono::high_resolution_clock::now();
             Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-            Tensor y = square(a);
+            Tensor y = square(a, 0);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
             report.add({ "overflow/square(" + get_dtype_name(dt) + ")", ok, msg,
@@ -319,7 +320,7 @@ int main() {
                 auto ref = ref_unary(x, "square");
                 auto t0 = std::chrono::high_resolution_clock::now();
                 Tensor a = make_tensor_cpu(x, idt, {(int64_t)x.size()});
-                Tensor y = square(a);  // Should output Float64
+                Tensor y = square(a, 0);  // Should output Float64
                 auto t1 = std::chrono::high_resolution_clock::now();
                 std::string msg; bool ok = (y.dtype() == Dtype::Float64);
                 if (ok) ok = check_tensor(y, ref, tol_for(Dtype::Float64), msg);
@@ -365,7 +366,7 @@ int main() {
             auto ref = ref_unary(x, "sign");
             auto t0 = std::chrono::high_resolution_clock::now();
             Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-            Tensor y = sign(a);
+            Tensor y = sign(a, 0);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
             report.add({ "sign/zero_handling(" + get_dtype_name(dt) + ")", ok, msg,
@@ -384,7 +385,7 @@ int main() {
             auto ref = ref_unary(x, "abs");
             auto t0 = std::chrono::high_resolution_clock::now();
             Tensor a = make_tensor_cpu(x, dt, {(int64_t)x.size()});
-            Tensor y = abs(a);
+            Tensor y = abs(a, 0);
             auto t1 = std::chrono::high_resolution_clock::now();
             std::string msg; bool ok = check_tensor(y, ref, tol_for(dt), msg);
             report.add({ "abs/mixed_signs(" + get_dtype_name(dt) + ")", ok, msg,

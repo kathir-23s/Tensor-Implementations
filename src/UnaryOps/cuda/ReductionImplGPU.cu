@@ -337,15 +337,16 @@ Tensor dispatch_mean_gpu(const Tensor& input,
 }
 // ═══════════════════════════════════════════════════════════
 // GPU VARIANCE REDUCTION DISPATCHER (COMPLETE IMPLEMENTATION)
-// ═══════════════════════════════════════════════════════════
+//═══════════════════════════════════════════════════════════
 
 template <typename T, template <typename> class VarianceOpType>
 Tensor dispatch_variance_gpu(const Tensor& input, 
                              const std::vector<int64_t>& normalized_axes, 
                              bool keepdim,
-                             int64_t correction, cudaStream_t stream) //✨✨✨
+                             int64_t correction, cudaStream_t stream) //✨✨✨ 
                              {
-     constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
+    constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
+    
     // ✅ STEP 1: Compute mean on GPU (always keepdim=true for variance)
     Tensor mean_tensor = is_nan_aware
         ? dispatch_mean_gpu<T, NanSumOp>(input, normalized_axes, true, stream)
@@ -386,19 +387,31 @@ Tensor dispatch_variance_gpu(const Tensor& input,
     }
     
     // ✅ STEP 3: Transfer metadata to device
-    DeviceArray d_input_dims(input_dims,stream); //✨✨✨
-    DeviceArray d_input_strides(input_strides,stream); //✨✨✨
-    DeviceArray d_output_dims(output_shape.dims,stream);//✨✨✨
-    DeviceArray d_normalized_axes(normalized_axes,stream);//✨✨✨
-    DeviceArray d_reduced_dims(reduced_dims,stream);//✨✨✨
+    DeviceArray d_input_dims(input_dims, stream);//✨✨✨
+    DeviceArray d_input_strides(input_strides, stream);//✨✨✨
+    DeviceArray d_output_dims(output_shape.dims, stream);//✨✨✨
+    DeviceArray d_normalized_axes(normalized_axes, stream);//✨✨✨
+    DeviceArray d_reduced_dims(reduced_dims, stream);//✨✨✨
 
     // ✅ STEP 4: Kernel configuration
     int threads_per_block = 256;
     int num_blocks = num_slices;
     
-    // Type conversion
+    // Type conversion for input
     using CudaT = CudaNativeType<T>;
     
+    // ✅ CRITICAL FIX: Determine the ACTUAL mean tensor type
+    // For integers: mean_tensor has dtype Float64, so mean is stored as double
+    // For floats: mean_tensor has same dtype as input
+    using MeanCppT = typename std::conditional<
+        std::is_integral_v<T>,
+        double,  // Integer inputs → Float64 mean
+        T        // Float inputs → same type mean
+    >::type;
+    
+    using MeanCudaT = CudaNativeType<MeanCppT>;
+    
+    // Output type
     using OutputCppT = typename std::conditional<
         std::is_integral_v<T>,
         double,
@@ -417,16 +430,19 @@ Tensor dispatch_variance_gpu(const Tensor& input,
         shared_mem_size = (threads_per_block / 32) * sizeof(T);
     }
     
-    // ✅ STEP 5: Cast pointers to native CUDA types
+    // ✅ STEP 5: Cast pointers to CORRECT native CUDA types
     const CudaT* input_data = reinterpret_cast<const CudaT*>(input.data<T>());
-    const CudaT* mean_data = reinterpret_cast<const CudaT*>(mean_tensor.data<T>());
+    
+    // ✅ FIX: Use the ACTUAL mean tensor type (not the input type!)
+    const MeanCudaT* mean_data = reinterpret_cast<const MeanCudaT*>(mean_tensor.data<MeanCppT>());
+    
     OutputCudaT* output_data = reinterpret_cast<OutputCudaT*>(output.data<OutputCppT>());
     
-    // ✅ STEP 6: LAUNCH THE VARIANCE KERNEL (THIS WAS MISSING!)
-    cuda::reduce_variance_kernel<CudaT, OutputCudaT, VarianceOpType>
+    // ✅ STEP 6: LAUNCH THE VARIANCE KERNEL
+    cuda::reduce_variance_kernel<CudaT, MeanCudaT, OutputCudaT, VarianceOpType>
         <<<num_blocks, threads_per_block, shared_mem_size, stream>>>(//✨✨✨
         input_data,
-        mean_data,           // Pre-computed mean
+        mean_data,           // Pre-computed mean (CORRECT TYPE!)
         output_data,
         d_input_dims.ptr,
         d_input_strides.ptr,

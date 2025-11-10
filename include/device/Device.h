@@ -19,3 +19,6 @@ namespace OwnTensor
         bool is_cuda() const { return device == Device::CUDA;}
     };
 }
+
+// Tensor(shape, dtype, (DeviceIndex(Device::CUDA), 0))
+// Tensor(shape, dtype, Device::CUDA);
