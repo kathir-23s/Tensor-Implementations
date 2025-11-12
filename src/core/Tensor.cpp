@@ -12,6 +12,8 @@
 #include <cuda_runtime.h>
 #include "device/DeviceCore.h"
 #include "core/Views/contiguous_kernel.h"
+#include "ops/helpers/ConversionKernels.cuh"
+
 #endif
 
 #ifdef WITH_DEBUG
@@ -563,7 +565,47 @@ namespace OwnTensor
         
         return (rank(a) > rank(b)) ? a : b;
     }
-
+Tensor Tensor::to_bool() const {
+    Tensor result({this->shape()}, TensorOptions()
+        .with_dtype(Dtype::Bool)
+        .with_device(this->device()));  // Preserve device
+    
+    if (this->is_cpu()) {
+        // CPU path - use existing OpenMP code
+        dispatch_by_dtype(this->dtype(), [&](auto T_val) {
+            using T = decltype(T_val);
+            const T* src = this->data<T>();
+            bool* dst = result.data<bool>();
+            
+            #pragma omp parallel for
+            for (size_t i = 0; i < this->numel(); ++i) {
+                dst[i] = (src[i] != T(0));
+            }
+        });
+    }
+#ifdef WITH_CUDA
+    else if (this->is_cuda()) {
+        dispatch_by_dtype(this->dtype(), [&](auto T_val) {
+            using T = decltype(T_val);
+            const T* src = this->data<T>();
+            bool* dst = result.data<bool>();
+            
+            cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+            
+            // Launch conversion kernel
+            convert_to_bool_cuda<T>(src, dst, this->numel(), stream);
+            
+            // ✅ Synchronization is ALREADY in convert_to_bool_cuda
+            // No need to sync again here (but it doesn't hurt)
+        });
+    }  // ✅ ADD THIS CLOSING BRACE
+#endif
+    else {
+        throw std::runtime_error("to_bool: Unknown device type");
+    }
+    
+    return result;
+}
     // Simple shape broadcasting check (for now, require exact match)
     static bool shapes_match(const Shape& a, const Shape& b) {
         if (a.dims.size() != b.dims.size()) return false;

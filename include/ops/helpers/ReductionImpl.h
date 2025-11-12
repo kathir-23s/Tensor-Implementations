@@ -17,16 +17,10 @@
 #include <numeric>
 #include <omp.h>
 
-<<<<<<< Updated upstream
-#ifdef WITH_CUDA
-
-#endif
-=======
 // #ifdef WITH_CUDA
 // #include "ReductionImplGPU.h" 
 // #endif
 
->>>>>>> Stashed changes
 
 namespace OwnTensor {
 namespace detail {
@@ -41,7 +35,6 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
                                      const std::vector<int64_t>& normalized_axes, 
                                      bool keepdim, cudaStream_t stream);//✨✨✨
 
-<<<<<<< Updated upstream
 template <typename T, template <typename> class SumOpType>
 Tensor dispatch_mean_gpu(const Tensor& input, 
                          const std::vector<int64_t>& normalized_axes, 
@@ -52,30 +45,6 @@ Tensor dispatch_variance_gpu(const Tensor& input,
                              bool keepdim,
                              int64_t correction,
                              cudaStream_t stream);//✨✨✨                        
-=======
-
-#ifdef WITH_CUDA
-
-// Forward declarations only (no implementation here!)
-template <typename T, template <typename> class OpType>
-Tensor dispatch_reduction_gpu(const Tensor& input, 
-                               const std::vector<int64_t>& normalized_axes, 
-                               bool keepdim,  cudaStream_t stream);
-
-template <typename T, template <typename> class OpType>
-Tensor dispatch_index_reduction_gpu(const Tensor& input, 
-                                     const std::vector<int64_t>& normalized_axes, 
-                                     bool keepdim,  cudaStream_t stream);
-
-template <typename T, template <typename> class SumOpType>
-Tensor dispatch_mean_gpu(const Tensor& input, 
-                         const std::vector<int64_t>& normalized_axes, 
-                         bool keepdim,  cudaStream_t stream);
-
-#endif // WITH_CUDA
-
-
->>>>>>> Stashed changes
 // =================================================================
 // HELPER: Check if we should use double accumulation for better precision
 // =================================================================
@@ -98,8 +67,9 @@ Tensor reduce_kernel(
 
     // 1. Determine output dtype
     Dtype output_dtype = input.dtype();
-    
-    if constexpr (std::is_same_v<AccT, ValueIndex<T>>) {
+    if constexpr (std::is_same_v<T, bool>) {
+        output_dtype = Dtype::Bool;  // ✅ Boolean operations return Bool
+    } else if constexpr (std::is_same_v<AccT, ValueIndex<T>>) {
         // Index reductions always output Int64
         output_dtype = Dtype::Int64;
     } else if constexpr (std::is_integral_v<T>) {
@@ -358,10 +328,6 @@ Tensor reduce_kernel(
     return output;
 }
 
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 
 // =================================================================
 // --- DISPATCHER TEMPLATES WITH TYPE VALIDATION ---
@@ -369,7 +335,17 @@ Tensor reduce_kernel(
 
 template <typename T, template <typename> class OpType>                                                 
 Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& normalized_axes, bool keepdim, cudaStream_t stream) {//✨✨✨
+    constexpr bool is_all_any_op = 
+        std::is_same_v<OpType<T>, AllOp<T>> ||
+        std::is_same_v<OpType<T>, AnyOp<T>>;
     
+    if constexpr (is_all_any_op && !std::is_same_v<T, bool>) {
+        // Convert non-Bool tensor to Bool tensor (0 → false, non-zero → true)
+        Tensor bool_input = input.to_bool();  // You need to implement this
+        
+        // Now call the Bool version
+        return dispatch_reduction<bool, OpType>(bool_input, normalized_axes, keepdim, stream);
+    }
     // ✅ CRITICAL: Validate that NaN operations are only used with floating point types
     constexpr bool is_nan_op = 
         std::is_same_v<OpType<T>, NanSumOp<T>> ||
@@ -396,6 +372,7 @@ Tensor dispatch_reduction(const Tensor& input, const std::vector<int64_t>& norma
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         // Route to GPU implementation
+   
         if constexpr (std::is_same_v<OpType<T>, ArgMaxOp<T>> || 
                       std::is_same_v<OpType<T>, ArgMinOp<T>> || 
                       std::is_same_v<OpType<T>, NanArgMaxOp<T>> || 
@@ -522,11 +499,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         
         return output;
         
-<<<<<<< Updated upstream
         } else {
-=======
-    } else {
->>>>>>> Stashed changes
     // Floating point: use double accumulation for FP16/BF16
     using AccT = typename std::conditional<
         should_use_double_accumulation<T>(),
@@ -693,20 +666,25 @@ Tensor dispatch_variance_kernel(const Tensor& input,
                                 bool keepdim,
                                 int64_t correction, cudaStream_t stream) {
     // Determine if this is NaN-aware variance
+    if constexpr (std::is_same_v<T, bool>) {
+        throw std::runtime_error(
+             "reduce_var: Bool dtype not supported for statistical operations."
+        );
+    }
     constexpr bool is_nan_aware = std::is_same_v<VarianceOpType<T>, NanVarianceOp<T>>;
     
-    // constexpr bool is_float_type = 
-    //     std::is_same_v<T, float> || 
-    //     std::is_same_v<T, double> ||
-    //     std::is_same_v<T, float16_t> ||
-    //     std::is_same_v<T, bfloat16_t>;
+    constexpr bool is_float_type = 
+        std::is_same_v<T, float> || 
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float16_t> ||
+        std::is_same_v<T, bfloat16_t>;
     
-    // if constexpr (is_nan_aware && !is_float_type) {
-    //     throw std::runtime_error(
-    //         "NaN-aware variance is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
-    //          "Got: " + get_dtype_name(input.dtype())
-    //     );
-    // }
+    if constexpr (is_nan_aware && !is_float_type) {
+        throw std::runtime_error(
+            "NaN-aware variance is only supported for floating point types (Float16, Bfloat16, Float32, Float64). "
+             "Got: " + get_dtype_name(input.dtype())
+        );
+    }
 #ifdef WITH_CUDA
     if (input.is_cuda()) {
         return dispatch_variance_gpu<T, VarianceOpType>(

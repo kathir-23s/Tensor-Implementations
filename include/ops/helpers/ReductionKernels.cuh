@@ -64,7 +64,6 @@ __device__ inline T shfl_down(T val, unsigned int delta) {
 // ✅ Specialization for __half (uses intrinsic shuffle)
 __device__ inline __half shfl_down(__half val, unsigned int delta) {
     return __shfl_down_sync(0xffffffff, val, delta, 32);
-<<<<<<< Updated upstream
 }
 
 // ✅ Specialization for __nv_bfloat16 (uses intrinsic shuffle)
@@ -72,15 +71,6 @@ __device__ inline __nv_bfloat16 shfl_down(__nv_bfloat16 val, unsigned int delta)
     return __shfl_down_sync(0xffffffff, val, delta, 32);
 }
 
-=======
-}
-
-// ✅ Specialization for __nv_bfloat16 (uses intrinsic shuffle)
-__device__ inline __nv_bfloat16 shfl_down(__nv_bfloat16 val, unsigned int delta) {
-    return __shfl_down_sync(0xffffffff, val, delta, 32);
-}
-
->>>>>>> Stashed changes
 // ═══════════════════════════════════════════════════════════
 // WARP-LEVEL REDUCTION (USES GPU INTRINSICS)
 // ═══════════════════════════════════════════════════════════
@@ -400,13 +390,8 @@ __global__ void reduce_mean_kernel(
     int ndim,
     int num_axes,
     int num_reduced_dims,
-<<<<<<< Updated upstream
     bool rank_preserved)
 {
-=======
-    bool rank_preserved
-){
->>>>>>> Stashed changes
     constexpr bool is_nan_aware = std::is_same_v<SumOpType<T>, detail::NanSumOp<T>>;
     constexpr bool is_half = std::is_same_v<T, __half> || std::is_same_v<T, __nv_bfloat16>;
 

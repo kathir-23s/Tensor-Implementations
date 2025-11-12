@@ -168,7 +168,7 @@ namespace OwnTensor
         bool is_cpu() const;
         bool is_cuda() const;
 
-
+        Tensor to_bool() const;
         //#######################################################
         // Memory Info
         //#######################################################
@@ -271,3 +271,4 @@ namespace OwnTensor
 #include "dtype/DtypeTraits.h"
 #include "core/TensorDataManip.h"
 #include "core/TensorDispatch.h"
+
