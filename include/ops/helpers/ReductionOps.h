@@ -226,15 +226,19 @@ template<typename T>
 struct AccumulatorTypeSelector {
     using type = T;
 };
-
+// Integer types use int64_t to prevent overflow
 template<> struct AccumulatorTypeSelector<int16_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int32_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<int64_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<uint16_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<uint32_t> { using type = int64_t; };
 template<> struct AccumulatorTypeSelector<uint64_t> { using type = int64_t; };
+// Half precision floats use float for better precision
 template<> struct AccumulatorTypeSelector<float16_t> { using type = float; };
 template<> struct AccumulatorTypeSelector<bfloat16_t> { using type = float; };
+// ✅ FIX: Bool should accumulate as int64_t (like PyTorch/NumPy)
+template<> struct AccumulatorTypeSelector<bool> { using type = int64_t; };
+
 
 #ifdef __CUDACC__
 template<> struct AccumulatorTypeSelector<__half> { using type = float; };
@@ -255,11 +259,18 @@ struct SumOp {
     DEVICE_HOST AccT identity() const { 
         return AccT(0); 
     }
-    
+   
     DEVICE_HOST AccT reduce(const AccT& a, const AccT& b) const { 
+        
         #ifdef __CUDA_ARCH__
         // ✅ GPU: Use intrinsics for half types
-         if constexpr (is_any_float_v<AccT>) {
+        // constexpr bool is_bool = std::is_same_v<AccT, bool>;
+        // if constexpr (is_bool) {
+        //     throw std::runtime_error(
+        //     "Sum reduction is not supported for Bool type."
+        // );    
+        // }
+        if constexpr (is_any_float_v<AccT>) {
             if (gpu_isnan(a)) return a;
             if (gpu_isnan(b)) return b;
         }
@@ -726,6 +737,36 @@ struct NanArgMaxOp {
 };
 
 
+
+// ═══════════════════════════════════════════════════════════
+// BOOLEAN REDUCTION OPERATIONS (Bool dtype only)
+// ═══════════════════════════════════════════════════════════
+
+template <typename T>
+struct AllOp {
+    using AccT = bool;  // Always accumulate as bool
+    
+    DEVICE_HOST bool identity() const { 
+        return true;  // Neutral element for AND operation
+    }
+    
+    DEVICE_HOST bool reduce(const bool& a, const bool& b) const {
+        return a && b;  // Logical AND
+    }
+};
+
+template <typename T>
+struct AnyOp {
+    using AccT = bool;  // Always accumulate as bool
+    
+    DEVICE_HOST bool identity() const { 
+        return false;  // Neutral element for OR operation
+    }
+    
+    DEVICE_HOST bool reduce(const bool& a, const bool& b) const {
+        return a || b;  // Logical OR
+    }
+};
 // ═══════════════════════════════════════════════════════════
 // REDUCTION TYPE DISPATCHER
 // ═══════════════════════════════════════════════════════════
@@ -742,7 +783,9 @@ enum class ReductionType {
     ARGMIN,
     ARGMAX,
     NANARGMIN,
-    NANARGMAX
+    NANARGMAX,
+     ALL,     
+    ANY   
 };
 
 template<ReductionType R, typename T>
@@ -760,7 +803,8 @@ template<typename T> struct ReductionOpSelector<ReductionType::ARGMIN, T> { usin
 template<typename T> struct ReductionOpSelector<ReductionType::ARGMAX, T> { using type = ArgMaxOp<T>; };
 template<typename T> struct ReductionOpSelector<ReductionType::NANARGMIN, T> { using type = NanArgMinOp<T>; };
 template<typename T> struct ReductionOpSelector<ReductionType::NANARGMAX, T> { using type = NanArgMaxOp<T>; };
-
+template<typename T> struct ReductionOpSelector<ReductionType::ALL, T> { using type = AllOp<T>; };
+template<typename T> struct ReductionOpSelector<ReductionType::ANY, T> { using type = AnyOp<T>; };
 } // namespace detail
 } // namespace OwnTensor
 

@@ -47,6 +47,28 @@ Tensor reduce_argmax(const Tensor& input, const std::vector<int64_t>& axes = {},
 // =================================================================
 Tensor reduce_nanargmin(const Tensor& input, const std::vector<int64_t>& axes = {}, bool keepdim = false, cudaStream_t stream = 0);//✨✨✨
 Tensor reduce_nanargmax(const Tensor& input, const std::vector<int64_t>& axes = {}, bool keepdim = false, cudaStream_t stream = 0);//✨✨✨
+
+// =================================================================
+// 5. Boolean Reductions (Bool dtype only)
+// =================================================================
+
+/** Check if all elements (or along axes) are true
+ * @param input Boolean tensor to reduce
+ * @param axes Dimensions to reduce over (empty = all dimensions)
+ * @param keepdim Keep reduced dimensions as size 1
+ * @return Boolean tensor with True where all elements are true
+ */
+Tensor reduce_all(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                  bool keepdim = false, cudaStream_t stream = 0);
+
+/** Check if any element (or along axes) is true
+ * @param input Boolean tensor to reduce
+ * @param axes Dimensions to reduce over (empty = all dimensions)
+ * @param keepdim Keep reduced dimensions as size 1
+ * @return Boolean tensor with True where any element is true
+ */
+Tensor reduce_any(const Tensor& input, const std::vector<int64_t>& axes = {}, 
+                  bool keepdim = false, cudaStream_t stream = 0);
 // =================================================================
 // VARIANCE & STANDARD DEVIATION OPERATIONS
 // =================================================================

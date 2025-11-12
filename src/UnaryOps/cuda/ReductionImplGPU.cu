@@ -61,7 +61,9 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     
     // Determine output dtype
     Dtype output_dtype;
-    if constexpr (std::is_integral_v<T>) {
+    if constexpr (std::is_same_v<T, bool>) {
+        output_dtype = Dtype::Bool;  // ✅ Boolean operations return Bool
+    } else if constexpr (std::is_integral_v<T>) {
         output_dtype = Dtype::Int64;
     } else {
         output_dtype = input.dtype();
@@ -586,15 +588,19 @@ template Tensor dispatch_variance_gpu<double, NanVarianceOp>(const Tensor& input
 
 //Boolean type - Basic operations only
 template Tensor dispatch_mean_gpu<bool, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
-template Tensor dispatch_variance_gpu<bool, VarianceOp>(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim , int64_t correction, cudaStream_t stream); //✨✨✨
-template Tensor dispatch_variance_gpu<bool, NanVarianceOp>(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim , int64_t correction, cudaStream_t stream); //✨✨✨
+// template Tensor dispatch_variance_gpu<bool, VarianceOp>(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim , int64_t correction, cudaStream_t stream); //✨✨✨
+// template Tensor dispatch_variance_gpu<bool, NanVarianceOp>(const Tensor& input, const std::vector<int64_t>& axes, bool keepdim , int64_t correction, cudaStream_t stream); //✨✨✨
 template Tensor dispatch_reduction_gpu<bool, SumOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 template Tensor dispatch_reduction_gpu<bool, MinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 template Tensor dispatch_reduction_gpu<bool, MaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 template Tensor dispatch_reduction_gpu<bool, ProductOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 template Tensor dispatch_index_reduction_gpu<bool, ArgMinOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨
 template Tensor dispatch_index_reduction_gpu<bool, ArgMaxOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);//✨✨✨   
+// Add to the Bool section at the end of the file
 
+// Boolean-specific reductions
+template Tensor dispatch_reduction_gpu<bool, AllOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);
+template Tensor dispatch_reduction_gpu<bool, AnyOp>(const Tensor&, const std::vector<int64_t>&, bool, cudaStream_t);
 #endif // WITH_CUDA
 
 } // namespace detail
