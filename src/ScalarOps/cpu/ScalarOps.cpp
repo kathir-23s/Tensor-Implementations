@@ -19,6 +19,7 @@ inline float load_u16_as_f32(uint16_t bits, Dtype dt) {
     return static_cast<float>(bits);
 }
 
+
 inline uint16_t store_f32_to_u16(float v, Dtype dt) {
     if (dt == Dtype::Float16)  return detail::float_to_float16(v);
     if (dt == Dtype::Bfloat16) return detail::float_to_bfloat16(v);
@@ -28,6 +29,7 @@ inline uint16_t store_f32_to_u16(float v, Dtype dt) {
 template <typename T>
 inline double ld(const T* p, size_t i, Dtype) { return static_cast<double>(p[i]); }
 
+
 template <>
 inline double ld<uint16_t>(const uint16_t* p, size_t i, Dtype dt) {
     return static_cast<double>(load_u16_as_f32(p[i], dt));
@@ -35,6 +37,7 @@ inline double ld<uint16_t>(const uint16_t* p, size_t i, Dtype dt) {
 
 template <typename T>
 inline void st(T* p, size_t i, double v, Dtype) { p[i] = static_cast<T>(v); }
+
 
 template <>
 inline void st<uint16_t>(uint16_t* p, size_t i, double v, Dtype dt) {
@@ -45,6 +48,7 @@ template <typename T, typename F>
 inline void apply_inplace(T* data, size_t n, Dtype dt, F&& f) {
     for (size_t i = 0; i < n; ++i) st<T>(data, i, f(ld<T>(data, i, dt)), dt);
 }
+
 
 template <typename T, typename F>
 inline void apply_copy(const T* src, T* dst, size_t n, Dtype dt, F&& f) {
@@ -83,6 +87,7 @@ inline void apply_div_cross_type(const SrcT* src, DstT* dst, size_t n, Dtype src
 } // anon
 
 // --------- Arithmetic ops (unchanged) ---------
+// --------- Arithmetic ops (unchanged) ---------
 void cpu_add_inplace(Tensor& t, double s) {
     const Dtype dt = t.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
@@ -90,12 +95,14 @@ void cpu_add_inplace(Tensor& t, double s) {
     });
 }
 
+
 void cpu_sub_inplace(Tensor& t, double s) {
     const Dtype dt = t.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
         apply_inplace<T>(t.data<T>(), t.numel(), dt, [=](double v){ return v - s; });
     });
 }
+
 
 void cpu_mul_inplace(Tensor& t, double s) {
     const Dtype dt = t.dtype();
@@ -133,6 +140,7 @@ Tensor cpu_add_copy(const Tensor& a, double s) {
     return out;
 }
 
+
 Tensor cpu_sub_copy(const Tensor& a, double s) {
     Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
     const Dtype dt = a.dtype();
@@ -141,6 +149,7 @@ Tensor cpu_sub_copy(const Tensor& a, double s) {
     });
     return out;
 }
+
 
 Tensor cpu_mul_copy(const Tensor& a, double s) {
     Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());

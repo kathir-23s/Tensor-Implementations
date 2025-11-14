@@ -1,5 +1,6 @@
 #include "core/Tensor.h"
 #include "device/Device.h"
+#include "device/DeviceCore.h"
 #include "ops/UnaryOps/Trigonometry.h"
 #include "ops/helpers/Trigonometry.hpp"
 #include <stdexcept>
@@ -152,6 +153,11 @@ Tensor atanh(const Tensor& input, cudaStream_t stream) { //✨✨✨
 
 // Basic trigonometric functions
 void sin_(Tensor& input, cudaStream_t stream) { //✨✨✨
+  if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"Sin inplace\" not implemented for 'Bool'"
+        );
+    } 
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         sin_in_cpu_wrap(input);
@@ -163,6 +169,11 @@ void sin_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void cos_(Tensor& input, cudaStream_t stream) { //✨✨✨
+   if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"cos inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         cos_in_cpu_wrap(input);
@@ -174,6 +185,11 @@ void cos_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void tan_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"tan inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         tan_in_cpu_wrap(input);
@@ -186,6 +202,11 @@ void tan_(Tensor& input, cudaStream_t stream) { //✨✨✨
 
 // Inverse trigonometric functions
 void asin_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"asin inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         asin_in_cpu_wrap(input);
@@ -197,6 +218,11 @@ void asin_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void acos_(Tensor& input, cudaStream_t stream) { //✨✨✨
+   if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"acos inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         acos_in_cpu_wrap(input);
@@ -208,6 +234,11 @@ void acos_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void atan_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"atan inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         atan_in_cpu_wrap(input);
@@ -220,6 +251,11 @@ void atan_(Tensor& input, cudaStream_t stream) { //✨✨✨
 
 // Hyperbolic functions
 void sinh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"sinh inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         sinh_in_cpu_wrap(input);
@@ -231,6 +267,11 @@ void sinh_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void cosh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"cosh inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         cosh_in_cpu_wrap(input);
@@ -242,6 +283,11 @@ void cosh_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void tanh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+   if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"tanh inplace\" not implemented for 'Bool'"
+        );
+    } 
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         tanh_in_cpu_wrap(input);
@@ -254,6 +300,11 @@ void tanh_(Tensor& input, cudaStream_t stream) { //✨✨✨
 
 // Inverse hyperbolic functions
 void asinh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"asinh inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         asinh_in_cpu_wrap(input);
@@ -265,6 +316,11 @@ void asinh_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void acosh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+   if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"acosh inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         acosh_in_cpu_wrap(input);
@@ -276,6 +332,11 @@ void acosh_(Tensor& input, cudaStream_t stream) { //✨✨✨
 }
 
 void atanh_(Tensor& input, cudaStream_t stream) { //✨✨✨
+   if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"atanh inplace\" not implemented for 'Bool'"
+        );
+    } 
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         atanh_in_cpu_wrap(input);
