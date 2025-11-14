@@ -40,16 +40,25 @@ namespace OwnTensor
         size_t b_ndim = b_dims.size();
         size_t max_ndim = std::max(a_ndim, b_ndim);
 
-        std::vector<int64_t> output_dims(max_ndim);  // CORRECT: int64_t matches your Shape
+        std::vector<int64_t> output_dims(max_ndim);
 
-        // CHECKING COMPATIBILITY - FIXED INDEXING
+        // Handle batch dimensions (all but last 2)
         for (size_t i = 0; i < max_ndim - 2; ++i) {
-            size_t a_idx = (a_ndim >= max_ndim - i) ? a_ndim - (max_ndim - i) : 0;
-            size_t b_idx = (b_ndim >= max_ndim - i) ? b_ndim - (max_ndim - i) : 0;
+            // Get batch dimension from A (right-aligned)
+            int64_t a_dim = 1;
+            if (i >= max_ndim - a_ndim) {
+                size_t a_idx = i - (max_ndim - a_ndim);
+                a_dim = a_dims[a_idx];
+            }
             
-            int64_t a_dim = (i < a_ndim - 2) ? a_dims[a_idx] : 1;
-            int64_t b_dim = (i < b_ndim - 2) ? b_dims[b_idx] : 1;
-
+            // Get batch dimension from B (right-aligned)  
+            int64_t b_dim = 1;
+            if (i >= max_ndim - b_ndim) {
+                size_t b_idx = i - (max_ndim - b_ndim);
+                b_dim = b_dims[b_idx];
+            }
+            
+            // Check broadcast compatibility
             if (a_dim != b_dim && a_dim != 1 && b_dim != 1) {
                 throw std::runtime_error("Incompatible batch dimensions for Matrix Multiplication");
             }
@@ -57,9 +66,20 @@ namespace OwnTensor
             output_dims[i] = std::max(a_dim, b_dim);
         }
 
-        // Matrix dimensions to output
-        output_dims[max_ndim - 2] = a_dims[a_ndim - 2];
-        output_dims[max_ndim - 1] = b_dims[b_ndim - 1];
+        // Set matrix dimensions (last 2 dimensions)
+        if (a_ndim >= 2) {
+            output_dims[max_ndim - 2] = a_dims[a_ndim - 2];
+        }
+        if (b_ndim >= 2) {
+            output_dims[max_ndim - 1] = b_dims[b_ndim - 1];
+        }
+
+        // std::cout << "DEBUG: Output shape = [";
+        // for (size_t i = 0; i < output_dims.size(); ++i) {
+        //     std::cout << output_dims[i];
+        //     if (i != output_dims.size() - 1) std::cout << ", ";
+        // }
+        std::cout << "]" << std::endl;
 
         Shape output_shape = {output_dims};
         Tensor output(output_shape, A.dtype(), A.device(), A.requires_grad());

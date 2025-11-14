@@ -48,8 +48,8 @@ namespace OwnTensor
                 
                 for (size_t i = 0; i < batch_dims; ++i) 
                 {
-                    size_t a_dim_idx = (i < a_ndim - 2 && a_shape[i] > 1) ? batch_idx[batch_dims - 1 - i] : 0;
-                    size_t b_dim_idx = (i < b_ndim - 2 && b_shape[i] > 1) ? batch_idx[batch_dims - 1 - i] : 0;
+                    size_t a_dim_idx = (i < a_ndim - 2 && a_shape[i] > 1) ? batch_idx[i] : 0;
+                    size_t b_dim_idx = (i < b_ndim - 2 && b_shape[i] > 1) ? batch_idx[i] : 0;
                     
                     a_batch_offset += a_dim_idx * a_strides[i];
                     b_batch_offset += b_dim_idx * b_strides[i];
@@ -101,17 +101,3 @@ namespace OwnTensor
     }
 }
             
-
-// Old while loop logic and it is replaced with a better approach that takes for just 2D matrices without batches better
-            // Increment batch indices
-        //     size_t dim = batch_dims - 1;
-        //     while (dim >= 0) {
-        //         batch_idx[dim]++;
-        //         if (batch_idx[dim] < out_shape[dim]) {
-        //             break;
-        //         }
-        //         batch_idx[dim] = 0;
-        //         dim--;
-        //     }
-        //     if (dim < 0) break;
-        // }});
