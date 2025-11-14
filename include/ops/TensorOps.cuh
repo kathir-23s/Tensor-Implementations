@@ -32,5 +32,6 @@ void cuda_logical_or_outplace( const Tensor& A, const Tensor& B, Tensor & output
 void cuda_logical_xor_outplace( const Tensor& A, const Tensor& B, Tensor & output, cudaStream_t stream = 0);//✨✨✨
 void cuda_logical_not_outplace( const Tensor& A, Tensor & output, cudaStream_t stream = 0);//✨✨✨
 
+
 #endif
 }//✨✨✨
