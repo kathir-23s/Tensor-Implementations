@@ -8,6 +8,7 @@
 #include "core/Tensor.h"
 #include "core/TensorDispatch.h"
 #include "dtype/Types.h"
+#include "dtype/DtypeTraits.h"  // ✅ For get_division_output_dtype
 
 namespace OwnTensor {
 namespace { // file-local CUDA helpers & kernels
@@ -66,6 +67,15 @@ inline void ckerr(const char* where) {
     if (e != cudaSuccess) throw std::runtime_error(std::string(where) + ": " + cudaGetErrorString(e));
 }
 
+// ✅ Helper to determine promoted dtype for division (HOST function)
+inline Dtype get_division_output_dtype(Dtype input_dtype) {
+    if (input_dtype == Dtype::Bool) return Dtype::Float32;
+    if (input_dtype == Dtype::Int16 || input_dtype == Dtype::Int32 || input_dtype == Dtype::Int64) {
+        return Dtype::Float32;
+    }
+    return input_dtype;  // Float types stay the same
+}
+
 // ============================================================================
 // ARITHMETIC KERNELS (In-place)
 // ============================================================================
@@ -91,7 +101,7 @@ __global__ void k_div_inplace(T* d, float s, size_t n, int fmt) {
 }
 
 // ============================================================================
-// ARITHMETIC KERNELS (Copy)
+// ARITHMETIC KERNELS (Copy - same type)
 // ============================================================================
 template<typename T>
 __global__ void k_add_copy(const T* a, T* o, float s, size_t n, int fmt) {
@@ -114,6 +124,15 @@ __global__ void k_div_copy(const T* a, T* o, float s, size_t n, int fmt) {
         stf<T>(o, i, ldf<T>(a, i, fmt) / s, fmt);
 }
 
+// ✅ NEW: Cross-type division kernel (SrcT → DstT)
+template<typename SrcT, typename DstT>
+__global__ void k_div_copy_cross(const SrcT* a, DstT* o, float s, size_t n, int src_fmt, int dst_fmt) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x) {
+        float val = ldf<SrcT>(a, i, src_fmt) / s;
+        stf<DstT>(o, i, val, dst_fmt);
+    }
+}
+
 template<typename T>
 __global__ void k_sub_copy_scalar_tensor(const T* a, T* o, float s, size_t n, int fmt) {
     for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x)
@@ -130,8 +149,23 @@ __global__ void k_div_copy_scalar_tensor(const T* a, T* o, float s, size_t n, in
     }
 }
 
+// ✅ NEW: Cross-type scalar/tensor division
+template<typename SrcT, typename DstT>
+__global__ void k_div_copy_scalar_tensor_cross(const SrcT* a, DstT* o, float s, size_t n, 
+                                                 int src_fmt, int dst_fmt, int* flag) {
+    for (size_t i = blockIdx.x*blockDim.x + threadIdx.x; i < n; i += blockDim.x*gridDim.x) {
+        if constexpr (std::is_integral_v<SrcT>) {
+            if (src_fmt == 0 && a[i] == (SrcT)0) { 
+                if (flag) atomicExch(flag, 1); 
+            }
+        }
+        float val = s / ldf<SrcT>(a, i, src_fmt);
+        stf<DstT>(o, i, val, dst_fmt);
+    }
+}
+
 // ============================================================================
-// ✅ FIXED COMPARISON KERNELS - Write to uint8_t* (bool storage)
+// COMPARISON KERNELS (Write to uint8_t* - unchanged)
 // ============================================================================
 template<typename T>
 __global__ void k_eq_copy(const T* a, uint8_t* o, float s, size_t n, int fmt) {
@@ -214,7 +248,6 @@ inline void launch_inplace(Tensor& t, double s, Kernel k, cudaStream_t stream) {
     ckerr("scalar inplace");
 }
 
-// ✅ NEW: Launch helper for comparison kernels (writes to uint8_t*)
 template <typename T, typename Kernel>
 inline void launch_copy_to_bool(const Tensor& a, Tensor& out, double s, Kernel k, cudaStream_t stream) {
     const size_t n = a.numel();
@@ -239,8 +272,20 @@ void cuda_sub_inplace(Tensor& t, double s, cudaStream_t stream) {
 void cuda_mul_inplace(Tensor& t, double s, cudaStream_t stream) {
     dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_mul_inplace<T>, stream); });
 }
+
+// ✅ FIXED: Check promotion before in-place division
 void cuda_div_inplace(Tensor& t, double s, cudaStream_t stream) {
-    dispatch_by_dtype(t.dtype(), [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_div_inplace<T>, stream); });
+    Dtype dt = t.dtype();
+    Dtype promoted_dt = get_division_output_dtype(dt);
+    
+    if (promoted_dt != dt) {
+        throw std::runtime_error(
+            "In-place division /= requires float dtype. Input is " + 
+            get_dtype_name(dt) + " but needs " + get_dtype_name(promoted_dt)
+        );
+    }
+    
+    dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d); launch_inplace<T>(t, s, k_div_inplace<T>, stream); });
 }
 
 // ============================================================================
@@ -261,9 +306,39 @@ Tensor cuda_mul_copy(const Tensor& a, double s, cudaStream_t stream) {
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_mul_copy<T>, stream); });
     return out;
 }
+
+// ✅ FIXED: Division promotes to Float32 for integers/bool
 Tensor cuda_div_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_div_copy<T>, stream); });
+    const Dtype input_dt = a.dtype();
+    const Dtype output_dt = get_division_output_dtype(input_dt);
+    
+    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    
+    if (input_dt == output_dt) {
+        // Same type - use original kernel
+        dispatch_by_dtype(input_dt, [&](auto d){ 
+            using T = decltype(d); 
+            launch_copy<T>(a, out, s, k_div_copy<T>, stream); 
+        });
+    } else {
+        // Cross-type (Int16/Bool → Float32)
+        const size_t n = a.numel();
+        const dim3 block = dim3(256), grid = pick_grid(n, block);
+        const int src_fmt = half_fmt(input_dt);
+        const int dst_fmt = half_fmt(output_dt);
+        
+        dispatch_by_dtype(input_dt, [&](auto d_in) {
+            using SrcT = decltype(d_in);
+            dispatch_by_dtype(output_dt, [&](auto d_out) {
+                using DstT = decltype(d_out);
+                k_div_copy_cross<SrcT, DstT><<<grid, block, 0, stream>>>(
+                    a.data<SrcT>(), out.data<DstT>(), (float)s, n, src_fmt, dst_fmt
+                );
+            });
+        });
+        ckerr("scalar div copy cross-type");
+    }
+    
     return out;
 }
 
@@ -273,32 +348,55 @@ Tensor cuda_sub_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t strea
     return out;
 }
 
+// ✅ FIXED: Scalar / Tensor also promotes
 Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
-    dispatch_by_dtype(a.dtype(), [&](auto d){
-        using T = decltype(d);
-        const size_t n = a.numel();
-        const dim3 block = dim3(256), grid = pick_grid(n, block);
-        const int fmt = half_fmt(a.dtype());
-
-        int host_flag = 0;
-        int* dev_flag = nullptr;
-        cudaMalloc(&dev_flag, sizeof(int));
-        cudaMemsetAsync(dev_flag, 0, sizeof(int), stream);
-
-        k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag);
-        ckerr("k_div_copy_scalar_tensor");
-
-        cudaMemcpyAsync(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost, stream);
-        cudaFree(dev_flag);
-
-        if (host_flag) throw std::runtime_error("Division by zero in scalar / integer tensor");
-    });
+    const Dtype input_dt = a.dtype();
+    const Dtype output_dt = get_division_output_dtype(input_dt);
+    
+    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    
+    const size_t n = a.numel();
+    const dim3 block = dim3(256), grid = pick_grid(n, block);
+    
+    int host_flag = 0;
+    int* dev_flag = nullptr;
+    cudaMalloc(&dev_flag, sizeof(int));
+    cudaMemsetAsync(dev_flag, 0, sizeof(int), stream);
+    
+    if (input_dt == output_dt) {
+        dispatch_by_dtype(input_dt, [&](auto d){
+            using T = decltype(d);
+            const int fmt = half_fmt(input_dt);
+            k_div_copy_scalar_tensor<T><<<grid, block, 0, stream>>>(
+                a.data<T>(), out.data<T>(), (float)s, n, fmt, dev_flag
+            );
+        });
+    } else {
+        const int src_fmt = half_fmt(input_dt);
+        const int dst_fmt = half_fmt(output_dt);
+        
+        dispatch_by_dtype(input_dt, [&](auto d_in) {
+            using SrcT = decltype(d_in);
+            dispatch_by_dtype(output_dt, [&](auto d_out) {
+                using DstT = decltype(d_out);
+                k_div_copy_scalar_tensor_cross<SrcT, DstT><<<grid, block, 0, stream>>>(
+                    a.data<SrcT>(), out.data<DstT>(), (float)s, n, src_fmt, dst_fmt, dev_flag
+                );
+            });
+        });
+    }
+    
+    ckerr("k_div_copy_scalar_tensor");
+    cudaMemcpyAsync(&host_flag, dev_flag, sizeof(int), cudaMemcpyDeviceToHost, stream);
+    cudaFree(dev_flag);
+    
+    if (host_flag) throw std::runtime_error("Division by zero in scalar / tensor");
+    
     return out;
 }
 
 // ============================================================================
-// ✅ PUBLIC CUDA BACKEND - COMPARISON OPERATORS (FIXED)
+// PUBLIC CUDA BACKEND - COMPARISON OPERATORS (unchanged)
 // ============================================================================
 Tensor cuda_eq_copy(const Tensor& a, double s, cudaStream_t stream) {
     Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
