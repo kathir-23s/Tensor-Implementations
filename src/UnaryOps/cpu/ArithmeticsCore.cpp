@@ -135,6 +135,11 @@ Tensor reciprocal_out_cpu_wrap(const Tensor& input_tensor) {
 }
 
 void reciprocal_in_cpu_wrap(Tensor& input_tensor) {
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"reciprocal\" not implemented for 'Bool'"
+        );
+    }
     if (input_tensor.dtype() == Dtype::Int16 || input_tensor.dtype() == Dtype::Int32 || input_tensor.dtype() == Dtype::Int64) {
         throw std::invalid_argument("In-place reciprocal requires floating point tensor");
     }
@@ -144,32 +149,62 @@ void reciprocal_in_cpu_wrap(Tensor& input_tensor) {
 }
 
 // ============================================================================
-// NEGATION
+// NEGATION - Now throws error for Bool tensors (matching PyTorch)
 // ============================================================================
 
 Tensor negator_out_cpu_wrap(const Tensor& input_tensor) {
+    // PyTorch behavior: neg() not supported for Bool tensors
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "Negation, the `-` operator, on a bool tensor is not supported. "
+            "If you are trying to invert a mask, use the `~` or `logical_not()` operator instead."
+        );
+    }
+    
     auto float_fn = [](float x) { return -x; };
     auto double_fn = [](double x) { return -x; };
     return generic_unary_out_cpu(input_tensor, input_tensor.dtype(), float_fn, double_fn);
 }
 
 void negator_in_cpu_wrap(Tensor& input_tensor) {
+    // PyTorch behavior: neg() not supported for Bool tensors
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "Negation, the `-` operator, on a bool tensor is not supported. "
+            "If you are trying to invert a mask, use the `~` or `logical_not()` operator instead."
+        );
+    }
+    
     auto float_fn = [](float x) { return -x; };
     auto double_fn = [](double x) { return -x; };
     generic_unary_in_cpu(input_tensor, float_fn, double_fn);
 }
 
 // ============================================================================
-// ABSOLUTE
+// ABSOLUTE - Now throws error for Bool tensors (matching PyTorch)
 // ============================================================================
 
 Tensor absolute_out_cpu_wrap(const Tensor& input_tensor) {
+    // PyTorch behavior: abs() not implemented for Bool tensors
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"abs_cpu\" not implemented for 'Bool'"
+        );
+    }
+    
     auto float_fn = [](float x) { return fabsf(x); };
     auto double_fn = [](double x) { return std::fabs(x); };
     return generic_unary_out_cpu(input_tensor, input_tensor.dtype(), float_fn, double_fn);
 }
 
 void absolute_in_cpu_wrap(Tensor& input_tensor) {
+    // PyTorch behavior: abs() not implemented for Bool tensors
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"abs_cpu\" not implemented for 'Bool'"
+        );
+    }
+    
     auto float_fn = [](float x) { return fabsf(x); };
     auto double_fn = [](double x) { return std::fabs(x); };
     generic_unary_in_cpu(input_tensor, float_fn, double_fn);
@@ -186,6 +221,11 @@ Tensor sign_out_cpu_wrap(const Tensor& input_tensor) {
 }
 
 void sign_in_cpu_wrap(Tensor& input_tensor) {
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"sign\" not implemented for 'Bool'"
+        );
+    }
     auto float_fn = [](float x) { return (x > 0.0f) ? 1.0f : ((x < 0.0f) ? -1.0f : 0.0f); };
     auto double_fn = [](double x) { return (x > 0.0) ? 1.0 : ((x < 0.0) ? -1.0 : 0.0); };
     generic_unary_in_cpu(input_tensor, float_fn, double_fn);
@@ -208,6 +248,12 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, int exponent) {
 }
 
 void power_in_cpu_wrap(Tensor& input_tensor, int exponent) {
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"pow\" not implemented for 'Bool'"
+        );
+    }
+    
     if(exponent < 0) {
         throw std::runtime_error(
             "Inplace power operations with negative exponents are not supported. "
@@ -236,14 +282,11 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, float exponent) {
 }
 
 void power_in_cpu_wrap([[maybe_unused]] Tensor& input_tensor,[[maybe_unused]] float exponent) {
-    // auto float_fn = [exponent](float x) { 
-    //     return safe_pow(x, exponent); 
-    // };
-    // auto double_fn = [exponent](double x) { 
-    //     return safe_pow(x, static_cast<double>(exponent)); 
-    // };
-    // generic_unary_in_cpu(input_tensor, float_fn, double_fn);
-    // [[maybe_unused]]
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"pow\" not implemented for 'Bool'"
+        );
+    }
     throw std::runtime_error(
             "Inplace power operations is accepted only for int exponent values. "
             "Use out-of-place power operation instead."
@@ -263,17 +306,15 @@ Tensor power_out_cpu_wrap(const Tensor& input_tensor, double exponent) {
 }
 
 void power_in_cpu_wrap([[maybe_unused]]Tensor& input_tensor, [[maybe_unused]]double exponent) {
-    // auto float_fn = [exponent](float x) { 
-    //     return safe_pow(x, static_cast<float>(exponent)); 
-    // };
-    // auto double_fn = [exponent](double x) { 
-    //     return safe_pow(x, exponent); 
-    // };
-    // generic_unary_in_cpu(input_tensor, float_fn, double_fn);
+    if (input_tensor.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"pow\" not implemented for 'Bool'"
+        );
+    }
     throw std::runtime_error(
             "Inplace power operations is accepted only for int exponent values. "
             "Use out-of-place power operation instead."
         );
 }
 
-} // namespace OwnTensora
+} // namespace OwnTensor

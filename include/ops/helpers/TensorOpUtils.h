@@ -8,10 +8,10 @@ namespace OwnTensor
     template <typename func>
     void apply_binary_operation(const Tensor& A, const Tensor& B, Tensor& output, func op)
     {
-        if (A.dtype() != B.dtype() || A.dtype() != output.dtype())
-        {
-            throw std::runtime_error("Tensor datatypes are not matching");
-        }
+        // if (A.dtype() != B.dtype() || A.dtype() != output.dtype())
+        // {
+        //     throw std::runtime_error("Tensor datatypes are not matching");
+        // }
         
         bool needs_broadcasting = (A.shape().dims != B.shape().dims);
         size_t total_elems = output.numel();
@@ -93,10 +93,10 @@ namespace OwnTensor
     template <typename func>
     void apply_binary_op_bool(const Tensor& A, const Tensor& B, Tensor& output, func op)
     {
-        if (A.dtype() != B.dtype() )
-        {
-            throw std::runtime_error("Tensor datatypes are not matching");
-        }
+        // if (A.dtype() != B.dtype() )
+        // {
+        //     throw std::runtime_error("Tensor datatypes are not matching");
+        // }
         
         bool needs_broadcasting = (A.shape().dims != B.shape().dims);
         size_t total_elems = output.numel();

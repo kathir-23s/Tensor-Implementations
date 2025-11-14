@@ -88,6 +88,8 @@ static auto dispatch_gpu_dtype(Dtype dtype, Func&& f) {
         case Dtype::Int16: return f(int16_t{});
         case Dtype::Int32: return f(int32_t{});
         case Dtype::Int64: return f(int64_t{});
+        //Boolean
+        case Dtype::Bool: return f(uint8_t{});
         // Floating point types
         case Dtype::Float32: return f(float{});
         case Dtype::Float64: return f(double{});
