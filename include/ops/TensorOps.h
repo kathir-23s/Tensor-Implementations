@@ -22,10 +22,10 @@ namespace OwnTensor {
 
     //Logical operations
     // Element-wise logical operations
-    Tensor logical_and(const Tensor& a, const Tensor& b);
-    Tensor logical_or(const Tensor& a, const Tensor& b);
-    Tensor logical_xor(const Tensor& a, const Tensor& b);
-    Tensor logical_not(const Tensor& a);
+    Tensor logical_AND(const Tensor& a, const Tensor& b);
+    Tensor logical_OR(const Tensor& a, const Tensor& b);
+    Tensor logical_XOR(const Tensor& a, const Tensor& b);
+    Tensor logical_NOT(const Tensor& a);
     
     
 }

@@ -9,6 +9,7 @@ inline constexpr Dtype get_promoted_dtype(Dtype input_dtype) {
     switch (input_dtype) {
         case Dtype::Int16:
         case Dtype::Int32:
+        case Dtype::Bool:
             return Dtype::Float32;
         case Dtype::Int64:
             return Dtype::Float64;
@@ -54,16 +55,16 @@ inline void convert_float32_to_half(const Tensor& float_tensor, Tensor& output) 
 }
 
 // Promote to Float64 for square operation
-inline constexpr Dtype get_promoted_dtype_float64(Dtype input_dtype) {
-    switch (input_dtype) {
-        case Dtype::Int16:
-        case Dtype::Int32:
-        case Dtype::Int64:
-            return Dtype::Float64;
-        default:
-            return input_dtype; // no promotion for float types
-    }
-}
+// inline constexpr Dtype get_promoted_dtype_float64(Dtype input_dtype) {
+//     switch (input_dtype) {
+//         case Dtype::Int16:
+//         case Dtype::Int32:
+//         case Dtype::Int64:
+//             return Dtype::Float64;
+//         default:
+//             return input_dtype; // no promotion for float types
+//     }
+// }
 
 // promote dtype for square (Int -> Float64)
 inline Dtype get_promoted_dtype_square(Dtype input_dtype) {
@@ -71,6 +72,7 @@ inline Dtype get_promoted_dtype_square(Dtype input_dtype) {
         case Dtype::Int16:
         case Dtype::Int32:
         case Dtype::Int64:
+        case Dtype::Bool:
             return Dtype::Float64;
         default:
             return input_dtype;
