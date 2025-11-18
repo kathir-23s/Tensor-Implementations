@@ -16,13 +16,15 @@ namespace OwnTensor
     struct Shape
     {
         std::vector<int64_t> dims;
-         // Define the equality operator for Shape objects
-        bool operator==(const Shape& other) const {
+        // Define the equality operator for Shape objects
+        bool operator==(const Shape& other) const
+        {
             return dims == other.dims; // This uses the std::vector::operator==
         }
 
         // Optionally, define the inequality operator explicitly (less common, usually implicit)
-        bool operator!=(const Shape& other) const {
+        bool operator!=(const Shape& other) const
+        {
             return !(*this == other);
         }
     };
@@ -67,7 +69,7 @@ namespace OwnTensor
 
     class Tensor
     {
-        public:
+    public:
         //#######################################################
         // Constructor
         //#######################################################
@@ -80,8 +82,9 @@ namespace OwnTensor
         Tensor(Shape shape, TensorOptions opts);
 
         //✨✨✨
-        Tensor(Shape shape, bool requires_grad)
-        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad) {}
+        Tensor(Shape shape, bool requires_grad = false)
+            : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad)
+        { }
 
         Tensor() = default;
 
@@ -110,7 +113,8 @@ namespace OwnTensor
         const void* grad() const { return grad_ptr_.get(); }
 
         // ✨✨✨
-        void reset() {
+        void reset()
+        {
             data_ptr_.reset(); // This is the key line!
             shape_.dims.clear();
             stride_.strides.clear();
@@ -136,26 +140,30 @@ namespace OwnTensor
         //#######################################################
         // In the public section or as standalone function
         template<typename Func1, typename Func2, typename... Args>
-        static Tensor cond(bool pred, Func1 true_fn, Func2 false_fn, Args&&... operands) {
-            if (pred) {
+        static Tensor cond(bool pred, Func1 true_fn, Func2 false_fn, Args&&... operands)
+        {
+            if (pred)
+            {
                 return true_fn(std::forward<Args>(operands)...);
-            } else {
+            }
+            else
+            {
                 return false_fn(std::forward<Args>(operands)...);
             }
         }
 
         // Element-wise where operation - must be in header (inline or template)
         static Tensor where(const Tensor& condition, const Tensor& input, const Tensor& other);
-        
+
         // Overload for scalar input
         static Tensor where(const Tensor& condition, float input_scalar, const Tensor& other);
-        
+
         // Overload for scalar other
         static Tensor where(const Tensor& condition, const Tensor& input, float other_scalar);
-        
+
         // Overload for both scalars
         static Tensor where(const Tensor& condition, float input_scalar, float other_scalar);
-        
+
         // Single argument version (returns indices where condition is true)
         static std::vector<Tensor> where(const Tensor& condition);
 
@@ -237,27 +245,27 @@ namespace OwnTensor
         Tensor as_type(Dtype new_dtype) const;
 
 
-        private:
-            Shape shape_;
-            Stride stride_;
-            Dtype dtype_;
-            DeviceIndex device_;
-            bool requires_grad_;
+    private:
+        Shape shape_;
+        Stride stride_;
+        Dtype dtype_;
+        DeviceIndex device_;
+        bool requires_grad_;
 
-            // Data Storage using Shared Pointers for Auto Management
-            std::shared_ptr<uint8_t[]> data_ptr_;
-            std::shared_ptr<uint8_t[]> grad_ptr_;
+        // Data Storage using Shared Pointers for Auto Management
+        std::shared_ptr<uint8_t[]> data_ptr_;
+        std::shared_ptr<uint8_t[]> grad_ptr_;
 
-            // OWNERSHIP FLAGS
-            bool owns_data_ = true;
-            bool owns_grad_ = true;
+        // OWNERSHIP FLAGS
+        bool owns_data_ = true;
+        bool owns_grad_ = true;
 
-            // Size Informations
-            size_t storage_offset_ = 0;
-            size_t data_size_ = 0;
+        // Size Informations
+        size_t storage_offset_ = 0;
+        size_t data_size_ = 0;
 
 
-            Tensor(std::shared_ptr<uint8_t[]> data_ptr,
+        Tensor(std::shared_ptr<uint8_t[]> data_ptr,
             Shape shape,
             Stride stride,
             size_t offset,

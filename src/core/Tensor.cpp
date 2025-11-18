@@ -273,7 +273,7 @@ namespace OwnTensor
 
     size_t Tensor::nbytes() const 
     {
-        return numel() * size_t(dtype_); // data_size_
+        return numel() * dtype_size(dtype_); // data_size_
     }
 
     size_t Tensor::grad_nbytes() const {
@@ -466,15 +466,21 @@ namespace OwnTensor
         
         // Materialize non-contiguous source
         const Tensor* src_ptr = &src;
-        if (!src.is_contiguous() || src.storage_offset_ != 0) {
-            Tensor src_contig = src.contiguous();
+        Tensor src_contig;
+        if (!src.is_contiguous() ) {
+            src_contig = src.contiguous();
             src_ptr = &src_contig;
         }
         try {
             device::copy_memory(
-                data(), device_.device,           // destination ptr and device
-                src_ptr->data(), src_ptr->device_.device,  // source ptr and device
-                nbytes()
+                // data(), device_.device,           // destination ptr and device
+                // src_ptr->data(), src_ptr->device_.device,  // source ptr and device
+                // nbytes()
+                this->data(), 
+                this->device_.device,           // destination ptr and device
+                src_ptr->data(), 
+                src_ptr->device_.device,  // source ptr and device
+                src_ptr->nbytes()
             );
         } catch (const std::exception& e) {
             throw std::runtime_error(std::string("copy_ failed: ") + e.what());

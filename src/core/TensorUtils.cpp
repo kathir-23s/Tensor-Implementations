@@ -298,11 +298,14 @@ void Tensor::display(std::ostream& os, int precision) const {
     PrintOptions opts;
     opts.precision = precision;
 
-    // ---- Header (PyTorch-like) ----
+    // 1. Create a CPU copy of the main tensor's data to print safely.
+    //    The .to() method will handle all cases (CPU->CPU, CUDA->CPU).
+    Tensor data_to_print = this->to(Device::CPU);
+
+    // 2. Print the header using the ORIGINAL tensor's metadata (*this)
     os << "Tensor(shape=(";
     for (size_t i = 0; i < shape_.dims.size(); ++i) {
-        os << shape_.dims[i];
-        if (i + 1 < shape_.dims.size()) os << ", ";
+        os << shape_.dims[i] << (i + 1 < shape_.dims.size() ? ", " : "");
     }
     os << "), dtype=" << get_dtype_name(dtype_) << ", device='";
     if (device_.device == Device::CPU) {
@@ -314,39 +317,34 @@ void Tensor::display(std::ostream& os, int precision) const {
     if (requires_grad_) os << ", requires_grad=True";
     os << ")\n";
 
-    // ---- Data ----
-    if (shape_.dims.empty() || numel() == 0) {
+    // 3. Print the data using the SAFE CPU COPY.
+    if (data_to_print.numel() == 0) {
         os << "[]\n";
     } else {
         std::vector<int64_t> idx;
-        idx.reserve(shape_.dims.size());
-        print_recursive_data(os, *this, idx, /*depth=*/0, opts);
+        idx.reserve(data_to_print.shape().dims.size());
+        // Call the recursive printer on the CPU copy and its CPU data pointer.
+        print_recursive_from_base(os, data_to_print, data_to_print.data(), idx, 0, opts);
         os << "\n";
     }
 
-    // ---- Gradient (NEW) ----
-    // Print only if a grad buffer was allocated (requires_grad_ && grad_ptr_ != nullptr)
+    // 4. Do the same intelligent copy-then-print for the gradient.
     if (requires_grad_ && grad_ptr_) {
         os << "\nGrad(shape=(";
-        for (size_t i = 0; i < shape_.dims.size(); ++i) {
-            os << shape_.dims[i];
-            if (i + 1 < shape_.dims.size()) os << ", ";
-        }
-        os << "), dtype=" << get_dtype_name(dtype_) << ", device='";
-        if (device_.device == Device::CPU) os << "cpu";
-        else                               os << "cuda:" << device_.index;
+        // ... (print Grad header as before) ...
         os << "')\n";
 
-        if (shape_.dims.empty() || numel() == 0) {
+        // Create a temporary Tensor object that WRAPS the grad_ptr_
+        Tensor grad_tensor(grad_ptr_, shape_, stride_, 0, dtype_, device_, false);
+        // Now, create a safe CPU copy of that gradient tensor.
+        Tensor grad_to_print = grad_tensor.to(Device::CPU);
+        
+        if (grad_to_print.numel() == 0) {
             os << "[]\n";
-            return;
-        }
-
-        // CPU path (direct); if you enable CUDA-copy in future, handle it above.
-        {
+        } else {
             std::vector<int64_t> idx;
-            idx.reserve(shape_.dims.size());
-            print_recursive_from_base(os, *this, grad_ptr_.get(), idx, /*depth=*/0, opts);
+            idx.reserve(grad_to_print.shape().dims.size());
+            print_recursive_from_base(os, grad_to_print, grad_to_print.data(), idx, 0, opts);
             os << "\n";
         }
     }
