@@ -69,6 +69,11 @@ Tensor log10(const Tensor& input, cudaStream_t stream) {//✨✨✨
 // High-Level API - In-Place Operations
 // ============================================================================
 void exp_(Tensor& input, cudaStream_t stream) {//✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"exp inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         exp_in_cpu_wrap(input);
@@ -80,6 +85,11 @@ void exp_(Tensor& input, cudaStream_t stream) {//✨✨✨
 }
 
 void exp2_(Tensor& input, cudaStream_t stream) {//✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"exp2 inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         exp2_in_cpu_wrap(input);
@@ -91,6 +101,11 @@ void exp2_(Tensor& input, cudaStream_t stream) {//✨✨✨
 }
 
 void log_(Tensor& input, cudaStream_t stream) {//✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"log inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         log_in_cpu_wrap(input);
@@ -102,6 +117,11 @@ void log_(Tensor& input, cudaStream_t stream) {//✨✨✨
 }
 
 void log2_(Tensor& input, cudaStream_t stream) {//✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"log2 inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         log2_in_cpu_wrap(input);
@@ -113,6 +133,11 @@ void log2_(Tensor& input, cudaStream_t stream) {//✨✨✨
 }
 
 void log10_(Tensor& input, cudaStream_t stream) {//✨✨✨
+    if (input.dtype() == Dtype::Bool) {
+        throw std::runtime_error(
+            "NotImplementedError: \"log10 inplace\" not implemented for 'Bool'"
+        );
+    }
     const auto& dev = input.device();
     if (dev.is_cpu()) {
         log10_in_cpu_wrap(input);

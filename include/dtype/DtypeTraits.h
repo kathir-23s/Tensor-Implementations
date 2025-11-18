@@ -207,28 +207,43 @@ namespace OwnTensor {
         }
     }
 
-    //For  type promotion in binary ops
-    inline Dtype promote_dtypes_bool(Dtype a, Dtype b) {
-    // If both are same, return either
+   // ═══════════════════════════════════════════════════════════
+// PYTORCH-COMPATIBLE TYPE PROMOTION RULES
+// ═══════════════════════════════════════════════════════════
+
+inline Dtype promote_dtypes_bool(Dtype a, Dtype b) {
+    // Rule 1: If both are same type, return that type
     if (a == b) return a;
     
-    // Type hierarchy: Float > Int > Bool
-    // If either is float, result is float (promote to higher precision)
+    // Rule 2: Floating point always wins (highest precision first)
     if (a == Dtype::Float64 || b == Dtype::Float64) return Dtype::Float64;
     if (a == Dtype::Float32 || b == Dtype::Float32) return Dtype::Float32;
     if (a == Dtype::Float16 || b == Dtype::Float16) return Dtype::Float16;
     if (a == Dtype::Bfloat16 || b == Dtype::Bfloat16) return Dtype::Bfloat16;
     
-    // If either is int, result is int (promote to larger size)
+    // Rule 3: Integer promotion (largest size wins)
     if (a == Dtype::Int64 || b == Dtype::Int64) return Dtype::Int64;
     if (a == Dtype::Int32 || b == Dtype::Int32) return Dtype::Int32;
     if (a == Dtype::Int16 || b == Dtype::Int16) return Dtype::Int16;
     
-    // Both are bool
+    // Rule 4: Bool + Bool = Bool
     return Dtype::Bool;
 }
 
-
+// ✅ NEW: Special promotion for division (always promotes to float)
+inline Dtype promote_dtypes_division(Dtype a, Dtype b) {
+    // ✅ CRITICAL: Division always promotes to float to avoid integer division issues
+    
+    // If either is already float, use normal promotion
+    if (a == Dtype::Float64 || b == Dtype::Float64) return Dtype::Float64;
+    if (a == Dtype::Float32 || b == Dtype::Float32) return Dtype::Float32;
+    if (a == Dtype::Float16 || b == Dtype::Float16) return Dtype::Float16;
+    if (a == Dtype::Bfloat16 || b == Dtype::Bfloat16) return Dtype::Bfloat16;
+    
+    // ✅ Otherwise, promote integers and bool to Float32
+    // This matches PyTorch's behavior: Int16 / Bool → Float32
+    return Dtype::Float32;
+}
 } // namespace OwnTensor
 
 #endif // DTYPE_TRAIT_H
