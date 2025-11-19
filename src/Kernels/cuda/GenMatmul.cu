@@ -37,23 +37,54 @@ namespace OwnTensor {
         size_t b_batch_offset = 0;
         size_t out_batch_offset = 0;
 
+        // size_t temp_batch = batch_idx;
+        // for (int dim = out_ndim - 3; dim >= 0; --dim) {
+            //     size_t batch_dim_size = out_shape[dim];
+            //     size_t batch_coord = temp_batch % batch_dim_size;
+            //     temp_batch /= batch_dim_size;
+            
+            //     // Calculate offsets using the actual batch coordinates
+            //     if (dim < a_ndim - 2) {
+                //         a_batch_offset += batch_coord * a_strides[dim];
+                //     }
+                //     if (dim < b_ndim - 2) {
+                    //         b_batch_offset += batch_coord * b_strides[dim];
+                    //     }
+                    //     out_batch_offset += batch_coord * out_strides[dim];
+                    // }
+                    
         // FIXED: Proper batch offset calculation
         size_t temp_batch = batch_idx;
-        for (int dim = out_ndim - 3; dim >= 0; --dim) {
+        for (int dim = out_ndim - 3; dim >= 0; --dim)
+        {
             size_t batch_dim_size = out_shape[dim];
             size_t batch_coord = temp_batch % batch_dim_size;
             temp_batch /= batch_dim_size;
-            
-            // Calculate offsets using the actual batch coordinates
-            if (dim < a_ndim - 2) {
-                a_batch_offset += batch_coord * a_strides[dim];
-            }
-            if (dim < b_ndim - 2) {
-                b_batch_offset += batch_coord * b_strides[dim];
-            }
-            out_batch_offset += batch_coord * out_strides[dim];
-        }
 
+            out_batch_offset += batch_coord * out_strides[dim];
+
+            // RIGHT-ALIGNED: Calculating corresponding dimensions for A and B
+            size_t a_corres_dim = dim - (out_ndim - 2 - (a_ndim - 2));
+            size_t b_corres_dim = dim - (out_ndim - 2 - (b_ndim - 2));
+
+            // For A and B: Right aligned broadcasting rules
+            
+            if (dim >= out_ndim - 2 - (a_ndim - 2))
+            {
+                size_t a_dim_size = a_shape[a_corres_dim];
+                size_t a_idx = (a_dim_size > 1) ? batch_coord : 0;
+                a_batch_offset += a_idx * a_strides[a_corres_dim];
+            }
+
+            if (dim >= out_ndim - 2 - (b_ndim - 2))
+            {
+                size_t b_dim_size = b_shape[b_corres_dim];
+                size_t b_idx = (b_dim_size > 1) ? batch_coord : 0;
+                b_batch_offset += b_idx * b_strides[b_corres_dim];
+            } 
+        }
+                    
+                    
         T sum{};
         for (size_t k = 0; k < n; ++k) {
             size_t a_idx = a_batch_offset + i * a_strides[a_ndim - 2] + k * a_strides[a_ndim - 1];
@@ -85,26 +116,26 @@ namespace OwnTensor {
         if (i >= m || j >= p) return;
 
         // Calculate batch offsets
-size_t a_batch_offset = 0;
-size_t b_batch_offset = 0;
-size_t out_batch_offset = 0;
+        size_t a_batch_offset = 0;
+        size_t b_batch_offset = 0;
+        size_t out_batch_offset = 0;
 
-// FIXED: Proper batch offset calculation
-size_t temp_batch = batch_idx;
-for (int dim = out_ndim - 3; dim >= 0; --dim) {
-    size_t batch_dim_size = out_shape[dim];
-    size_t batch_coord = temp_batch % batch_dim_size;
-    temp_batch /= batch_dim_size;
-    
-    // Calculate offsets using the actual batch coordinates
-    if (dim < a_ndim - 2) {
-        a_batch_offset += batch_coord * a_strides[dim];
-    }
-    if (dim < b_ndim - 2) {
-        b_batch_offset += batch_coord * b_strides[dim];
-    }
-    out_batch_offset += batch_coord * out_strides[dim];
-}
+        // FIXED: Proper batch offset calculation
+        size_t temp_batch = batch_idx;
+        for (int dim = out_ndim - 3; dim >= 0; --dim) {
+            size_t batch_dim_size = out_shape[dim];
+            size_t batch_coord = temp_batch % batch_dim_size;
+            temp_batch /= batch_dim_size;
+            
+            // Calculate offsets using the actual batch coordinates
+            if (dim < a_ndim - 2) {
+                a_batch_offset += batch_coord * a_strides[dim];
+            }
+            if (dim < b_ndim - 2) {
+                b_batch_offset += batch_coord * b_strides[dim];
+            }
+            out_batch_offset += batch_coord * out_strides[dim];
+        }
 
         float sum = 0.0f;
         for (size_t k = 0; k < n; ++k) {
