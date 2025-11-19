@@ -236,6 +236,12 @@ namespace OwnTensor
         Tensor& copy_(const Tensor& src);
         Tensor as_type(Dtype new_dtype) const;
 
+        //######################################################
+        // Memory Deletion 
+        //######################################################
+        void release();
+        bool is_valid() const;
+
 
         private:
             Shape shape_;
@@ -271,4 +277,3 @@ namespace OwnTensor
 #include "dtype/DtypeTraits.h"
 #include "core/TensorDataManip.h"
 #include "core/TensorDispatch.h"
-

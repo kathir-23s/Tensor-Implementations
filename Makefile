@@ -95,4 +95,4 @@ rebuild:
 .PHONY: clean
 clean:
 	@echo "--- Cleaning up build files ---"
-	rm -rf $(OBJDIR) $(TARGET_A) $(TARGET_SO)
+	rm -rf $(OBJDIR) $(TARGET_A) $(TARGET_SO) 
