@@ -9,7 +9,7 @@ LIBDIR := lib
 TARGET_A := $(LIBDIR)/libtensor.a
 TARGET_SO := $(LIBDIR)/libtensor.so
 
-CPPFLAGS = -Iinclude -I/usr/local/cuda/include -DWITH_CUDA
+CPPFLAGS = -Iinclude -I/usr/local/cuda/include -DWITH_CUDA $(MACROS)
 CXXFLAGS = -std=c++20 -fPIC -Wall -Wextra -g -fopenmp
 NVCCFLAGS = -std=c++20 -Xcompiler="-fPIC" -arch=sm_86 -g
 
@@ -20,7 +20,7 @@ LDLIBS = -lcudart -ltbb -lcurand
 # =============================================================================
 # File Discovery (Automatic)
 # =============================================================================
-CPP_SOURCES := $(shell find $(SRCDIR) -name '*.cpp')
+CPP_SOURCES := $(shell find $(SRCDIR) mlp -name '*.cpp')
 CU_SOURCES := $(shell find $(SRCDIR) -name '*.cu')
 
 CU_SOURCES_FOR_DLINK := \

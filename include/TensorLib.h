@@ -6,15 +6,6 @@
 #include "core/Tensor.h"
 
 
-// Device Management
-
-// Core Library Includes
-#include "device/AllocatorRegistry.h"
-
-// Datatype and Traits
-#include "dtype/DtypeTraits.h"
-#include "dtype/Types.h"
-
 // Operations
 #include "ops/UnaryOps/Arithmetics.h"
 #include "ops/UnaryOps/Exponents.h"
@@ -24,10 +15,7 @@
 #include "ops/ScalarOps.h"
 #include "ops/TensorOps.h"
 #include "ops/Kernels.h"
-// #include "ops/TensorOpUtils.h"
 
-// Reductions Utils
-
-
+#include "mlp/activations.h"
 
 #endif // TOPS_LIB_H

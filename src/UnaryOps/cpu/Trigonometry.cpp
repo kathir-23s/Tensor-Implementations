@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 namespace OwnTensor {
-
+namespace Trig {
 // ============================================================================
 // High-Level API - Out-of-Place Trigonometric Operations
 // ============================================================================
@@ -346,5 +346,5 @@ void atanh_(Tensor& input, cudaStream_t stream) { //✨✨✨
         throw std::runtime_error("Unsupported device for atanh_");
     }
 }
-
+}
 } // namespace OwnTensor

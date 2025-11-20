@@ -8,6 +8,7 @@
 #endif //✨✨✨
 
 namespace OwnTensor{
+    namespace Trig {
 // ============================================================
 // Out-of-place trigonometric functions
 // ============================================================
@@ -55,5 +56,5 @@ void tanh_(Tensor& input, cudaStream_t stream = 0);
 void asinh_(Tensor& input, cudaStream_t stream = 0);
 void acosh_(Tensor& input, cudaStream_t stream = 0);
 void atanh_(Tensor& input, cudaStream_t stream = 0);
-
+}
 } // namespace OwnTensor

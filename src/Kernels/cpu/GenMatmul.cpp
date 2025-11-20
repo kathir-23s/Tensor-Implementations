@@ -74,11 +74,6 @@ namespace OwnTensor
             output_dims[max_ndim - 1] = b_dims[b_ndim - 1];
         }
 
-        // std::cout << "DEBUG: Output shape = [";
-        // for (size_t i = 0; i < output_dims.size(); ++i) {
-        //     std::cout << output_dims[i];
-        //     if (i != output_dims.size() - 1) std::cout << ", ";
-        // }
         std::cout << "]" << std::endl;
 
         Shape output_shape = {output_dims};
