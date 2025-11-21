@@ -53,4 +53,4 @@ Trigonometryfiles/
 CUDA_Computation_Tests
 *.tldr
 currently_working_on/
-mlp_tests/
+# mlp_tests/

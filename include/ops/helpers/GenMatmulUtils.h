@@ -107,7 +107,7 @@ namespace OwnTensor
 
                 const auto& a_shape = A.shape().dims;
                 const auto& b_shape = B.shape().dims;
-                const auto& out_shape = output.shape().dims;
+                [[maybe_unused]] const auto& out_shape = output.shape().dims;
 
                 size_t a_ndim = a_shape.size();
                 size_t b_ndim = b_shape.size();

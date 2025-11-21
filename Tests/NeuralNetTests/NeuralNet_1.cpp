@@ -53,7 +53,7 @@ void test_mlp_forward_pass() {
 
     
     // Activation (tanh)
-    Tensor a1 = tanh(h1);
+    Tensor a1 = Trig::tanh(h1);
     // a1.display(std::cout, 12);
 
     // Layer 2: a1 @ W2 + b2  
