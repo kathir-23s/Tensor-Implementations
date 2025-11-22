@@ -78,8 +78,8 @@ namespace OwnTensor
         // for (size_t i = 0; i < output_dims.size(); ++i) {
         //     std::cout << output_dims[i];
         //     if (i != output_dims.size() - 1) std::cout << ", ";
+        // std::cout << "]" << std::endl;
         // }
-        std::cout << "]" << std::endl;
 
         Shape output_shape = {output_dims};
         Tensor output(output_shape, A.dtype(), A.device(), A.requires_grad());

@@ -11,7 +11,7 @@ TARGET_SO := $(LIBDIR)/libtensor.so
 
 CPPFLAGS = -Iinclude -I/usr/local/cuda/include -DWITH_CUDA
 CXXFLAGS = -std=c++20 -fPIC -Wall -Wextra -g -fopenmp
-NVCCFLAGS = -std=c++20 -Xcompiler="-fPIC" -arch=sm_86 -g
+NVCCFLAGS = -std=c++20 -Xcompiler="-fPIC" -arch=sm_86 -g --generate-line-info
 
 RPATH = -Xlinker -rpath -Xlinker '$$ORIGIN/lib'
 LDFLAGS = -L/usr/local/cuda/lib64 -L$(LIBDIR) $(RPATH)
