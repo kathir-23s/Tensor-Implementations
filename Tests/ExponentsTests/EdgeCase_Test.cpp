@@ -37,7 +37,7 @@ static bool almost_equal(double a, double b, const Tolerances& t) {
 
 // ------------------------- tensor helpers -------------------------
 static Tensor make_tensor_cpu(const std::vector<double>& vals, Dtype dt, const std::vector<int64_t>& shape) {
-    Tensor t(Shape{shape}, dt, DeviceIndex(Device::CPU), /*requires_grad=*/false); // [file:3][file:2]
+    Tensor t(Shape{shape}, dt, DeviceIndex(Device::CPU)); // [file:3][file:2]
     switch (dt) {
         case Dtype::Float16: {
             auto* p = t.data<float16_t>();

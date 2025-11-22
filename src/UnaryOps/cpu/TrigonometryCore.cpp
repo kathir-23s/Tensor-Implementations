@@ -59,7 +59,7 @@ Tensor generic_trigonometric_out_cpu(const Tensor& input_tensor) {
     if (input_tensor.dtype() == Dtype::Bfloat16 || input_tensor.dtype() == Dtype::Float16) {
         Dtype original_dtype = input_tensor.dtype();
         Tensor temp_input = convert_half_to_float32(input_tensor);
-        Tensor temp_output(input_tensor.shape(), Dtype::Float32, input_tensor.device(), input_tensor.requires_grad());
+        Tensor temp_output(input_tensor.shape(), Dtype::Float32, input_tensor.device());
         
         unary_kernel_cpu<float, float, FloatFunc>(
             temp_input.data<float>(),
@@ -67,14 +67,14 @@ Tensor generic_trigonometric_out_cpu(const Tensor& input_tensor) {
             input_tensor.numel()
         );
         
-        Tensor output(input_tensor.shape(), original_dtype, input_tensor.device(), input_tensor.requires_grad());
+        Tensor output(input_tensor.shape(), original_dtype, input_tensor.device());
         convert_float32_to_half(temp_output, output);
         return output;
     }
     
     // Determine output dtype (promote integers)
     Dtype output_dtype = get_promoted_dtype(input_tensor.dtype());
-    Tensor output(input_tensor.shape(), output_dtype, input_tensor.device(), input_tensor.requires_grad());
+    Tensor output(input_tensor.shape(), output_dtype, input_tensor.device());
     
     // Use dispatch_by_dtype to handle input dtype
     dispatch_by_dtype(input_tensor.dtype(), [&](auto in_type_instance) {
@@ -112,7 +112,7 @@ void generic_trigonometric_in_cpu(Tensor& input_tensor) {
     if (input_tensor.dtype() == Dtype::Bfloat16 || input_tensor.dtype() == Dtype::Float16) {
         [[maybe_unused]] Dtype original_dtype = input_tensor.dtype();
         Tensor temp_input = convert_half_to_float32(input_tensor);
-        Tensor temp_output(input_tensor.shape(), Dtype::Float32, input_tensor.device(), input_tensor.requires_grad());
+        Tensor temp_output(input_tensor.shape(), Dtype::Float32, input_tensor.device());
         
         unary_kernel_cpu<float, float, FloatFunc>(
             temp_input.data<float>(),

@@ -30,12 +30,12 @@ Tensor generic_unary_out_cpu(const Tensor& input_tensor, Dtype output_dtype,
     if (input_tensor.dtype() == Dtype::Bfloat16 || input_tensor.dtype() == Dtype::Float16) {
         Tensor temp = convert_half_to_float32(input_tensor);
         Tensor result = generic_unary_out_cpu(temp, Dtype::Float32, float_op, double_op);
-        Tensor output(input_tensor.shape(), input_tensor.dtype(), input_tensor.device(), input_tensor.requires_grad());
+        Tensor output(input_tensor.shape(), input_tensor.dtype(), input_tensor.device());
         convert_float32_to_half(result, output);
         return output;
     }
     
-    Tensor output(input_tensor.shape(), output_dtype, input_tensor.device(), input_tensor.requires_grad());
+    Tensor output(input_tensor.shape(), output_dtype, input_tensor.device());
     
     dispatch_by_dtype(input_tensor.dtype(), [&](auto in_type_instance) {
         using T_In = decltype(in_type_instance);

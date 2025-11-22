@@ -73,7 +73,7 @@ Tensor dispatch_reduction_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(input.requires_grad()));
+        );
     
     // Setup metadata
     const std::vector<int64_t>& input_dims = input.shape().dims;
@@ -176,7 +176,7 @@ Tensor dispatch_index_reduction_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(Dtype::Int64)
         .with_device(input.device())
-        .with_req_grad(input.requires_grad()));
+        );
     
     const std::vector<int64_t>& input_dims = input.shape().dims;
     const std::vector<int64_t>& input_strides = input.stride().strides;
@@ -268,7 +268,7 @@ Tensor dispatch_mean_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(input.requires_grad()));
+        );
     
     const std::vector<int64_t>& input_dims = input.shape().dims;
     const std::vector<int64_t>& input_strides = input.stride().strides;
@@ -370,7 +370,7 @@ Tensor dispatch_variance_gpu(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(input.requires_grad()));
+        );
     
     // Setup metadata
     const std::vector<int64_t>& input_dims = input.shape().dims;

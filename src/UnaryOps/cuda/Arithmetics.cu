@@ -367,7 +367,7 @@ void dispatch_gpu_kernel(Dtype dtype, const void* in, void* out, size_t n, cudaS
 
 Tensor square_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
     Dtype out_dtype = promote_for_square(input.dtype());
-    Tensor output(input.shape(), out_dtype, input.device(), input.requires_grad());
+    Tensor output(input.shape(), out_dtype, input.device());
     size_t n = input.numel();
     int threads = 256;
     int blocks = (n + threads - 1) / threads;
@@ -407,7 +407,7 @@ void square_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
 
 Tensor square_root_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
     Dtype out_dtype = promote_for_float_result(input.dtype());
-    Tensor output(input.shape(), out_dtype, input.device(), input.requires_grad());
+    Tensor output(input.shape(), out_dtype, input.device());
     size_t n = input.numel();
     int threads = 256;
     int blocks = (n + threads - 1) / threads;
@@ -452,7 +452,7 @@ void square_root_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
 template<typename ExpT>
 Tensor power_out_gpu_wrap_impl(const Tensor& input, ExpT exponent, cudaStream_t stream) {
     Dtype out_dtype = promote_for_float_result(input.dtype());
-    Tensor output(input.shape(), out_dtype, input.device(), input.requires_grad());
+    Tensor output(input.shape(), out_dtype, input.device());
     size_t n = input.numel();
     int threads = 256;
     int blocks = (n + threads - 1) / threads;
@@ -543,7 +543,7 @@ void power_in_gpu_wrap(Tensor& input, double exponent, cudaStream_t stream) {
 
 Tensor reciprocal_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
     Dtype out_dtype = promote_for_float_result(input.dtype());
-    Tensor output(input.shape(), out_dtype, input.device(), input.requires_grad());
+    Tensor output(input.shape(), out_dtype, input.device());
     size_t n = input.numel();
     int threads = 256;
     int blocks = (n + threads - 1) / threads;
@@ -594,7 +594,7 @@ Tensor negator_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
         );
     }
     
-    Tensor output(input.shape(), input.dtype(), input.device(), input.requires_grad());
+    Tensor output(input.shape(), input.dtype(), input.device());
     size_t n = input.numel();
     dispatch_gpu_kernel(input.dtype(), input.data(), output.data(), n, stream,
         negate_kernel_gpu<int16_t>, negate_kernel_gpu<int32_t>, negate_kernel_gpu<int64_t>,
@@ -631,7 +631,7 @@ Tensor absolute_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
         );
     }
     
-    Tensor output(input.shape(), input.dtype(), input.device(), input.requires_grad());
+    Tensor output(input.shape(), input.dtype(), input.device());
     size_t n = input.numel();
     dispatch_gpu_kernel(input.dtype(), input.data(), output.data(), n, stream,
         abs_kernel_gpu<int16_t>, abs_kernel_gpu<int32_t>, abs_kernel_gpu<int64_t>,
@@ -660,7 +660,7 @@ void absolute_in_gpu_wrap(Tensor& input, cudaStream_t stream) {
 // ============================================================================
 
 Tensor sign_out_gpu_wrap(const Tensor& input, cudaStream_t stream) {
-    Tensor output(input.shape(), input.dtype(), input.device(), input.requires_grad());
+    Tensor output(input.shape(), input.dtype(), input.device());
     size_t n = input.numel();
     dispatch_gpu_kernel(input.dtype(), input.data(), output.data(), n, stream,
         sign_kernel_gpu<int16_t>, sign_kernel_gpu<int32_t>, sign_kernel_gpu<int64_t>,

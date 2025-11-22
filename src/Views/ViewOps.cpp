@@ -28,8 +28,7 @@ Tensor Tensor::view(Shape new_shape) const {
                   new_stride,           // New strides
                   storage_offset_,      // Same offset
                   dtype_,               // Same dtype
-                  device_,              // Same device
-                  requires_grad_);      // Same requires_grad
+                  device_);      // Same device
 }
 
 Tensor Tensor::reshape(Shape new_shape) const {
@@ -44,7 +43,7 @@ Tensor Tensor::reshape(Shape new_shape) const {
         Stride new_stride = ViewUtils::compute_strides(new_shape);
         return Tensor(
             data_ptr_, new_shape, new_stride, storage_offset_,
-            dtype_, device_, requires_grad_
+            dtype_, device_
         );
     }
     // materialize contiguous copy on same device then view it
@@ -52,7 +51,7 @@ Tensor Tensor::reshape(Shape new_shape) const {
     Stride new_stride = ViewUtils::compute_strides(new_shape);
     return Tensor(
         base.data_ptr_, new_shape, new_stride, base.storage_offset_,
-        base.dtype_, base.device_, base.requires_grad_
+        base.dtype_, base.device_
     );
 }
 
@@ -65,7 +64,7 @@ Tensor Tensor::transpose(int dim0, int dim1) const
         // No-op: return a view with identical metadata
         return Tensor(
             data_ptr_, shape_, stride_, storage_offset_,
-            dtype_, device_, requires_grad_
+            dtype_, device_
         );
     }
 
@@ -75,7 +74,7 @@ Tensor Tensor::transpose(int dim0, int dim1) const
 
     return Tensor(
         data_ptr_, new_shape, new_stride, storage_offset_,
-        dtype_, device_, requires_grad_
+        dtype_, device_
     );
 }
 
@@ -98,14 +97,14 @@ Tensor Tensor::flatten(int start_dim, int end_dim) const
         Stride new_stride = ViewUtils::compute_strides(new_shape);
         return Tensor(
             data_ptr_, new_shape, new_stride, storage_offset_,
-            dtype_, device_, requires_grad_
+            dtype_, device_
         );
     } else {
         Tensor base = contiguous();
         Stride new_stride = ViewUtils::compute_strides(new_shape);
         return Tensor(
             base.data_ptr_, new_shape, new_stride, base.storage_offset_,
-            base.dtype_, base.device_, base.requires_grad_
+            base.dtype_, base.device_
         );
     }
 }
@@ -123,7 +122,7 @@ Tensor Tensor::unflatten(int dim, Shape sizes) const
 
     return Tensor(
         data_ptr_, new_shape, new_stride, storage_offset_,
-        dtype_, device_, requires_grad_
+        dtype_, device_
     );
 }
 

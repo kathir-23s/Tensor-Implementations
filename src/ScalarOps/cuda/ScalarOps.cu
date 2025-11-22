@@ -292,17 +292,17 @@ void cuda_div_inplace(Tensor& t, double s, cudaStream_t stream) {
 // PUBLIC CUDA BACKEND - ARITHMETIC (Copy)
 // ============================================================================
 Tensor cuda_add_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_add_copy<T>, stream); });
     return out;
 }
 Tensor cuda_sub_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy<T>, stream); });
     return out;
 }
 Tensor cuda_mul_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_mul_copy<T>, stream); });
     return out;
 }
@@ -312,7 +312,7 @@ Tensor cuda_div_copy(const Tensor& a, double s, cudaStream_t stream) {
     const Dtype input_dt = a.dtype();
     const Dtype output_dt = get_division_output_dtype(input_dt);
     
-    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    Tensor out(a.shape(), output_dt, a.device());
     
     if (input_dt == output_dt) {
         // Same type - use original kernel
@@ -343,7 +343,7 @@ Tensor cuda_div_copy(const Tensor& a, double s, cudaStream_t stream) {
 }
 
 Tensor cuda_sub_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy<T>(a, out, s, k_sub_copy_scalar_tensor<T>, stream); });
     return out;
 }
@@ -353,7 +353,7 @@ Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t strea
     const Dtype input_dt = a.dtype();
     const Dtype output_dt = get_division_output_dtype(input_dt);
     
-    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    Tensor out(a.shape(), output_dt, a.device());
     
     const size_t n = a.numel();
     const dim3 block = dim3(256), grid = pick_grid(n, block);
@@ -399,61 +399,61 @@ Tensor cuda_div_copy_scalar_tensor(double s, const Tensor& a, cudaStream_t strea
 // PUBLIC CUDA BACKEND - COMPARISON OPERATORS (unchanged)
 // ============================================================================
 Tensor cuda_eq_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_eq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_neq_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_neq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_geq_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_geq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_leq_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_leq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_gt_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_gt_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_lt_copy(const Tensor& a, double s, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_lt_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_s_geq_copy(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_s_geq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_s_leq_copy(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_s_leq_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_s_gt_copy(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_s_gt_copy<T>, stream); });
     return out;
 }
 
 Tensor cuda_s_lt_copy(double s, const Tensor& a, cudaStream_t stream) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     dispatch_by_dtype(a.dtype(), [&](auto d){ using T = decltype(d); launch_copy_to_bool<T>(a, out, s, k_s_lt_copy<T>, stream); });
     return out;
 }

@@ -77,7 +77,7 @@ Tensor reduce_kernel(
         output_dtype = Dtype::Int64;
     } 
     
-    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_device(input.device()).with_req_grad(input.requires_grad()));
+    Tensor output({output_shape}, TensorOptions().with_dtype(output_dtype).with_device(input.device()));
 
     // 2. Setup
     const T* input_data = input.data<T>();
@@ -442,7 +442,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
 
     if constexpr (std::is_integral_v<T>) {
         // Integers output Float64
-        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_device(input.device()).with_req_grad(input.requires_grad()));
+        Tensor output({output_shape}, TensorOptions().with_dtype(Dtype::Float64).with_device(input.device()));
         
         const T* input_data = input.data<T>();
         const std::vector<int64_t>& input_dims = input.shape().dims;
@@ -635,7 +635,7 @@ Tensor dispatch_mean_kernel(const Tensor& input, const std::vector<int64_t>& nor
         // The previous code had a bug here.
         // We ensure the output Tensor's data type matches the original T
         // if constexpr (should_use_double_accumulation<T>()) {
-        //     Tensor final_output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
+        //     Tensor final_output({output_shape}, TensorOptions().with_dtype(input.dtype()));
         //     T* final_output_data = final_output.data<T>();
             
         //     #pragma omp parallel for
@@ -712,7 +712,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     Tensor output({output_shape}, TensorOptions()
         .with_dtype(output_dtype)
         .with_device(input.device())
-        .with_req_grad(input.requires_grad()));
+        );
     
     // ✅ STEP 3: Prepare data pointers
     const T* input_data = input.data<T>();
@@ -917,7 +917,7 @@ Tensor dispatch_variance_kernel(const Tensor& input,
     // ✅ OPTIMIZATION: For NaN-aware mean, compute sum AND count in ONE pass
     if constexpr (is_nan_sum) {
         // Build sum result manually with NaN counting
-        Tensor output({output_shape}, TensorOptions().with_dtype(input.dtype()).with_req_grad(false));
+        Tensor output({output_shape}, TensorOptions().with_dtype(input.dtype()));
         T* output_data = output.data<T>();
         
         const T* input_data = input.data<T>();

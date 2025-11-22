@@ -39,7 +39,7 @@ Tensor where(const Tensor& condition, const Tensor& input, const Tensor& other) 
     }
     
     // Create output tensor
-    Tensor out(input.shape(), output_dtype, input.device(), false);
+    Tensor out(input.shape(), output_dtype, input.device());
     
     // Dispatch to backend
     if (condition.device().is_cuda()) {
@@ -54,21 +54,21 @@ Tensor where(const Tensor& condition, const Tensor& input, const Tensor& other) 
 // Scalar overloads - create full tensors and call main function
 Tensor where(const Tensor& condition, double input_scalar, const Tensor& other) {
     // Create tensor filled with scalar value
-    Tensor input_tensor(condition.shape(), other.dtype(), condition.device(), false);
+    Tensor input_tensor(condition.shape(), other.dtype(), condition.device());
     input_tensor.fill(static_cast<float>(input_scalar));
     return where(condition, input_tensor, other);
 }
 
 Tensor where(const Tensor& condition, const Tensor& input, double other_scalar) {
-    Tensor other_tensor(condition.shape(), input.dtype(), condition.device(), false);
+    Tensor other_tensor(condition.shape(), input.dtype(), condition.device());
     other_tensor.fill(static_cast<float>(other_scalar));
     return where(condition, input, other_tensor);
 }
 
 Tensor where(const Tensor& condition, double input_scalar, double other_scalar) {
-    Tensor input_tensor(condition.shape(), Dtype::Float32, condition.device(), false);
+    Tensor input_tensor(condition.shape(), Dtype::Float32, condition.device());
     input_tensor.fill(static_cast<float>(input_scalar));
-    Tensor other_tensor(condition.shape(), Dtype::Float32, condition.device(), false);
+    Tensor other_tensor(condition.shape(), Dtype::Float32, condition.device());
     other_tensor.fill(static_cast<float>(other_scalar));
     return where(condition, input_tensor, other_tensor);
 }

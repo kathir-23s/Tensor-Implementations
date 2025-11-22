@@ -134,7 +134,7 @@ Tensor generic_trigonometric_out_gpu(const Tensor& input_tensor, cudaStream_t st
     // Handle Float16 - uses CUDA native half type
     if (in_dtype == Dtype::Float16) {
         Tensor output_tensor(input_tensor.shape(), in_dtype, 
-                           input_tensor.device(), input_tensor.requires_grad());
+                           input_tensor.device());
         const half* in = input_tensor.data<half>();
         half* out = output_tensor.data<half>();
         
@@ -146,7 +146,7 @@ Tensor generic_trigonometric_out_gpu(const Tensor& input_tensor, cudaStream_t st
     // Handle Bfloat16 - uses CUDA native bfloat16 type
     if (in_dtype == Dtype::Bfloat16) {
         Tensor output_tensor(input_tensor.shape(), in_dtype, 
-                           input_tensor.device(), input_tensor.requires_grad());
+                           input_tensor.device());
         const __nv_bfloat16* in = input_tensor.data<__nv_bfloat16>();
         __nv_bfloat16* out = output_tensor.data<__nv_bfloat16>();
         
@@ -158,7 +158,7 @@ Tensor generic_trigonometric_out_gpu(const Tensor& input_tensor, cudaStream_t st
     // Now dispatch only handles int/float/double types
     Dtype output_dtype = get_promoted_dtype_trig(in_dtype);
     Tensor output_tensor(input_tensor.shape(), output_dtype, 
-                        input_tensor.device(), input_tensor.requires_grad());
+                        input_tensor.device());
     
     // Use GPU-specific dispatch for input type
     dispatch_gpu_dtype_trig(in_dtype, [&](auto in_type_instance) {

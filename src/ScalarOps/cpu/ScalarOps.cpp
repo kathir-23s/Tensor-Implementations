@@ -132,7 +132,7 @@ void cpu_div_inplace(Tensor& t, double s) {
 }
 
 Tensor cpu_add_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     const Dtype dt = a.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
         apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v + s; });
@@ -142,7 +142,7 @@ Tensor cpu_add_copy(const Tensor& a, double s) {
 
 
 Tensor cpu_sub_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     const Dtype dt = a.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
         apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v - s; });
@@ -152,7 +152,7 @@ Tensor cpu_sub_copy(const Tensor& a, double s) {
 
 
 Tensor cpu_mul_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     const Dtype dt = a.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
         apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return v * s; });
@@ -170,7 +170,7 @@ Tensor cpu_div_copy(const Tensor& a, double s) {
     }
     
     // Create output with promoted dtype
-    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    Tensor out(a.shape(), output_dt, a.device());
     
     // If types match, use same-type path
     if (input_dt == output_dt) {
@@ -196,7 +196,7 @@ Tensor cpu_div_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_sub_copy_scalar_tensor(double s, const Tensor& a) {
-    Tensor out(a.shape(), a.dtype(), a.device(), a.requires_grad());
+    Tensor out(a.shape(), a.dtype(), a.device());
     const Dtype dt = a.dtype();
     dispatch_by_dtype(dt, [&](auto d){ using T = decltype(d);
         apply_copy<T>(a.data<T>(), out.data<T>(), a.numel(), dt, [=](double v){ return s - v; });
@@ -218,7 +218,7 @@ Tensor cpu_div_copy_scalar_tensor(double s, const Tensor& a) {
         });
     }
     
-    Tensor out(a.shape(), output_dt, a.device(), a.requires_grad());
+    Tensor out(a.shape(), output_dt, a.device());
     
     if (input_dt == output_dt) {
         dispatch_by_dtype(input_dt, [&](auto d){ using T = decltype(d);
@@ -245,7 +245,7 @@ Tensor cpu_div_copy_scalar_tensor(double s, const Tensor& a) {
 
 // --------- Comparison ops (unchanged) ---------
 Tensor cpu_eq_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -257,7 +257,7 @@ Tensor cpu_eq_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_neq_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -269,7 +269,7 @@ Tensor cpu_neq_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_leq_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -281,7 +281,7 @@ Tensor cpu_leq_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_geq_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -293,7 +293,7 @@ Tensor cpu_geq_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_gt_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -305,7 +305,7 @@ Tensor cpu_gt_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_lt_copy(const Tensor& a, double s) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -317,7 +317,7 @@ Tensor cpu_lt_copy(const Tensor& a, double s) {
 }
 
 Tensor cpu_s_leq_copy(double s, const Tensor& a) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -329,7 +329,7 @@ Tensor cpu_s_leq_copy(double s, const Tensor& a) {
 }
 
 Tensor cpu_s_geq_copy(double s, const Tensor& a) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -341,7 +341,7 @@ Tensor cpu_s_geq_copy(double s, const Tensor& a) {
 }
 
 Tensor cpu_s_gt_copy(double s, const Tensor& a) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     
@@ -353,7 +353,7 @@ Tensor cpu_s_gt_copy(double s, const Tensor& a) {
 }
 
 Tensor cpu_s_lt_copy(double s, const Tensor& a) {
-    Tensor out(a.shape(), Dtype::Bool, a.device(), a.requires_grad());
+    Tensor out(a.shape(), Dtype::Bool, a.device());
     const Dtype dt = a.dtype();
     uint8_t* out_ptr = reinterpret_cast<uint8_t*>(out.data());
     

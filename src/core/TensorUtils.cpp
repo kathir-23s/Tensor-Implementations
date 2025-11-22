@@ -220,7 +220,7 @@ void dispatch_print_1d(std::ostream& os, Dtype dt, const void* data, size_t coun
     }
 }
 
-// Recursive printer over ndim for an arbitrary base pointer (data or grad)
+// Recursive printer over ndim for an arbitrary base pointer (data)
 void print_recursive_from_base(std::ostream& os,
                                const Tensor& t,
                                const void* base_ptr,
@@ -293,7 +293,7 @@ void print_recursive_data(std::ostream& os,
 } // namespace (anon)
 
 
-// ========== public: Tensor::display (data + gradient) ==========
+// ========== public: Tensor::display (data) ==========
 void Tensor::display(std::ostream& os, int precision) const {
     PrintOptions opts;
     opts.precision = precision;
@@ -311,7 +311,6 @@ void Tensor::display(std::ostream& os, int precision) const {
         os << "cuda:" << device_.index;
     }
     os << "'";
-    if (requires_grad_) os << ", requires_grad=True";
     os << ")\n";
 
     // ---- Data ----
@@ -324,32 +323,6 @@ void Tensor::display(std::ostream& os, int precision) const {
         os << "\n";
     }
 
-    // ---- Gradient (NEW) ----
-    // Print only if a grad buffer was allocated (requires_grad_ && grad_ptr_ != nullptr)
-    if (requires_grad_ && grad_ptr_) {
-        os << "\nGrad(shape=(";
-        for (size_t i = 0; i < shape_.dims.size(); ++i) {
-            os << shape_.dims[i];
-            if (i + 1 < shape_.dims.size()) os << ", ";
-        }
-        os << "), dtype=" << get_dtype_name(dtype_) << ", device='";
-        if (device_.device == Device::CPU) os << "cpu";
-        else                               os << "cuda:" << device_.index;
-        os << "')\n";
-
-        if (shape_.dims.empty() || numel() == 0) {
-            os << "[]\n";
-            return;
-        }
-
-        // CPU path (direct); if you enable CUDA-copy in future, handle it above.
-        {
-            std::vector<int64_t> idx;
-            idx.reserve(shape_.dims.size());
-            print_recursive_from_base(os, *this, grad_ptr_.get(), idx, /*depth=*/0, opts);
-            os << "\n";
-        }
-    }
 }
 
 void Tensor::display() const

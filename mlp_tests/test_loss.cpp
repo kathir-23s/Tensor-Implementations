@@ -10,8 +10,7 @@ int main()
     TensorOptions opts;
     opts.dtype = Dtype::Float32;
     opts.device = Device::CPU;
-    opts.requires_grad = false;
-    
+\    
     Tensor predictions = Tensor::rand(shape, opts);
     predictions.display();
     print << "\n";

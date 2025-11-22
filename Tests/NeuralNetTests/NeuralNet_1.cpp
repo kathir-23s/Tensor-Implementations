@@ -16,7 +16,6 @@ void test_mlp_forward_pass() {
     TensorOptions opts;
     opts.dtype = Dtype::Int32;
     opts.device = DeviceIndex(Device::CPU);
-    opts.requires_grad = false;
 
     // Input data
     Tensor input = Tensor::full({{input_samples, input_size}}, opts, 14);

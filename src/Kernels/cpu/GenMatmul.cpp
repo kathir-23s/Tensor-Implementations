@@ -77,7 +77,7 @@ namespace OwnTensor
         // std::cout << "]" << std::endl;
 
         Shape output_shape = {output_dims};
-        Tensor output(output_shape, A.dtype(), A.device(), A.requires_grad());
+        Tensor output(output_shape, A.dtype(), A.device());
 
         // Device Dispatch
         if (A.device().is_cuda() && B.device().is_cuda())

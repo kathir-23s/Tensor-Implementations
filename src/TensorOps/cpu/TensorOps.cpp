@@ -42,7 +42,7 @@ Tensor operator+(const Tensor& lhs, const Tensor& rhs)
     }
 
     // ✅ 4. Create output tensor with promoted dtype
-    Tensor output(output_shape, promoted_dtype, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, promoted_dtype, lhs.device());
 
     // ✅ 5. Perform operation
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
@@ -77,7 +77,7 @@ Tensor operator-(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, promoted_dtype, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, promoted_dtype, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -111,7 +111,7 @@ Tensor operator*(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, promoted_dtype, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, promoted_dtype, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -147,7 +147,7 @@ Tensor operator/(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, promoted_dtype, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, promoted_dtype, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -351,7 +351,7 @@ Tensor operator==(const Tensor& lhs, const Tensor& rhs)
     }
 
     // ✅ 4. Create output tensor (always Bool dtype)
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     // ✅ 5. Perform comparison using promoted types
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
@@ -383,7 +383,7 @@ Tensor operator!=(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -414,7 +414,7 @@ Tensor operator<=(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -445,7 +445,7 @@ Tensor operator>=(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -476,7 +476,7 @@ Tensor operator>(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -507,7 +507,7 @@ Tensor operator<(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs_promoted.shape().dims, rhs_promoted.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -534,7 +534,7 @@ Tensor operator<(const Tensor& lhs, const Tensor& rhs)
             output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
         }
     
-        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+        Tensor output(output_shape, Dtype::Bool, lhs.device());
 
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
@@ -562,7 +562,7 @@ Tensor operator<(const Tensor& lhs, const Tensor& rhs)
             output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
         }
     
-        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+        Tensor output(output_shape, Dtype::Bool, lhs.device());
 
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
@@ -590,7 +590,7 @@ Tensor operator<(const Tensor& lhs, const Tensor& rhs)
         output_shape = Shape{broadcast_shape(lhs.shape().dims, rhs.shape().dims)};
     }
 
-    Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+    Tensor output(output_shape, Dtype::Bool, lhs.device());
 
     if (lhs.device().is_cuda() && rhs.device().is_cuda())
     {
@@ -617,7 +617,7 @@ Tensor operator<(const Tensor& lhs, const Tensor& rhs)
     {
         Shape output_shape = lhs.shape();
         
-        Tensor output(output_shape, Dtype::Bool, lhs.device(), lhs.requires_grad());
+        Tensor output(output_shape, Dtype::Bool, lhs.device());
 
         if (lhs.device().is_cuda())
         {

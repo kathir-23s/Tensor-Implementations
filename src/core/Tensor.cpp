@@ -21,8 +21,8 @@
 
 namespace OwnTensor 
 {
-    Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device, bool requires_grad)
-        : shape_(shape), dtype_(dtype), device_(device), requires_grad_(requires_grad) {
+    Tensor::Tensor(Shape shape, Dtype dtype, DeviceIndex device)
+        : shape_(shape), dtype_(dtype), device_(device){
         
         #ifdef WITH_DEBUG
         std::cout << "\n=== TENSOR CONSTRUCTOR START ===" << std::endl;
@@ -111,9 +111,9 @@ namespace OwnTensor
 
         }
         
-        /*##############################################################
-                MEMORY ALLOCATION FOR DATA AND GRADIENTS
-        ################################################################*/
+        /*#######################################
+                MEMORY ALLOCATION FOR DATA 
+        #########################################*/
 
         // Handle CPU device allocation
         // Handle CUDA device allocation with device index
@@ -138,126 +138,33 @@ namespace OwnTensor
             }
         );
 
-        if (requires_grad_) {
-            void* raw_grad_ptr = alloc->allocate(total_bytes);
-
-            #ifdef WITH_CUDA//✨✨✨
-            if (device.is_cuda()) {
-                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
-                alloc->memsetAsync(raw_grad_ptr, 0, total_bytes, stream);
-            } else
-            #endif
-            {
-                alloc->memset(raw_grad_ptr, 0, total_bytes);
-            }//✨✨✨
-
-            grad_ptr_ = std::shared_ptr<uint8_t[]>(
-                static_cast<uint8_t*>(raw_grad_ptr),
-                [alloc](uint8_t* ptr) { 
-                    alloc->deallocate(ptr); 
-                }
-            );
-        }
-        
         // Set ownership flag
         owns_data_ = true;
-        owns_grad_ = requires_grad_;
         data_size_ = total_bytes;
 
-        // std::cout << "=== TENSOR CONSTRUCTOR END ===" << std::endl;    
     }
 
     // Tensor Options constructor
     Tensor::Tensor(Shape shape, TensorOptions opts)
-        : Tensor(shape, opts.dtype, opts.device, opts.requires_grad) {
+        : Tensor(shape, opts.dtype, opts.device) {
     }
 
     // Private constructor for creating views (shares data pointer)
     Tensor::Tensor(std::shared_ptr<uint8_t[]> data_ptr,
-                Shape shape,
-                Stride stride,
-                size_t offset,
-                Dtype dtype,
-                DeviceIndex device,
-                bool requires_grad) :
+                Shape shape, Stride stride, size_t offset, Dtype dtype, DeviceIndex device) :
                 shape_(shape),
                 stride_(stride),
                 dtype_(dtype),
                 device_(device),
-                requires_grad_(requires_grad),
                 data_ptr_(data_ptr),
-                grad_ptr_(nullptr),
                 owns_data_(false),
-                owns_grad_(true),
                 storage_offset_(offset),
                 data_size_(0)
     {
         // No memory allocation - sharing existing memory
     }
 
-    // Main implementation
-    // Tensor Tensor::where(const Tensor& condition, const Tensor& input, const Tensor& other) {
-    //     // Step 1: Validate inputs
-    //     if (condition.dtype() != Dtype::Bool && condition.dtype() != Dtype::Int32) {
-    //         throw std::invalid_argument("Condition must be Bool or convertible to bool");
-    //     }
-        
-    //     // Step 2: Determine output shape via broadcasting
-    //     std::vector<int64_t> output_shape = broadcast_shapes(
-    //         broadcast_shapes(condition.shape(), input.shape()),
-    //         other.shape()
-    //     );
-        
-    //     // Step 3: Determine output dtype (promote input and other)
-    //     Dtype output_dtype = promote_dtypes(input.dtype(), other.dtype());
-        
-    //     // Step 4: Determine device (all must be on same device)
-    //     if (condition.device() != input.device() || input.device() != other.device()) {
-    //         throw std::invalid_argument("All tensors must be on the same device");
-    //     }
-    //     Device device = condition.device();
-        
-    //     // Step 5: Create output tensor
-    //     Tensor result(output_shape, output_dtype, DeviceIndex(device));
-        
-    //     // Step 6: Dispatch to appropriate kernel
-    //     if (device == Device::CPU) {
-    //         where_cpu_kernel(condition, input, other, result);
-    //     } else if (device == Device::CUDA) {
-    //         where_cuda_kernel(condition, input, other, result);
-    //     }
-        
-    //     return result;
-    // }
-
-    // // Scalar overloads
-    // Tensor Tensor::where(const Tensor& condition, float input_scalar, const Tensor& other) {
-    //     Tensor input_tensor = Tensor::full(condition.shape(), input_scalar, 
-    //                                     other.dtype(), DeviceIndex(condition.device()));
-    //     return where(condition, input_tensor, other);
-    // }
-
-    // Tensor Tensor::where(const Tensor& condition, const Tensor& input, float other_scalar) {
-    //     Tensor other_tensor = Tensor::full(condition.shape(), other_scalar, 
-    //                                     input.dtype(), DeviceIndex(condition.device()));
-    //     return where(condition, input, other_tensor);
-    // }
-
-    // Tensor Tensor::where(const Tensor& condition, float input_scalar, float other_scalar) {
-    //     Tensor input_tensor = Tensor::full(condition.shape(), input_scalar, 
-    //                                     Dtype::Float32, DeviceIndex(condition.device()));
-    //     Tensor other_tensor = Tensor::full(condition.shape(), other_scalar, 
-    //                                     Dtype::Float32, DeviceIndex(condition.device()));
-    //     return where(condition, input_tensor, other_tensor);
-    // }
-
-    // // Single argument version - returns indices
-    // std::vector<Tensor> Tensor::where(const Tensor& condition) {
-    //     // This is equivalent to nonzero(condition, as_tuple=True)
-    //     // Returns a vector of 1D tensors, one for each dimension
-    //     // containing the indices where condition is true
-    //     return condition.nonzero(true);  // Assuming you have nonzero implemented
-    // }
+    
 
     // Utility
     size_t Tensor:: numel() const 
@@ -276,14 +183,7 @@ namespace OwnTensor
         return numel() * size_t(dtype_); // data_size_
     }
 
-    size_t Tensor::grad_nbytes() const {
-        if (requires_grad_){
-            return data_size_;
-        }
-        else {
-            return 0;
-        }
-    }
+
 
     bool Tensor::is_contiguous() const
     {
@@ -308,7 +208,7 @@ namespace OwnTensor
         // If already contiguous with zero offset, return a bytewise copy that owns data.
         // Returning a copy (not aliasing) keeps semantics clear and avoids alias bugs.
         if (is_contiguous() && storage_offset_ == 0) {
-            Tensor out(shape_, dtype_, device_, requires_grad_);
+            Tensor out(shape_, dtype_, device_);
             Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
             // alloc->memcpy(out.data(), data(), nbytes());
             alloc->memcpy(out.data(), data(), nbytes(), is_cpu() ? cudaMemcpyHostToHost : cudaMemcpyDeviceToDevice);//✨✨✨
@@ -316,7 +216,7 @@ namespace OwnTensor
         }
 
         // Allocate destination with row‑major layout on the same device
-        Tensor out(shape_, dtype_, device_, requires_grad_);
+        Tensor out(shape_, dtype_, device_);
         Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
 
         const size_t bytes_per_elem = dtype_size(dtype_);
@@ -407,14 +307,14 @@ namespace OwnTensor
     {
         // Edge case: Empty tensor
         if (numel() == 0) {
-            return Tensor(shape_, dtype_, device_, requires_grad_);
+            return Tensor(shape_, dtype_, device_);
         }
         
         // Edge case: Non-contiguous or has storage_offset - materialize first
         if (!is_contiguous() || storage_offset_ != 0) {
             try {
                 Tensor src_contig = contiguous();  // Uses your contiguous_kernel.cu for GPU
-                Tensor result(src_contig.shape_, dtype_, device_, requires_grad_);
+                Tensor result(src_contig.shape_, dtype_, device_);
                 
                 Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
                 // alloc->memcpy(result.data(), src_contig.data(), src_contig.nbytes());
@@ -428,7 +328,7 @@ namespace OwnTensor
         
         // Contiguous path: direct clone
         try {
-            Tensor result(shape_, dtype_, device_, requires_grad_);
+            Tensor result(shape_, dtype_, device_);
             
             Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
             // alloc->memcpy(result.data(), data(), nbytes());
@@ -519,7 +419,7 @@ namespace OwnTensor
         }
         
         // Create tensor on target device
-        Tensor result(shape_, dtype_, device, requires_grad_);
+        Tensor result(shape_, dtype_, device);
         
         // Copy data between devices
         device::copy_memory(result.data(), device.device, 
@@ -642,7 +542,7 @@ Tensor Tensor::to_bool() const {
         Dtype output_dtype = promote_dtypes_internal(input.dtype_, other.dtype_);
         
         // Create output tensor
-        Tensor result(input.shape_, output_dtype, input.device_, false);
+        Tensor result(input.shape_, output_dtype, input.device_);
         
         // Dispatch to CPU or CUDA backend
         if (condition.is_cpu()) {

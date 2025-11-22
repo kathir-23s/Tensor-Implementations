@@ -23,7 +23,6 @@ int main() {
     TensorOptions options;
     options.device = Device::CUDA;
     options.dtype = Dtype::Float32;
-    options.requires_grad = false;
 
     // Test 1: Basic values
     {
@@ -120,7 +119,7 @@ int main() {
         }
         
         // GELU should be smooth (no sharp transitions like ReLU)
-        // Values should gradually increase
+        // Values should increase
         assert(data[0] < data[1]);
         assert(data[1] < data[2]);
         assert(data[2] < data[3]);

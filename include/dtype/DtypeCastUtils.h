@@ -20,7 +20,7 @@ inline constexpr Dtype get_promoted_dtype(Dtype input_dtype) {
 
 // Convert bf16/f16 tensor to Float32 (CPU path)
 inline Tensor convert_half_to_float32(const Tensor& input) {
-    Tensor temp(input.shape(), Dtype::Float32, input.device(), input.requires_grad()); // [file:3]
+    Tensor temp(input.shape(), Dtype::Float32, input.device()); // [file:3]
     float* temp_ptr = temp.data<float>(); // [file:3]
 
     if (input.dtype() == Dtype::Float16) {

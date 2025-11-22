@@ -13,7 +13,7 @@ namespace OwnTensor
 
 
     /**
-    * @brief Releases underlying memory buffers for gradients and data
+    * @brief Releases underlying memory buffers for  data
     * 
     * This function explicitly releases ownership of the memory. The memory is
     * only deallocated if this was the last Tensor object sharing it. After
@@ -38,17 +38,7 @@ namespace OwnTensor
         this->data_ptr_.reset();
 
 
-
-        if (this->grad_ptr_)
-        {
-            // If the count is grater than 1, it means another tensor (a view or a copy)
-            // is still using this memory. Throwing an exception to prevent corruption
-            if (grad_ptr_.use_count())
-            {
-                throw std::runtime_error("Gradient Buffer is used by other tensors or views and cannot be released at the moment");
-            }
-        this->grad_ptr_.reset();
-        }  
+  
     }
 
 }

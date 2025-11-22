@@ -37,7 +37,6 @@ namespace OwnTensor
     {
         Dtype dtype = Dtype::Float32;
         DeviceIndex device = DeviceIndex(Device::CPU);
-        bool requires_grad = false;
 
         // Builder patterns
         TensorOptions with_dtype(Dtype d) const
@@ -53,12 +52,6 @@ namespace OwnTensor
             return opts;
         }
 
-        TensorOptions with_req_grad(bool g) const
-        {
-            TensorOptions opts = *this;
-            opts.requires_grad = g;
-            return opts;
-        }
     };
 
     // ########################################################################
@@ -73,15 +66,14 @@ namespace OwnTensor
         //#######################################################
 
         Tensor(Shape shape, Dtype dtype,
-            DeviceIndex device = DeviceIndex(Device::CPU),
-            bool requires_grad = false);
+            DeviceIndex device = DeviceIndex(Device::CPU));
 
         // Constructor with options
         Tensor(Shape shape, TensorOptions opts);
 
         //✨✨✨
-        Tensor(Shape shape, bool requires_grad)
-        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad) {}
+        Tensor(Shape shape)
+        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU)) {}
 
         Tensor() = default;
 
@@ -95,7 +87,6 @@ namespace OwnTensor
 
         Dtype dtype() const { return dtype_; }
         DeviceIndex device() const { return device_; };
-        bool requires_grad() const { return  requires_grad_; };
         static size_t dtype_size(Dtype d);
         int64_t ndim() const { return shape_.dims.size(); }
 
@@ -106,8 +97,6 @@ namespace OwnTensor
         void* data() { return data_ptr_.get(); }
         const void* data() const { return data_ptr_.get(); }
 
-        void* grad() { return grad_ptr_.get(); }
-        const void* grad() const { return grad_ptr_.get(); }
 
         // ✨✨✨
         void reset() {
@@ -174,12 +163,9 @@ namespace OwnTensor
         //#######################################################
 
         size_t nbytes() const;
-        size_t grad_nbytes() const;
         size_t numel() const;
         size_t allocated_bytes() const { return data_size_; }
-        size_t grad_allocated_bytes() const { return data_size_; }
         bool owns_data() const { return owns_data_; }
-        bool owns_grad() const { return owns_grad_; }
         bool is_contiguous() const;
         Tensor contiguous() const;
 
@@ -248,15 +234,12 @@ namespace OwnTensor
             Stride stride_;
             Dtype dtype_;
             DeviceIndex device_;
-            bool requires_grad_;
 
             // Data Storage using Shared Pointers for Auto Management
             std::shared_ptr<uint8_t[]> data_ptr_;
-            std::shared_ptr<uint8_t[]> grad_ptr_;
 
             // OWNERSHIP FLAGS
             bool owns_data_ = true;
-            bool owns_grad_ = true;
 
             // Size Informations
             size_t storage_offset_ = 0;
@@ -268,8 +251,7 @@ namespace OwnTensor
             Stride stride,
             size_t offset,
             Dtype dtype,
-            DeviceIndex device,
-            bool requires_grad = false);
+            DeviceIndex device);
     };
 }
 

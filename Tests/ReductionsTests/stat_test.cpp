@@ -7,7 +7,6 @@ int main()
     TensorOptions opts;
     opts.dtype = Dtype::Float32;
     opts.device = Device::CPU;
-    opts.requires_grad = true;
 
     Tensor A(Shape{{3,3}}, Dtype::Int32, DeviceIndex(Device::CPU));
     //std::vector<int> dataa= {1,2,3,4,5,6};
@@ -46,7 +45,6 @@ A.display(std::cout, 5);
    //TensorOptions opts;
     opts.dtype = Dtype::Float32;
     opts.device = Device::CUDA;
-    opts.requires_grad = true;
 
     Tensor A1(Shape{{3,3}}, Dtype::Int32, DeviceIndex(Device::CUDA));
     //std::vector<int> data = {1,2,3,4,5,6};

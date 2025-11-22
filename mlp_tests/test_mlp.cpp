@@ -18,7 +18,6 @@ int main() {
     TensorOptions options;
     options.device = Device::CUDA;
     options.dtype = Dtype::Float32;
-    options.requires_grad = false;
 
     // Input: (Batch, Features)
     Tensor input = Tensor::randn({{batch_size, input_features}}, options);
