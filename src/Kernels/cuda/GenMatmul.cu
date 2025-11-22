@@ -9,7 +9,7 @@
 #include "ops/Matmul.cuh"
 #include "core/Tensor.h"
 
-#define TILE_WIDTH 16 // for now let the tile size be (16 x 16)
+#define TILE_WIDTH 32 // for now let the tile size be (16 x 16)
 
 namespace OwnTensor {
     /*
@@ -81,7 +81,7 @@ namespace OwnTensor {
         T Psum = 0; // partial sum (Psum is stored in a Register)
 
         // Loop over the reduction dimension K in phases (ph)
-        for(int ph = 0; ph < k/TILE_WIDTH; ++ph){ 
+        for(int ph = 0; ph < ceil((float)k/TILE_WIDTH); ++ph){ 
             // Incorporate batch offset and strides for accurate access.
             // A[M, K] access: (A Row index) * A_stride[M] + (A Col index) * A_stride[K]
             int a_global_idx = a_batch_offset + 
@@ -93,23 +93,29 @@ namespace OwnTensor {
                                (ph * TILE_WIDTH + threadIdx.y) * b_strides[b_ndim - 2] + // Row index (K dim)
                                col * b_strides[b_ndim - 1]; // Col index (N dim)
 
-            s_A[threadIdx.y][threadIdx.x] = A[a_global_idx];
-            s_B[threadIdx.y][threadIdx.x] = B[b_global_idx];
-
+            if((row < m) && ((ph * TILE_WIDTH + threadIdx.x) < k)){
+                s_A[threadIdx.y][threadIdx.x] = A[a_global_idx];
+            } else {
+                s_A[threadIdx.y][threadIdx.x] = 0.0f;
+            }
+            if(((ph * TILE_WIDTH + threadIdx.y) < k) && (col < n)){
+                s_B[threadIdx.y][threadIdx.x] = B[b_global_idx];
+            } else {
+                s_B[threadIdx.y][threadIdx.x] = 0.0f;
+            }
             __syncthreads(); // Wait for all threads to finish loading the tile
 
             for(int i = 0; i < TILE_WIDTH; ++i){
                 // Read from shared memory [6]
                 Psum += s_A[threadIdx.y][i] * s_B[i][threadIdx.x];
             }
-
-
             __syncthreads(); // Wait for all threads to finish computation phase 
         }
-
         // Final output write
         int out_idx = out_batch_offset + row * out_strides[out_ndim - 2] + col * out_strides[out_ndim - 1];
-        output[out_idx] = Psum;
+        if((row < m) && (col < n)){
+            output[out_idx] = Psum;
+        }
     }
 
     template <typename T>
