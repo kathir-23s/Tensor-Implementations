@@ -659,53 +659,27 @@ Tensor Tensor::to_bool() const {
     }
 
     // Scalar overload - requires Tensor::full() implementation
-    // For now, just throw an error or create manually
     Tensor Tensor::where(const Tensor& condition, float input_scalar, const Tensor& other) {
-        // Create tensor filled with scalar
-        Tensor input_tensor(condition.shape_, other.dtype_, condition.device_, false);
-        
-        // Fill with scalar value
-        const size_t n = input_tensor.numel();
-        if (other.dtype_ == Dtype::Float32) {
-            float* ptr = input_tensor.data<float>();
-            for (size_t i = 0; i < n; ++i) ptr[i] = input_scalar;
-        } else if (other.dtype_ == Dtype::Int32) {
-            int32_t* ptr = input_tensor.data<int32_t>();
-            for (size_t i = 0; i < n; ++i) ptr[i] = static_cast<int32_t>(input_scalar);
-        } else {
-            throw std::runtime_error("where scalar overload: unsupported dtype");
-        }
-        
+        Tensor input_tensor = Tensor::full(condition.shape(), 
+                                        TensorOptions().with_dtype(other.dtype()).with_device(condition.device()), 
+                                        input_scalar);
         return where(condition, input_tensor, other);
     }
 
     Tensor Tensor::where(const Tensor& condition, const Tensor& input, float other_scalar) {
-        Tensor other_tensor(condition.shape_, input.dtype_, condition.device_, false);
-        
-        const size_t n = other_tensor.numel();
-        if (input.dtype_ == Dtype::Float32) {
-            float* ptr = other_tensor.data<float>();
-            for (size_t i = 0; i < n; ++i) ptr[i] = other_scalar;
-        } else if (input.dtype_ == Dtype::Int32) {
-            int32_t* ptr = other_tensor.data<int32_t>();
-            for (size_t i = 0; i < n; ++i) ptr[i] = static_cast<int32_t>(other_scalar);
-        }
-        
+        Tensor other_tensor = Tensor::full(condition.shape(), 
+                                        TensorOptions().with_dtype(input.dtype()).with_device(condition.device()), 
+                                        other_scalar);
         return where(condition, input, other_tensor);
     }
 
     Tensor Tensor::where(const Tensor& condition, float input_scalar, float other_scalar) {
-        Tensor input_tensor(condition.shape_, Dtype::Float32, condition.device_, false);
-        Tensor other_tensor(condition.shape_, Dtype::Float32, condition.device_, false);
-        
-        const size_t n = input_tensor.numel();
-        float* input_ptr = input_tensor.data<float>();
-        float* other_ptr = other_tensor.data<float>();
-        
-        for (size_t i = 0; i < n; ++i) {
-            input_ptr[i] = input_scalar;
-            other_ptr[i] = other_scalar;
-        }
+        Tensor input_tensor = Tensor::full(condition.shape(), 
+                                        TensorOptions().with_dtype(Dtype::Float32).with_device(condition.device()), 
+                                        input_scalar);
+        Tensor other_tensor = Tensor::full(condition.shape(), 
+                                        TensorOptions().with_dtype(Dtype::Float32).with_device(condition.device()), 
+                                        other_scalar);
         
         return where(condition, input_tensor, other_tensor);
     }

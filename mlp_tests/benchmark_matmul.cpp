@@ -1,4 +1,4 @@
-#include "core/Tensor.h"
+#include "TensorLib.h"
 #include "ops/helpers/GenMatmulUtils.h"
 #include <iostream>
 #include <chrono>
@@ -30,7 +30,7 @@ BenchmarkResult run_benchmark(int64_t N, int iterations, bool use_optimized) {
         if (use_optimized) {
             cpu_matmul_optimized(A, B, C);
         } else {
-            cpu_matmul_general(A, B, C);
+            Tensor C = matmul(A, B);
         }
     }
 
@@ -41,7 +41,7 @@ BenchmarkResult run_benchmark(int64_t N, int iterations, bool use_optimized) {
         if (use_optimized) {
             cpu_matmul_optimized(A, B, C);
         } else {
-            cpu_matmul_general(A, B, C);
+            Tensor C = matmul(A, B);
         }
         
         auto end = std::chrono::high_resolution_clock::now();
@@ -59,8 +59,8 @@ BenchmarkResult run_benchmark(int64_t N, int iterations, bool use_optimized) {
 }
 
 int main() {
-    std::vector<int64_t> sizes = {10, 32, 64, 128, 256, 512, 1024};
-    int iterations = 5;
+    std::vector<int64_t> sizes = {512, 1024, 2048, 4096, 8192};
+    int iterations = 1;
 
     std::cout << "====================================================================================================\n";
     std::cout << "                                  Matmul Benchmark (5 runs)                                         \n";

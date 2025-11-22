@@ -1,5 +1,3 @@
-#ifdef WITH_CUDA
-
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
@@ -256,25 +254,7 @@ namespace OwnTensor {
                 d_a_strides, d_b_strides, d_out_strides,
                 a_ndim, b_ndim, out_ndim, total_batches
             );
-            
-            //✨✨✨
-            // cudaError_t err = cudaGetLastError();
-            // if (err != cudaSuccess)
-            // {
-            //     // Free device memory before throwing
-            //     cudaFree(d_a_shape); cudaFree(d_b_shape); cudaFree(d_out_shape);
-            //     cudaFree(d_a_strides); cudaFree(d_b_strides); cudaFree(d_out_strides);
-            //     throw std::runtime_error("Batched Matmul Cuda Kernel Failed: " + 
-            //     std::string(cudaGetErrorString(err)));
-            // }
 
-            // err = cudaDeviceSynchronize();
-            // if (err != cudaSuccess) {
-            //     cudaFree(d_a_shape); cudaFree(d_b_shape); cudaFree(d_out_shape);
-            //     cudaFree(d_a_strides); cudaFree(d_b_strides); cudaFree(d_out_strides);
-            //     throw std::runtime_error("Batched Matmul Cuda Kernel Sync Failed: " + 
-            //         std::string(cudaGetErrorString(err)));
-            // }
         });
 
         // Free device memory
@@ -286,4 +266,3 @@ namespace OwnTensor {
         cudaFree(d_out_strides);
     }
 }
-#endif

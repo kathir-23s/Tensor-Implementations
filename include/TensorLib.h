@@ -17,5 +17,7 @@
 #include "ops/Kernels.h"
 
 #include "mlp/activations.h"
+#include "mlp/layers.h"
+#include "mlp/losses.h"
 
 #endif // TOPS_LIB_H

@@ -74,7 +74,7 @@ namespace OwnTensor
             output_dims[max_ndim - 1] = b_dims[b_ndim - 1];
         }
 
-        std::cout << "]" << std::endl;
+        // std::cout << "]" << std::endl;
 
         Shape output_shape = {output_dims};
         Tensor output(output_shape, A.dtype(), A.device(), A.requires_grad());
